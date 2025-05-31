@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import {
+  View, Text, TextInput, Button,
+  ScrollView, TouchableOpacity,
+  StyleSheet, Alert
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 
@@ -37,10 +41,10 @@ export default function DispatchDashboard() {
   const handleAdd = async () => {
     const reqs = Object.keys(requested).filter(k => requested[k]);
     if (!form.vin || !form.model || !form.driver || reqs.length === 0) {
-      return Alert.alert('Error','Please fill all fields & select at least one process.');
+      return Alert.alert('Error', 'Please fill all fields & select at least one process.');
     }
     try {
-      const res = await fetch('http://192.168.254.147:5000/vehicles/add', {
+      const res = await fetch('http://192.168.254.147:5000/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, requested_processes: reqs })
@@ -57,6 +61,7 @@ export default function DispatchDashboard() {
       }
     } catch (err) {
       console.error(err);
+      Alert.alert('Error', 'Server error occurred while adding vehicle.');
     }
   };
 
@@ -79,7 +84,9 @@ export default function DispatchDashboard() {
 
   const handleDelete = async vin => {
     try {
-      await fetch(`http://192.168.254.147:5000/vehicles/${vin}/delete`, { method: 'DELETE' });
+      await fetch(`http://192.168.254.147:5000/vehicles/${vin}/delete`, {
+        method: 'DELETE'
+      });
       fetchVehicles();
     } catch (err) {
       console.error(err);

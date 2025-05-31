@@ -3,16 +3,18 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 
-// Import all your screens here
+// Screens
 import LoginScreen from './screens/LoginScreen';
 import DriverDashboard from './screens/DriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
-import AdminDashboard from './screens/AdminDashboard';  // Your custom admin dashboard screen
+import AdminDashboard from './screens/AdminDashboard';
 import VehicleProgressScreen from './screens/VehicleProgressScreen';
 import DispatchDashboard from './screens/DispatchDashboard';
 import DispatchVehicleDetail from './screens/DispatchVehicleDetail';
 import HistoryScreen from './screens/HistoryScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -46,7 +48,7 @@ function AgentDrawer() {
   );
 }
 
-// Admin drawer with full access
+// Admin drawer
 function AdminDrawer() {
   return (
     <Drawer.Navigator
@@ -56,35 +58,35 @@ function AdminDrawer() {
         drawerActiveTintColor: '#CB1E2A',
       }}
     >
-      {/* Admin's main dashboard */}
       <Drawer.Screen
         name="AdminDashboard"
         component={AdminDashboard}
         options={{ title: 'Admin Dashboard' }}
       />
-      {/* Give admin access to agent dashboard */}
       <Drawer.Screen
         name="AgentDashboard"
         component={AgentDashboard}
         options={{ title: 'Sales Agent Dashboard' }}
       />
-      {/* Access to dispatch dashboard */}
       <Drawer.Screen
         name="DispatchDashboard"
         component={DispatchDashboard}
         options={{ title: 'Dispatch Dashboard' }}
       />
-      {/* Access to vehicle progress screen */}
       <Drawer.Screen
         name="VehicleProgress"
         component={VehicleProgressScreen}
         options={{ title: 'Vehicle Progress' }}
       />
-      {/* Access to release history */}
       <Drawer.Screen
         name="History"
         component={HistoryScreen}
         options={{ title: 'Release History' }}
+      />
+      <Drawer.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: 'Change Password' }}
       />
     </Drawer.Navigator>
   );
@@ -130,20 +132,22 @@ export default function App() {
     checkLogin();
   }, []);
 
-  if (!isReady) return null; // or some splash/loading screen
+  if (!isReady) return null; // Optional: Replace with loading/splash screen
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName={initialRoute}>
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="AdminDrawer" component={AdminDrawer} options={{ headerShown: false }} />
-        <Stack.Screen name="AgentDrawer" component={AgentDrawer} options={{ headerShown: false }} />
-        <Stack.Screen name="DispatchDashboard" component={DispatchDashboard} options={{ title: 'Dispatch Dashboard' }} />
-        <Stack.Screen name="DriverDashboard" component={DriverDashboard} options={{ title: 'Driver Dashboard' }} />
-        <Stack.Screen name="DispatchDetail" component={DispatchVehicleDetail} options={{ title: 'Vehicle Details' }} />
-        <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Release History' }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName={initialRoute}>
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AdminDrawer" component={AdminDrawer} options={{ headerShown: false }} />
+          <Stack.Screen name="AgentDrawer" component={AgentDrawer} options={{ headerShown: false }} />
+          <Stack.Screen name="DispatchDashboard" component={DispatchDashboard} options={{ title: 'Dispatch Dashboard' }} />
+          <Stack.Screen name="DriverDashboard" component={DriverDashboard} options={{ title: 'Driver Dashboard' }} />
+          <Stack.Screen name="DispatchDetail" component={DispatchVehicleDetail} options={{ title: 'Vehicle Details' }} />
+          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Release History' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+      <Toast />
+    </>
   );
 }
- 

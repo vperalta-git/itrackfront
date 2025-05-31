@@ -46,14 +46,11 @@ export default function DispatchVehicleDetail() {
 
   const toggleCompletion = async (stage) => {
     try {
-      await fetch(
-        `http://192.168.254.147:5000/vehicles/${vin}/update-status`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stage }),
-        }
-      );
+      await fetch(`http://192.168.254.147:5000/vehicles/${vin}/update-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
       fetchVehicle();
     } catch (err) {
       console.error(err);
@@ -63,14 +60,11 @@ export default function DispatchVehicleDetail() {
   const removeProcess = async (stage) => {
     const updated = (vehicle?.requested_processes || []).filter(p => p !== stage);
     try {
-      const res = await fetch(
-        `http://192.168.254.147:5000/vehicles/${vin}/update-requested`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requested_processes: updated }),
-        }
-      );
+      const res = await fetch(`http://192.168.254.147:5000/vehicles/${vin}/update-requested`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requested_processes: updated }),
+      });
       const json = await res.json();
       if (json.success) setVehicle(json.vehicle);
     } catch (err) {
@@ -124,7 +118,7 @@ export default function DispatchVehicleDetail() {
       </View>
 
       <TouchableOpacity onPress={markReady} style={styles.readyBtn}>
-        <Text style={styles.readyText}>Ready for Release</Text>
+        <Text style={styles.readyText}>Mark as Ready for Release</Text>
       </TouchableOpacity>
     </ScrollView>
   );

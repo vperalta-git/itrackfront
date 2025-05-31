@@ -1,113 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
-export default function LoginScreen({ navigation }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const checkLoggedIn = async () => {
-      const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
-      const role = await AsyncStorage.getItem('userRole');
-      if (isLoggedIn === 'true' && role) {
-        // Navigate based on role
-        if (role === 'admin') navigation.replace('AdminDrawer');
-        else if (role === 'agent') navigation.replace('AgentDrawer');
-        else if (role === 'dispatch') navigation.replace('DispatchDashboard');
-        else if (role === 'driver') navigation.replace('DriverDashboard');
-      }
-    };
-    checkLoggedIn();
-  }, []);
+export default function LoginScreen() {
+  const navigation = useNavigation();
+  const [form, setForm] = useState({
+    username: '',
+    password: ''
+  });
 
   const handleLogin = async () => {
+    const { username, password } = form;
+
     if (!username || !password) {
-      Alert.alert('Missing Fields', 'Please enter both username and password.');
-      return;
+      return Alert.alert('Error', 'Please enter both username and password');
     }
 
-    setLoading(true);
     try {
       const res = await fetch('http://192.168.254.147:5000/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password })
       });
+
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ Non-JSON response:', text);
+        throw new Error('Unexpected server response');
+      }
+
       const data = await res.json();
 
-      if (data.success) {
-        await AsyncStorage.setItem('isLoggedIn', 'true');
-        await AsyncStorage.setItem('userRole', data.role);
-        await AsyncStorage.setItem('accountName', data.name || username);
-
-        if (data.role === 'admin') navigation.replace('AdminDrawer');
-        else if (data.role === 'agent') navigation.replace('AgentDrawer');
-        else if (data.role === 'dispatch') navigation.replace('DispatchDashboard');
-        else if (data.role === 'driver') navigation.replace('DriverDashboard');
-        else Alert.alert('Error', 'Unknown role received');
-      } else {
-        Alert.alert('Login Failed', data.message || 'Invalid credentials');
+      if (!res.ok || !data.success) {
+        Alert.alert('Error', data.message || 'Login failed');
+        return;
       }
+
+      await AsyncStorage.setItem('accountName', data.name || '');
+      await AsyncStorage.setItem('role', data.role);
+
+      // ⛳ Navigate based on role
+      switch (data.role) {
+        case 'Admin':
+          navigation.replace('AdminDrawer');
+          break;
+        case 'Sales Agent':
+        case 'Agent':
+          navigation.replace('AgentDashboard');
+          break;
+        case 'Dispatch':
+          navigation.replace('DispatchDashboard');
+          break;
+        case 'Driver':
+          navigation.replace('DriverDashboard');
+          break;
+        default:
+          Alert.alert('Error', 'Unknown role received');
+      }
+
     } catch (err) {
-      Alert.alert('Error', 'Unable to connect to server.');
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.error('❌ Login error:', err.message);
+      Alert.alert('Error', 'Unable to login. Check your connection or credentials.');
     }
   };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>I-Track Login</Text>
+
       <TextInput
         placeholder="Username"
+        value={form.username}
+        onChangeText={(text) => setForm({ ...form, username: text })}
         style={styles.input}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
       />
+
       <TextInput
         placeholder="Password"
-        style={styles.input}
-        value={password}
         secureTextEntry
-        onChangeText={setPassword}
+        value={form.password}
+        onChangeText={(text) => setForm({ ...form, password: text })}
+        style={styles.input}
       />
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+
+      <TouchableOpacity onPress={handleLogin} style={styles.loginBtn}>
+        <Text style={styles.loginText}>Login</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: { flex:1, justifyContent:'center', padding:30, backgroundColor:'#fff' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#CB1E2A', marginBottom: 30, alignSelf:'center' },
+  container: {
+    flex: 1, padding: 20,
+    justifyContent: 'center',
+    backgroundColor: '#eee'
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 40,
+    textAlign: 'center',
+    color: '#CB1E2A'
+  },
   input: {
-    borderWidth:1, borderColor:'#ccc', borderRadius:8,
-    paddingHorizontal:14, paddingVertical:12,
-    marginBottom: 15, fontSize:16,
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    backgroundColor: '#fff'
   },
-  button: {
-    backgroundColor:'#CB1E2A',
-    paddingVertical:14,
-    borderRadius:8,
-    alignItems:'center',
+  loginBtn: {
+    backgroundColor: '#CB1E2A',
+    paddingVertical: 12,
+    borderRadius: 6
   },
-  buttonText: { color:'#fff', fontWeight:'bold', fontSize:16 },
-  loadingContainer: { flex:1, justifyContent:'center', alignItems:'center' },
+  loginText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center'
+  }
 });

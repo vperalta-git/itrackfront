@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  FlatList,
+  View, Text, StyleSheet, ActivityIndicator,
+  TouchableOpacity, FlatList
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -94,31 +89,28 @@ export default function AgentDashboard() {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.greeting}>Hi, {name} 👋</Text>
-
-      {loading ? (
-        <ActivityIndicator size="large" color="#CB1E2A" />
-      ) : (
-        <FlatList
-          data={vehicles}
-          keyExtractor={v => v.vin}
-          renderItem={renderVehicle}
-          contentContainerStyle={styles.list}
-          onRefresh={fetchVehicles}
-          refreshing={loading}
-        />
-      )}
-    </ScrollView>
+    <FlatList
+      data={vehicles}
+      keyExtractor={v => v.vin}
+      renderItem={renderVehicle}
+      contentContainerStyle={styles.container}
+      refreshing={loading}
+      onRefresh={fetchVehicles}
+      ListHeaderComponent={
+        <>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+          <Text style={styles.greeting}>Hi, {name} 👋</Text>
+          {loading && <ActivityIndicator size="large" color="#CB1E2A" />}
+        </>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#fff', flexGrow: 1 },
+  container: { padding: 20, backgroundColor: '#fff' },
   logoutBtn: { alignSelf: 'flex-end', marginBottom: 10, padding: 8, backgroundColor: '#eee', borderRadius: 5 },
   logoutText: { color: '#CB1E2A', fontWeight: 'bold' },
   greeting: { fontSize: 28, fontWeight: 'bold', color: '#CB1E2A', marginBottom: 20 },
