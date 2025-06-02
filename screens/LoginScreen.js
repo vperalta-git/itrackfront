@@ -40,7 +40,7 @@ export default function LoginScreen() {
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data.success || !data.role) {
         Alert.alert('Error', data.message || 'Login failed');
         return;
       }
@@ -48,14 +48,14 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('accountName', data.name || '');
       await AsyncStorage.setItem('role', data.role);
 
-      // ⛳ Navigate based on role
+      // ✅ Navigate based on detected role
       switch (data.role) {
         case 'Admin':
           navigation.replace('AdminDrawer');
           break;
         case 'Sales Agent':
         case 'Agent':
-          navigation.replace('AgentDashboard');
+          navigation.replace('AgentDrawer');
           break;
         case 'Dispatch':
           navigation.replace('DispatchDashboard');
@@ -63,8 +63,12 @@ export default function LoginScreen() {
         case 'Driver':
           navigation.replace('DriverDashboard');
           break;
+        case 'Supervisor':
+        case 'Manager':
+          navigation.replace('AdminDrawer'); // adjust if you have SupervisorDashboard
+          break;
         default:
-          Alert.alert('Error', 'Unknown role received');
+          Alert.alert('Error', `Unknown role: ${data.role}`);
       }
 
     } catch (err) {
@@ -82,6 +86,7 @@ export default function LoginScreen() {
         value={form.username}
         onChangeText={(text) => setForm({ ...form, username: text })}
         style={styles.input}
+        autoCapitalize="none"
       />
 
       <TextInput
@@ -101,7 +106,8 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, padding: 20,
+    flex: 1,
+    padding: 20,
     justifyContent: 'center',
     backgroundColor: '#eee'
   },

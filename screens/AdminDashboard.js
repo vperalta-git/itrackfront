@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -19,28 +20,30 @@ export default function AdminDashboard() {
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
-    role: 'agent',
+    role: 'Sales Agent', // Match backend roles exactly
     assignedTo: '',
     accountName: '',
   });
 
+  // Fetch users from API
   const fetchUsers = async () => {
     try {
       const res = await fetch('http://192.168.254.147:5000/admin/users');
       const data = await res.json();
       setUsers(data);
     } catch (error) {
-      console.error(error);
+      console.error('Fetch users error:', error);
     }
   };
 
+  // Fetch managers from API
   const fetchManagers = async () => {
     try {
       const res = await fetch('http://192.168.254.147:5000/admin/managers');
       const data = await res.json();
       setManagers(data);
     } catch (error) {
-      console.error(error);
+      console.error('Fetch managers error:', error);
     }
   };
 
@@ -49,6 +52,33 @@ export default function AdminDashboard() {
     fetchManagers();
   }, []);
 
+  // Create a map of manager IDs to names for easier grouping
+  const managerMap = {};
+  managers.forEach(m => {
+    managerMap[m._id] = m.accountName;
+  });
+
+  // Group sales agents by manager name (or "Unassigned")
+  const groupByManager = (users) => {
+    const grouped = {};
+    users.forEach(user => {
+      if (
+        user.role.toLowerCase() === 'sales agent' ||
+        user.role.toLowerCase() === 'agent'
+      ) {
+        const managerName = managerMap[user.assignedTo] || 'Unassigned';
+        if (!grouped[managerName]) {
+          grouped[managerName] = [];
+        }
+        grouped[managerName].push(user);
+      }
+    });
+    return grouped;
+  };
+
+  const groupedAgents = groupByManager(users);
+
+  // Handle new user creation
   const handleCreateUser = async () => {
     if (!newUser.username || !newUser.password || !newUser.accountName) {
       Alert.alert('Validation Error', 'Please fill in all required fields.');
@@ -62,30 +92,34 @@ export default function AdminDashboard() {
         body: JSON.stringify(newUser),
       });
 
-      const rawText = await res.text();
-      const contentType = res.headers.get('content-type');
-      const data = contentType?.includes('application/json') ? JSON.parse(rawText) : null;
+      const data = await res.json();
 
       if (!res.ok) {
-        const msg = data?.message || rawText;
-        console.error('❌ Error creating user:', msg);
-        Alert.alert('Error', msg);
+        console.error('❌ Error creating user:', data.message || 'Unknown error');
+        Alert.alert('Error', data.message || 'Failed to create user');
         return;
       }
 
-      if (data?.success) {
+      if (data.success) {
         Alert.alert('User Created', 'New user has been created successfully');
-        setNewUser({ username: '', password: '', role: 'agent', assignedTo: '', accountName: '' });
+        setNewUser({
+          username: '',
+          password: '',
+          role: 'Sales Agent',
+          assignedTo: '',
+          accountName: '',
+        });
         fetchUsers();
       } else {
-        Alert.alert('Error', data?.message || 'Failed to create user');
+        Alert.alert('Error', data.message || 'Failed to create user');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Create user fetch error:', err);
       Alert.alert('Error', 'Server error while creating user');
     }
   };
 
+  // Handle user deletion
   const handleDeleteUser = async (userId) => {
     try {
       const res = await fetch(`http://192.168.254.147:5000/admin/users/${userId}`, {
@@ -96,31 +130,33 @@ export default function AdminDashboard() {
         Alert.alert('User Deleted', 'User has been deleted successfully');
         fetchUsers();
       } else {
-        Alert.alert('Error', 'Failed to delete user');
+        Alert.alert('Error', data.message || 'Failed to delete user');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Delete user error:', err);
       Alert.alert('Error', 'Server error while deleting user');
     }
   };
 
-  const groupByManager = (users) => {
-    const grouped = {};
-    users.forEach(user => {
-      if (user.role === 'agent') {
-        if (!grouped[user.assignedTo]) {
-          grouped[user.assignedTo] = [];
-        }
-        grouped[user.assignedTo].push(user);
-      }
-    });
-    return grouped;
-  };
+  // Logout handler: clears storage and navigates to Login
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('role');
+      await AsyncStorage.removeItem('accountName');
+      // Add any other keys to clear here
 
-  const groupedAgents = groupByManager(users);
+      // Use the exact screen name you have in your navigator for login
+      navigation.replace('Login'); 
+    } catch (error) {
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Logout Button */}
+      <Button title="Logout" color="#CB1E2A" onPress={handleLogout} />
+
       <Text style={styles.header}>Admin Dashboard</Text>
       <Text style={styles.subHeader}>Manage Users</Text>
 
@@ -177,7 +213,7 @@ export default function AdminDashboard() {
         keyExtractor={(item) => item}
         renderItem={({ item }) => (
           <View style={styles.userCard}>
-            <Text style={styles.managerTitle}>{item || 'Unassigned'}</Text>
+            <Text style={styles.managerTitle}>{item}</Text>
             {groupedAgents[item].map((user) => (
               <View key={user._id} style={styles.userItem}>
                 <Text>{user.username} ({user.role})</Text>
@@ -197,12 +233,19 @@ const styles = StyleSheet.create({
   subHeader: { fontSize: 20, marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 6 },
   input: {
-    borderWidth: 1, borderColor: '#ccc', padding: 10,
-    marginBottom: 10, borderRadius: 5, fontSize: 16
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+    fontSize: 16,
   },
   userCard: {
-    marginBottom: 15, padding: 10, borderWidth: 1,
-    borderColor: '#ddd', borderRadius: 5,
+    marginBottom: 15,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
   },
   userItem: { marginTop: 10 },
   managerTitle: { fontWeight: 'bold', fontSize: 18 },

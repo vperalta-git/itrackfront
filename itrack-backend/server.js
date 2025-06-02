@@ -1,19 +1,27 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
 
 const app = express();
+
+// Enable CORS for all origins (adjust if needed)
 app.use(cors());
 app.use(express.json());
 
+// Import route handlers (make sure these files exist and export routers)
+const serviceRequestRoutes = require('./routes/servicerequestRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
+const driverAllocationRoutes = require('./routes/driverallocationRoutes');
+
+// MongoDB connection string
 const mongoURI = 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
 
+// Connect to MongoDB Atlas
 mongoose.connect(mongoURI)
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// ✅ User Schema
+// Schemas
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -25,9 +33,7 @@ const UserSchema = new mongoose.Schema({
   accountName: { type: String, required: true },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 });
-const User = mongoose.model('User', UserSchema);
 
-// ✅ Vehicle Schema
 const VehicleSchema = new mongoose.Schema({
   vin: String,
   model: String,
@@ -44,37 +50,89 @@ const VehicleSchema = new mongoose.Schema({
   },
   location: { lat: Number, lng: Number },
 });
-const Vehicle = mongoose.model('Vehicle', VehicleSchema);
 
-// ======================== AUTH =========================
+const VehicleStockSchema = new mongoose.Schema({
+  unitName: String,
+  unitId: String,
+  bodyColor: String,
+  variation: String,
+}, { timestamps: true });
 
+const VehiclePreparationSchema = new mongoose.Schema({
+  dateCreated: Date,
+  vehicleRegNo: String,
+  service: [{ serviceTime: String, status: String }],
+  status: String,
+}, { timestamps: true });
+
+const DriverAllocationSchema = new mongoose.Schema({
+  unitName: String,
+  unitId: String,
+  bodyColor: String,
+  variation: String,
+  assignedDriver: String,
+  status: String,
+}, { timestamps: true });
+
+// Compile models ONLY if they don’t already exist
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const Vehicle = mongoose.models.Vehicle || mongoose.model('Vehicle', VehicleSchema);
+const VehicleStock = mongoose.models.VehicleStock || mongoose.model('VehicleStock', VehicleStockSchema);
+const VehiclePreparation = mongoose.models.VehiclePreparation || mongoose.model('VehiclePreparation', VehiclePreparationSchema);
+const DriverAllocation = mongoose.models.DriverAllocation || mongoose.model('DriverAllocation', DriverAllocationSchema);
+
+// Helper to capitalize words
+function capitalizeWords(string) {
+  if (!string) return '';
+  return string
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// === ROUTES ===
+
+// AUTH route
 app.post('/login', async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    let { username, password, role } = req.body;
     console.log('📥 Login Attempt:', { username, role });
 
     const user = await User.findOne({ username });
     if (!user) return res.status(401).json({ success: false, message: 'Invalid username' });
 
-    if (role && !['Admin', 'Manager', 'Supervisor', 'Sales Agent', 'Driver', 'Dispatch'].includes(role)) {
-      return res.status(400).json({ success: false, message: 'Unknown role received' });
+    const allowedRoles = ['admin', 'manager', 'supervisor', 'sales agent', 'driver', 'dispatch'];
+
+    if (role) {
+      const roleLower = role.toLowerCase();
+
+      if (!allowedRoles.includes(roleLower)) {
+        return res.status(400).json({ success: false, message: 'Unknown role received' });
+      }
+
+      if (user.role.toLowerCase() !== roleLower) {
+        return res.status(403).json({ success: false, message: 'Role mismatch' });
+      }
     }
 
-    if (role && user.role !== role) {
-      return res.status(403).json({ success: false, message: 'Role mismatch' });
+    if (password !== user.password) {
+      return res.status(401).json({ success: false, message: 'Invalid password' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid password' });
+    const formattedRole = capitalizeWords(user.role);
 
-    res.json({ success: true, role: user.role, name: user.accountName, user });
+    res.json({
+      success: true,
+      role: formattedRole,
+      name: user.accountName,
+      user,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 });
 
-// ======================== ADMIN USER MGMT =========================
-
+// ADMIN USER MANAGEMENT
 app.post('/admin/assign', async (req, res) => {
   try {
     const { username, password, role, assignedTo, accountName } = req.body;
@@ -85,11 +143,9 @@ app.post('/admin/assign', async (req, res) => {
     const existingUser = await User.findOne({ username });
     if (existingUser) return res.status(409).json({ success: false, message: 'Username already exists' });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new User({
       username,
-      password: hashedPassword,
+      password,
       role,
       assignedTo: assignedTo || null,
       accountName,
@@ -137,8 +193,7 @@ app.put('/admin/change-password', async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = newPassword;
     await user.save();
 
     res.json({ success: true, message: 'Password updated successfully' });
@@ -147,9 +202,7 @@ app.put('/admin/change-password', async (req, res) => {
   }
 });
 
-// ======================== VEHICLE ROUTES =========================
-
-// Get all vehicles
+// VEHICLE ROUTES
 app.get('/vehicles', async (req, res) => {
   try {
     const vehicles = await Vehicle.find();
@@ -159,7 +212,6 @@ app.get('/vehicles', async (req, res) => {
   }
 });
 
-// Get single vehicle by VIN
 app.get('/vehicles/:vin', async (req, res) => {
   try {
     const vehicle = await Vehicle.findOne({ vin: req.params.vin });
@@ -170,7 +222,6 @@ app.get('/vehicles/:vin', async (req, res) => {
   }
 });
 
-// Add a new vehicle
 app.post('/vehicles', async (req, res) => {
   try {
     const vehicle = new Vehicle(req.body);
@@ -181,7 +232,6 @@ app.post('/vehicles', async (req, res) => {
   }
 });
 
-// Update status of one stage
 app.put('/vehicles/:vin/update-status', async (req, res) => {
   try {
     const { stage } = req.body;
@@ -201,7 +251,6 @@ app.put('/vehicles/:vin/update-status', async (req, res) => {
   }
 });
 
-// Update requested_processes array
 app.put('/vehicles/:vin/update-requested', async (req, res) => {
   try {
     const { requested_processes } = req.body;
@@ -218,7 +267,6 @@ app.put('/vehicles/:vin/update-requested', async (req, res) => {
   }
 });
 
-// Delete vehicle
 app.delete('/vehicles/:vin/delete', async (req, res) => {
   try {
     const deleted = await Vehicle.findOneAndDelete({ vin: req.params.vin });
@@ -229,14 +277,77 @@ app.delete('/vehicles/:vin/delete', async (req, res) => {
   }
 });
 
-// ======================== TEST =========================
+// VEHICLE STOCKS ROUTES
+app.get('/vehicle-stocks', async (req, res) => {
+  try {
+    const stocks = await VehicleStock.find();
+    res.json(stocks);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching vehicle stocks', error: err.message });
+  }
+});
 
+app.post('/vehicle-stocks', async (req, res) => {
+  try {
+    const stock = new VehicleStock(req.body);
+    await stock.save();
+    res.json({ success: true, stock });
+  } catch (err) {
+    res.status(500).json({ message: 'Error adding vehicle stock', error: err.message });
+  }
+});
+
+// VEHICLE PREPARATIONS ROUTES
+app.get('/vehicle-preparations', async (req, res) => {
+  try {
+    const preparations = await VehiclePreparation.find();
+    res.json(preparations);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching vehicle preparations', error: err.message });
+  }
+});
+
+app.post('/vehicle-preparations', async (req, res) => {
+  try {
+    const prep = new VehiclePreparation(req.body);
+    await prep.save();
+    res.json({ success: true, preparation: prep });
+  } catch (err) {
+    res.status(500).json({ message: 'Error adding vehicle preparation', error: err.message });
+  }
+});
+
+// DRIVER ALLOCATIONS ROUTES
+app.get('/driver-allocations', async (req, res) => {
+  try {
+    const allocations = await DriverAllocation.find();
+    res.json(allocations);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching driver allocations', error: err.message });
+  }
+});
+
+app.post('/driver-allocations', async (req, res) => {
+  try {
+    const allocation = new DriverAllocation(req.body);
+    await allocation.save();
+    res.json({ success: true, allocation });
+  } catch (err) {
+    res.status(500).json({ message: 'Error adding driver allocation', error: err.message });
+  }
+});
+
+// SERVICE REQUEST ROUTES
+app.use('/', serviceRequestRoutes);
+app.use('/', inventoryRoutes);
+app.use('/', driverAllocationRoutes);
+
+// TEST ROUTE
 app.get('/test', (req, res) => {
   res.send('Server test successful!');
 });
 
-// ======================== START SERVER =========================
-
+// START SERVER
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
