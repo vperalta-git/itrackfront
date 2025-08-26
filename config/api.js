@@ -11,7 +11,7 @@ export const API_CONFIG = {
   
   // Development Mobile Backend (original)
   MOBILE_BACKEND: {
-    BASE_URL: 'http://192.168.254.147:5001',
+    BASE_URL: 'http://192.168.254.147:5000',
     NAME: 'Mobile Development Backend'
   },
   
@@ -22,10 +22,8 @@ export const API_CONFIG = {
   }
 };
 
-// Current active backend - Change this to switch backends
-// Use MOBILE_BACKEND for local development
-// Use RENDER_BACKEND for production deployment
-export const ACTIVE_BACKEND = API_CONFIG.RENDER_BACKEND;
+// Current active backend - Use local development backend
+export const ACTIVE_BACKEND = API_CONFIG.MOBILE_BACKEND;
 
 // API endpoints mapping to match web app structure
 export const API_ENDPOINTS = {
