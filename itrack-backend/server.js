@@ -87,7 +87,7 @@ const InventorySchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 },
   status: { 
     type: String, 
-    enum: ['Available', 'Reserved', 'Sold', 'Assigned to Dispatch', 'In Process', 'In Dispatch'], 
+    enum: ['Available', 'Reserved', 'Sold', 'Assigned to Dispatch', 'In Process', 'In Dispatch', 'Allocated', 'Assigned to Driver'], 
     default: 'Available' 
   },
   location: String,

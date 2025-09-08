@@ -56,10 +56,15 @@ export default function DriverDashboard() {
       const res = await fetch(buildApiUrl('/getAllocation'));
       const data = await res.json();
       
+      console.log('📋 Allocation API response:', data); // Debug log
+      
       // Filter allocations for current driver
-      const driverAllocations = (data.allocation || data || []).filter(allocation => 
+      const allocationsArray = data.data || data.allocation || data || [];
+      const driverAllocations = allocationsArray.filter(allocation => 
         allocation.assignedDriver === driverName
       );
+      
+      console.log(`🚛 Found ${driverAllocations.length} allocations for driver: ${driverName}`); // Debug log
       
       setDriverAllocations(driverAllocations);
       
@@ -67,8 +72,10 @@ export default function DriverDashboard() {
         setSelectedAllocation(driverAllocations[0]);
       }
     } catch (err) {
-      console.error('Error fetching allocations:', err);
+      console.error('❌ Error fetching allocations:', err);
+      console.error('📋 Driver name:', driverName);
       setError(err.message || "Failed to load allocations");
+      setDriverAllocations([]); // Set empty array on error
     } finally {
       setLoading(false);
       setRefreshing(false);
