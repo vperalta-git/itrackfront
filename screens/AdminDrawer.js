@@ -9,6 +9,8 @@ import DispatchDashboard from './DispatchDashboard';
 import VehicleProgressScreen from './VehicleProgressScreen';
 import HistoryScreen from './HistoryScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
+import AdminVehicleTracking from './AdminVehicleTracking';
+// ❌ Removed UserManagementScreen import
 
 const Drawer = createDrawerNavigator();
 
@@ -17,18 +19,12 @@ export default function AdminDrawer() {
 
   useEffect(() => {
     const getRole = async () => {
-      try {
-        const storedRole = await AsyncStorage.getItem('userRole');
-        console.log('🧠 Loaded role:', storedRole); // Debug log
-        setRole(storedRole);
-      } catch (error) {
-        console.error('❌ Failed to load user role:', error);
-      }
+      const storedRole = await AsyncStorage.getItem('userRole');
+      setRole(storedRole);
     };
     getRole();
   }, []);
 
-  // Optional loading guard
   if (!role) return null;
 
   return (
@@ -43,9 +39,9 @@ export default function AdminDrawer() {
         name="AdminDashboard"
         component={AdminDashboard}
         options={{
-          title: 'Admin Dashboard',
+          title: 'Driver Assignment',
           drawerIcon: ({ color, size }) => (
-            <MaterialIcons name="admin-panel-settings" size={size} color={color} />
+            <MaterialIcons name="assignment-ind" size={size} color={color} />
           ),
         }}
       />
@@ -89,7 +85,16 @@ export default function AdminDrawer() {
           ),
         }}
       />
-
+      <Drawer.Screen
+        name="AdminVehicleTracking"
+        component={AdminVehicleTracking}
+        options={{
+          title: 'Vehicle Tracking',
+          drawerIcon: ({ color, size }) => (
+            <MaterialIcons name="map" size={size} color={color} />
+          ),
+        }}
+      />
       {role === 'admin' && (
         <Drawer.Screen
           name="ChangePassword"

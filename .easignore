@@ -1,0 +1,11 @@
+# Exclude backend folder from EAS builds
+
+itrack-backend/
+
+# Exclude other unnecessary files for mobile builds
+
+_.log
+.git/
+.vscode/
+_.md
+;,. 9-

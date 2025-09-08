@@ -15,7 +15,7 @@ export default function HistoryScreen() {
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://192.168.254.147:5000/vehicles/history');
+      const res = await fetch('http://itrack-backend-1.onrender.com/vehicles/history');
       setHistory(await res.json());
     } catch (err) {
       console.error('Failed to load history', err);

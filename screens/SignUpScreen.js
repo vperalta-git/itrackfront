@@ -15,7 +15,7 @@ export default function SignUpScreen({ navigation }) {
     console.log({ accountName, username, password, role });
 
     try {
-      const res = await fetch('http://192.168.254.147:5000/signup', {
+      const res = await fetch('http://itrack-backend-1.onrender.com/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, role, accountName }),

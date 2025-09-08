@@ -1,336 +1,820 @@
-import React, { useEffect, useState, useRef } from "react";
+// DriverDashboard.js - Fixed for I-Track
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
-  Button,
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  Alert,
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
+import * as Location from "expo-location";
+import { buildApiUrl } from '../constants/api';
+
+const DESTINATION_COORDS = { latitude: 14.5791, longitude: 121.0655 }; // Isuzu Pasig
+const { width, height } = Dimensions.get('window');
 
 export default function DriverDashboard() {
   const navigation = useNavigation();
-
-  const [shipments, setShipments] = useState([]);
+  const [driverAllocations, setDriverAllocations] = useState([]);
+  const [selectedAllocation, setSelectedAllocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [showShipments, setShowShipments] = useState(true);
+  const [driverName, setDriverName] = useState('');
 
-  const [selectedShipment, setSelectedShipment] = useState(null);
+  // Get driver name from AsyncStorage
+  useEffect(() => {
+    const getDriverName = async () => {
+      try {
+        const name = await AsyncStorage.getItem('userName') || await AsyncStorage.getItem('accountName');
+        setDriverName(name || 'Unknown Driver');
+      } catch (error) {
+        console.error('Error getting driver name:', error);
+        setDriverName('Unknown Driver');
+      }
+    };
+    getDriverName();
+  }, []);
 
-  const [vehicleLocation, setVehicleLocation] = useState({
-    latitude: 14.6,
-    longitude: 121.0,
-  });
-
-  // Mock: Live location update interval ref
-  const locationIntervalRef = useRef(null);
-
-  // Fetch shipment data
-  const fetchShipments = async () => {
+  // Fetch Driver Allocations
+  const fetchDriverAllocations = useCallback(async () => {
+    if (!driverName || driverName === 'Unknown Driver') return;
+    
     setLoading(true);
     setError(null);
     try {
-      // Simulate fetch call delay
-      await new Promise((r) => setTimeout(r, 1000));
-
-      // TODO: Replace with your actual API call here
-      const fetchedShipments = [
-        {
-          id: "1",
-          name: "Isuzu D-MAX Blue",
-          status: "Pending",
-          route: [
-            { latitude: 14.6, longitude: 121.0 },
-            { latitude: 14.62, longitude: 121.02 },
-            { latitude: 14.65, longitude: 121.05 },
-          ],
-          destination: "Isuzu Dealership Pasig",
-          details: "VIN: 1234567890ABC",
-        },
-        {
-          id: "2",
-          name: "Toyota Hilux Red",
-          status: "Out for Delivery",
-          route: [
-            { latitude: 14.59, longitude: 121.01 },
-            { latitude: 14.615, longitude: 121.03 },
-            { latitude: 14.64, longitude: 121.04 },
-          ],
-          destination: "Toyota Dealership Mandaluyong",
-          details: "VIN: ZXCV123456789",
-        },
-      ];
-      setShipments(fetchedShipments);
-      // Auto-select first shipment
-      if (!selectedShipment && fetchedShipments.length > 0) {
-        setSelectedShipment(fetchedShipments[0]);
+      const res = await fetch(buildApiUrl('/getAllocation'));
+      const data = await res.json();
+      
+      // Filter allocations for current driver
+      const driverAllocations = (data.allocation || data || []).filter(allocation => 
+        allocation.assignedDriver === driverName
+      );
+      
+      setDriverAllocations(driverAllocations);
+      
+      if (!selectedAllocation && driverAllocations.length > 0) {
+        setSelectedAllocation(driverAllocations[0]);
       }
     } catch (err) {
-      setError("Failed to fetch shipments.");
+      console.error('Error fetching allocations:', err);
+      setError(err.message || "Failed to load allocations");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [driverName, selectedAllocation]);
 
   useEffect(() => {
-    fetchShipments();
+    if (driverName && driverName !== 'Unknown Driver') {
+      fetchDriverAllocations();
+    }
+  }, [driverName, fetchDriverAllocations]);
+
+  // Location tracking
+  useEffect(() => {
+    let locationSubscription;
+    
+    const startLocationTracking = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission Denied", "Location permission is required for tracking.");
+          return;
+        }
+
+        locationSubscription = await Location.watchPositionAsync(
+          { 
+            accuracy: Location.Accuracy.High, 
+            timeInterval: 10000, // Update every 10 seconds
+            distanceInterval: 50 // Update every 50 meters
+          },
+          (location) => {
+            const coords = {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            };
+            setCurrentLocation(coords);
+          }
+        );
+      } catch (error) {
+        console.error("Location setup error:", error);
+        Alert.alert("Location Error", "Failed to set up location tracking.");
+      }
+    };
+
+    startLocationTracking();
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
 
-  // Simulate live vehicle location moving along route every 5 seconds
-  useEffect(() => {
-    if (!selectedShipment) return;
+  // Update allocation status
+  const updateAllocationStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch(buildApiUrl(`/updateAllocation/${id}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    let index = 0;
-    if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
-
-    locationIntervalRef.current = setInterval(() => {
-      if (
-        selectedShipment.route &&
-        index < selectedShipment.route.length
-      ) {
-        setVehicleLocation(selectedShipment.route[index]);
-        index++;
-      } else {
-        // Stop at end of route
-        clearInterval(locationIntervalRef.current);
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.message || "Failed to update status");
       }
-    }, 5000);
 
-    return () => clearInterval(locationIntervalRef.current);
-  }, [selectedShipment]);
+      // Update local state
+      setDriverAllocations(prev =>
+        prev.map(item => item._id === id ? { ...item, status: newStatus } : item)
+      );
+      
+      if (selectedAllocation?._id === id) {
+        setSelectedAllocation(prev => ({ ...prev, status: newStatus }));
+      }
 
-  const confirmStatusChange = (shipmentId, newStatus) => {
+      Alert.alert("Success", `Status updated to ${newStatus}`);
+    } catch (err) {
+      console.error('Update status error:', err);
+      Alert.alert("Error", err.message || "Failed to update status");
+    }
+  };
+
+  const confirmStatusChange = (id, newStatus) => {
     Alert.alert(
       `Confirm ${newStatus}?`,
-      `Are you sure you want to mark this shipment as "${newStatus}"?`,
+      `Are you sure you want to mark this as "${newStatus}"?`,
       [
         { text: "Cancel", style: "cancel" },
+        { text: "Yes", onPress: () => updateAllocationStatus(id, newStatus) },
+      ]
+    );
+  };
+
+  const startDelivery = (id) => confirmStatusChange(id, "Out for Delivery");
+  const markDelivered = (id) => confirmStatusChange(id, "Delivered");
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchDriverAllocations();
+  };
+
+  // Logout
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Yes",
-          onPress: () => updateStatus(shipmentId, newStatus),
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userName');
+              await AsyncStorage.removeItem('userRole');
+              await AsyncStorage.removeItem('accountName');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'LoginScreen' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
         },
       ]
     );
   };
 
-  const acceptShipment = (id) => {
-    confirmStatusChange(id, "Out for Delivery");
-  };
-
-  const updateStatus = (id, newStatus) => {
-    setShipments((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
+  // Render Each Allocation Item
+  const renderAllocationItem = ({ item }) => {
+    const status = item.status?.toLowerCase() || 'assigned';
+    const isSelected = item._id === selectedAllocation?._id;
+    
+    return (
+      <TouchableOpacity
+        style={[styles.shipmentItem, isSelected && styles.selectedShipment]}
+        onPress={() => {
+          setSelectedAllocation(item);
+          if (width < 768) {
+            setShowShipments(false);
+          }
+        }}
+      >
+        <View style={styles.shipmentDetails}>
+          <View
+            style={[
+              styles.colorIndicator,
+              { backgroundColor: item.bodyColor || "#888" },
+            ]}
+          />
+          <View style={styles.shipmentInfo}>
+            <Text style={styles.shipmentName}>
+              {item.unitName} ({item.unitId})
+            </Text>
+            <Text style={styles.statusText}>Status: {item.status}</Text>
+            <Text style={styles.colorText}>Color: {item.bodyColor}</Text>
+            {item.assignedAgent && (
+              <Text style={styles.agentText}>Agent: {item.assignedAgent}</Text>
+            )}
+          </View>
+        </View>
+        
+        <View style={styles.actionContainer}>
+          {status === "assigned" && (
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => startDelivery(item._id)}
+            >
+              <Text style={styles.actionButtonText}>Start Delivery</Text>
+            </TouchableOpacity>
+          )}
+          {status === "out for delivery" && (
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.deliverButton]}
+              onPress={() => markDelivered(item._id)}
+            >
+              <Text style={styles.actionButtonText}>Mark Delivered</Text>
+            </TouchableOpacity>
+          )}
+          {status === "delivered" && (
+            <View style={styles.completedBadge}>
+              <Text style={styles.completedText}>✓ Completed</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
     );
-    if (selectedShipment?.id === id) {
-      setSelectedShipment({ ...selectedShipment, status: newStatus });
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchShipments();
-  };
-
-  const handleLogout = async () => {
-    await AsyncStorage.clear();
-    navigation.replace("Login");
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Driver Dashboard</Text>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.heading}>Driver Dashboard</Text>
+          <Text style={styles.driverNameText}>Welcome, {driverName}</Text>
+          {!showShipments && selectedAllocation && (
+            <TouchableOpacity 
+              style={styles.showShipmentsButton}
+              onPress={() => setShowShipments(true)}
+            >
+              <Text style={styles.showShipmentsText}>← Show Assignments</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Logout Button */}
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      {loading && <ActivityIndicator size="large" color="#CB1E2A" />}
-
-      {error && (
-        <Text style={{ color: "red", textAlign: "center" }}>{error}</Text>
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#CB1E2A" />
+          <Text style={styles.loadingText}>Loading assignments...</Text>
+        </View>
       )}
+      
+      {error && <Text style={styles.errorText}>{error}</Text>}
 
       <View style={styles.contentContainer}>
-        {/* Shipments List */}
-        <View style={styles.shipmentList}>
-          <Text style={styles.subHeading}>Shipments</Text>
-          <FlatList
-            data={shipments}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.shipmentItem,
-                  item.id === selectedShipment?.id && styles.selectedShipment,
-                ]}
-                onPress={() => setSelectedShipment(item)}
-              >
-                <Text style={styles.shipmentName}>{item.name}</Text>
-                <Text>Status: {item.status}</Text>
+        {/* Left: Assignments List */}
+        {showShipments && (
+          <View style={styles.shipmentList}>
+            <View style={styles.shipmentHeader}>
+              <Text style={styles.subHeading}>My Assignments ({driverAllocations.length})</Text>
+              {width >= 768 && (
+                <TouchableOpacity 
+                  style={styles.hideButton}
+                  onPress={() => setShowShipments(false)}
+                >
+                  <Text style={styles.hideButtonText}>Hide</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={driverAllocations}
+              keyExtractor={(item) => item._id}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+              renderItem={renderAllocationItem}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No assignments found</Text>
+                  <Text style={styles.emptySubtext}>You don't have any vehicle assignments yet.</Text>
+                </View>
+              }
+            />
+          </View>
+        )}
 
-                {item.status === "Pending" && (
-                  <Button
-                    title="Accept"
-                    onPress={() => acceptShipment(item.id)}
-                    color="#4CAF50"
-                  />
-                )}
-                {item.status === "Out for Delivery" && (
-                  <Button
-                    title="Mark Delivered"
-                    onPress={() =>
-                      confirmStatusChange(item.id, "Delivered")
-                    }
-                    color="#2196F3"
-                  />
-                )}
-                {item.status === "Delivered" && (
-                  <Text style={{ color: "green", marginTop: 5 }}>
-                    Delivered ✅
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              !loading && (
-                <Text style={{ textAlign: "center", marginTop: 20 }}>
-                  No shipments available.
-                </Text>
-              )
-            }
-          />
-        </View>
-
-        {/* Map and Shipment Details */}
-        <View style={styles.mapAndStatus}>
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: vehicleLocation.latitude,
-              longitude: vehicleLocation.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-            region={{
-              latitude: vehicleLocation.latitude,
-              longitude: vehicleLocation.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-          >
-            <Marker coordinate={vehicleLocation} title="Your Vehicle" />
-            {selectedShipment?.route && (
-              <Polyline
-                coordinates={selectedShipment.route}
-                strokeColor="#CB1E2A"
-                strokeWidth={4}
+        {/* Right: Map + Details */}
+        <View style={[styles.mapAndStatus, !showShipments && styles.mapExpanded]}>
+          {/* Map Container */}
+          <View style={styles.mapContainer}>
+            <MapView
+              provider="osm"
+              style={styles.map}
+              initialRegion={{
+                latitude: DESTINATION_COORDS.latitude,
+                longitude: DESTINATION_COORDS.longitude,
+                latitudeDelta: 0.1,
+                longitudeDelta: 0.1,
+              }}
+              region={currentLocation ? {
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              } : undefined}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              showsCompass={true}
+              mapType="standard"
+            >
+              {/* Destination Marker */}
+              <Marker 
+                coordinate={DESTINATION_COORDS} 
+                title="Isuzu Pasig Dealership"
+                description="Final delivery destination"
+                pinColor="red"
               />
+              
+              {/* Current Location Marker */}
+              {currentLocation && (
+                <Marker 
+                  coordinate={currentLocation} 
+                  title="Your Location"
+                  description="Current driver position"
+                  pinColor="blue"
+                />
+              )}
+              
+              {/* Route Line */}
+              {currentLocation && (
+                <Polyline 
+                  coordinates={[currentLocation, DESTINATION_COORDS]} 
+                  strokeColor="#CB1E2A"
+                  strokeWidth={3}
+                  lineDashPattern={[5, 5]}
+                />
+              )}
+            </MapView>
+            
+            {/* Location Info Overlay */}
+            {currentLocation && (
+              <View style={styles.mapLocationOverlay}>
+                <Text style={styles.mapLocationText}>
+                  📍 Your Location: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                </Text>
+                <Text style={styles.mapLocationText}>
+                  🏭 Destination: Isuzu Pasig Dealership
+                </Text>
+              </View>
             )}
-          </MapView>
+          </View>
 
-          <ScrollView style={styles.statusTimeline}>
-            {selectedShipment ? (
-              <>
-                <Text style={styles.subHeading}>
-                  Shipment Details for {selectedShipment.name}
-                </Text>
-                <Text style={{ marginTop: 8 }}>
-                  Status: {selectedShipment.status}
-                </Text>
-                <Text>Destination: {selectedShipment.destination}</Text>
-                <Text>Details: {selectedShipment.details}</Text>
-
-                {(selectedShipment.status === "Pending" ||
-                  selectedShipment.status === "Out for Delivery") && (
-                  <View style={{ marginTop: 15 }}>
-                    {selectedShipment.status === "Pending" && (
-                      <Button
-                        title="Accept Shipment"
-                        onPress={() => acceptShipment(selectedShipment.id)}
-                        color="#4CAF50"
-                      />
-                    )}
-                    {selectedShipment.status === "Out for Delivery" && (
-                      <Button
-                        title="Mark Delivered"
-                        onPress={() =>
-                          confirmStatusChange(selectedShipment.id, "Delivered")
-                        }
-                        color="#2196F3"
-                      />
-                    )}
+          {/* Assignment Details */}
+          <View style={styles.statusTimeline}>
+            <ScrollView>
+              {selectedAllocation ? (
+                <View style={styles.selectedShipmentInfo}>
+                  <Text style={styles.selectedShipmentTitle}>
+                    🚛 {selectedAllocation.unitName}
+                  </Text>
+                  <View style={styles.shipmentInfoRow}>
+                    <Text style={styles.infoLabel}>Unit ID:</Text>
+                    <Text style={styles.infoValue}>{selectedAllocation.unitId}</Text>
                   </View>
-                )}
-              </>
-            ) : (
-              <Text>Select a shipment to view details</Text>
-            )}
-          </ScrollView>
+                  <View style={styles.shipmentInfoRow}>
+                    <Text style={styles.infoLabel}>Status:</Text>
+                    <Text style={[styles.infoValue, { color: getStatusColor(selectedAllocation.status) }]}>
+                      {selectedAllocation.status}
+                    </Text>
+                  </View>
+                  <View style={styles.shipmentInfoRow}>
+                    <Text style={styles.infoLabel}>Color:</Text>
+                    <View style={styles.colorInfo}>
+                      <View style={[styles.colorSample, { backgroundColor: selectedAllocation.bodyColor || "#888" }]} />
+                      <Text style={styles.infoValue}>{selectedAllocation.bodyColor}</Text>
+                    </View>
+                  </View>
+                  {selectedAllocation.assignedAgent && (
+                    <View style={styles.shipmentInfoRow}>
+                      <Text style={styles.infoLabel}>Agent:</Text>
+                      <Text style={styles.infoValue}>{selectedAllocation.assignedAgent}</Text>
+                    </View>
+                  )}
+                  {currentLocation && (
+                    <View style={styles.locationInfo}>
+                      <Text style={styles.infoLabel}>Current Location:</Text>
+                      <Text style={styles.coordText}>
+                        {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Process Status if available */}
+                  {selectedAllocation.requestedProcesses && selectedAllocation.requestedProcesses.length > 0 && (
+                    <View style={styles.processContainer}>
+                      <Text style={styles.processTitle}>Vehicle Processes:</Text>
+                      {selectedAllocation.requestedProcesses.map(process => (
+                        <View key={process} style={styles.processItem}>
+                          <Text style={styles.processText}>
+                            {selectedAllocation.processStatus?.[process] ? '✅' : '⏳'} {process.replace('_', ' ')}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.noSelectionContainer}>
+                  <Text style={styles.noSelectionText}>📋 Select an assignment to view details</Text>
+                  <TouchableOpacity 
+                    style={styles.showShipmentsButton}
+                    onPress={() => setShowShipments(true)}
+                  >
+                    <Text style={styles.showShipmentsButtonText}>View Assignments</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          </View>
         </View>
       </View>
     </View>
   );
 }
 
+// Helper function for status colors
+const getStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'assigned': return '#FF8C00';
+    case 'out for delivery': return '#007AFF';
+    case 'delivered': return '#34C759';
+    default: return '#666';
+  }
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  heading: {
-    fontSize: 26,
-    fontWeight: "bold",
+  container: { 
+    flex: 1, 
+    padding: 15, 
+    backgroundColor: "#f8f9fa" 
+  },
+  headerRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center",
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: "column",
+  },
+  heading: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
     color: "#CB1E2A",
+    marginBottom: 4,
+  },
+  driverNameText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 8,
+  },
+  showShipmentsButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  showShipmentsText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  logoutBtn: { 
+    backgroundColor: "#CB1E2A", 
+    paddingHorizontal: 16,
+    paddingVertical: 8, 
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  errorText: { 
+    color: "red", 
+    textAlign: "center", 
+    marginVertical: 10,
+    backgroundColor: "#ffe6e6",
+    padding: 10,
+    borderRadius: 8,
+  },
+  contentContainer: { 
+    flex: 1, 
+    flexDirection: width >= 768 ? "row" : "column",
+    gap: 10,
+  },
+  shipmentList: { 
+    width: width >= 768 ? "40%" : "100%",
+    backgroundColor: "#fff", 
+    padding: 15, 
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  shipmentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  subHeading: { 
+    fontSize: 18, 
+    fontWeight: "bold", 
+    color: "#333",
+  },
+  hideButton: {
+    backgroundColor: "#6c757d",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  hideButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  shipmentItem: { 
+    backgroundColor: "#f8f9fa", 
+    padding: 15, 
+    marginBottom: 12, 
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  selectedShipment: { 
+    backgroundColor: "#e8f4fd",
+    borderColor: "#007AFF",
+    borderWidth: 2,
+  },
+  shipmentDetails: { 
+    flexDirection: "row", 
+    alignItems: "center", 
     marginBottom: 10,
+  },
+  colorIndicator: { 
+    width: 20, 
+    height: 20, 
+    borderRadius: 10, 
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  shipmentInfo: { 
+    flex: 1 
+  },
+  shipmentName: { 
+    fontWeight: "bold", 
+    marginBottom: 4, 
+    fontSize: 16,
+    color: "#333",
+  },
+  statusText: {
+    fontSize: 14,
+    marginBottom: 2,
+    color: "#666",
+  },
+  colorText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 2,
+  },
+  agentText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  actionContainer: { 
+    flexDirection: "row", 
+    justifyContent: "flex-end", 
+    alignItems: "center",
+  },
+  actionButton: {
+    backgroundColor: "#28a745",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  deliverButton: {
+    backgroundColor: "#007AFF",
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  completedBadge: {
+    backgroundColor: "#d4edda",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#c3e6cb",
+  },
+  completedText: {
+    color: "#155724",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: { 
+    textAlign: "center", 
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  emptySubtext: {
     textAlign: "center",
+    color: "#666",
+    fontSize: 14,
   },
-  logoutBtn: {
-    backgroundColor: "#CB1E2A",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    alignSelf: "center",
+  mapAndStatus: { 
+    flex: 1,
+    flexDirection: "column",
+    minHeight: 400,
   },
-  logoutText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  contentContainer: { flex: 1, flexDirection: "row" },
-  shipmentList: {
-    width: "35%",
-    backgroundColor: "#f2f2f2",
-    padding: 10,
-    borderRadius: 5,
-    marginRight: 10,
+  mapExpanded: {
+    width: "100%",
   },
-  subHeading: {
+  mapContainer: {
+    flex: 2,
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#e9ecef",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  map: { 
+    flex: 1,
+    minHeight: 300,
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  mapLocationOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  mapLocationText: {
+    fontSize: 12,
+    color: '#333',
+    marginBottom: 2,
+  },
+  statusTimeline: { 
+    flex: 1, 
+    backgroundColor: "#fff", 
+    padding: 15, 
+    borderRadius: 12,
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    minHeight: 150,
+  },
+  selectedShipmentInfo: {
+    flex: 1,
+  },
+  selectedShipmentTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 10,
+    color: "#333",
+    marginBottom: 15,
     textAlign: "center",
   },
-  shipmentItem: {
-    backgroundColor: "#fff",
-    padding: 10,
+  shipmentInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
-    borderRadius: 5,
+    paddingVertical: 5,
   },
-  selectedShipment: { backgroundColor: "#e6e6e6" },
-  shipmentName: { fontWeight: "bold", marginBottom: 5 },
-  mapAndStatus: { flex: 1, justifyContent: "space-between" },
-  map: { flex: 0.7, borderRadius: 10 },
-  statusTimeline: {
-    flex: 0.3,
-    backgroundColor: "#f0f0f0",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 2,
+    textAlign: "right",
+  },
+  colorInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 2,
+    justifyContent: "flex-end",
+  },
+  colorSample: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  locationInfo: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+  },
+  coordText: {
+    fontSize: 12,
+    color: "#666",
+    fontFamily: "monospace",
+    marginTop: 5,
+  },
+  processContainer: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+  },
+  processTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  processItem: {
+    marginBottom: 5,
+  },
+  processText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  noSelectionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  noSelectionText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  showShipmentsButtonText: {
+    color: "#007AFF",
+    fontWeight: "600",
+    fontSize: 16,
   },
 });

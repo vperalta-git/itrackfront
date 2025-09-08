@@ -1,3 +1,4 @@
+//App.js
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,16 +11,25 @@ import LoginScreen from './screens/LoginScreen';
 import DriverDashboard from './screens/DriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
 import AdminDashboard from './screens/AdminDashboard';
+import ManagerDashboard from './screens/ManagerDashboard';
+import SupervisorDashboard from './screens/SupervisorDashboard';
 import VehicleProgressScreen from './screens/VehicleProgressScreen';
+import VehicleStatusScreen from './screens/VehicleStatusScreen';
 import DispatchDashboard from './screens/DispatchDashboard';
 import DispatchVehicleDetail from './screens/DispatchVehicleDetail';
 import HistoryScreen from './screens/HistoryScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import AdminVehicleTracking from './screens/AdminVehicleTracking';
+import UserManagementScreen from './screens/UserManagementScreen';
+import DriverAllocation from './screens/DriverAllocation';
+// import TestMapScreen from './screens/TestMapScreen'; // Removed test map feature
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import SignUpScreen from './screens/SignUpScreen';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
-// Sales Agent drawer
+// ✅ Sales Agent Drawer
 function AgentDrawer() {
   return (
     <Drawer.Navigator
@@ -27,28 +37,34 @@ function AgentDrawer() {
         headerStyle: { backgroundColor: '#CB1E2A' },
         headerTintColor: '#fff',
         drawerActiveTintColor: '#CB1E2A',
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
-      <Drawer.Screen
-        name="AgentDashboard"
-        component={AgentDashboard}
-        options={{ title: 'Dashboard' }}
+      <Drawer.Screen 
+        name="AgentDashboard" 
+        component={AgentDashboard} 
+        options={{ title: 'Sales Agent Dashboard' }} 
       />
-      <Drawer.Screen
-        name="VehicleProgress"
-        component={VehicleProgressScreen}
-        options={{ title: 'Vehicle Progress' }}
+      <Drawer.Screen 
+        name="VehicleProgress" 
+        component={VehicleProgressScreen} 
+        options={{ title: 'Vehicle Progress' }} 
       />
-      <Drawer.Screen
-        name="History"
-        component={HistoryScreen}
-        options={{ title: 'Release History' }}
+      <Drawer.Screen 
+        name="VehicleStatus" 
+        component={VehicleStatusScreen} 
+        options={{ title: 'Vehicle Status' }} 
+      />
+      <Drawer.Screen 
+        name="History" 
+        component={HistoryScreen} 
+        options={{ title: 'Service History' }} 
       />
     </Drawer.Navigator>
   );
 }
 
-// Admin drawer
+// ✅ Admin Drawer with User Management
 function AdminDrawer() {
   return (
     <Drawer.Navigator
@@ -56,97 +72,309 @@ function AdminDrawer() {
         headerStyle: { backgroundColor: '#CB1E2A' },
         headerTintColor: '#fff',
         drawerActiveTintColor: '#CB1E2A',
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
-      <Drawer.Screen
-        name="AdminDashboard"
-        component={AdminDashboard}
-        options={{ title: 'Admin Dashboard' }}
+      <Drawer.Screen 
+        name="AdminDashboard" 
+        component={AdminDashboard} 
+        options={{ title: 'Admin Dashboard' }} 
       />
-      <Drawer.Screen
-        name="AgentDashboard"
-        component={AgentDashboard}
-        options={{ title: 'Sales Agent Dashboard' }}
+      <Drawer.Screen 
+        name="UserManagement" 
+        component={UserManagementScreen} 
+        options={{ title: 'User Management' }} 
       />
-      <Drawer.Screen
-        name="DispatchDashboard"
-        component={DispatchDashboard}
-        options={{ title: 'Dispatch Dashboard' }}
+      <Drawer.Screen 
+        name="AdminVehicleTracking" 
+        component={AdminVehicleTracking} 
+        options={{ title: 'Vehicle Tracking' }} 
       />
-      <Drawer.Screen
-        name="VehicleProgress"
-        component={VehicleProgressScreen}
-        options={{ title: 'Vehicle Progress' }}
+      <Drawer.Screen 
+        name="DriverAllocation" 
+        component={DriverAllocation} 
+        options={{ title: 'Driver Allocation' }} 
       />
-      <Drawer.Screen
-        name="History"
-        component={HistoryScreen}
-        options={{ title: 'Release History' }}
+      <Drawer.Screen 
+        name="AgentDashboard" 
+        component={AgentDashboard} 
+        options={{ title: 'Sales Operations' }} 
       />
-      <Drawer.Screen
-        name="ChangePassword"
-        component={ChangePasswordScreen}
-        options={{ title: 'Change Password' }}
+      <Drawer.Screen 
+        name="DispatchDashboard" 
+        component={DispatchDashboard} 
+        options={{ title: 'Dispatch Center' }} 
+      />
+      <Drawer.Screen 
+        name="VehicleProgress" 
+        component={VehicleProgressScreen} 
+        options={{ title: 'Vehicle Progress' }} 
+      />
+      <Drawer.Screen 
+        name="History" 
+        component={HistoryScreen} 
+        options={{ title: 'System History' }} 
+      />
+      <Drawer.Screen 
+        name="ChangePassword" 
+        component={ChangePasswordScreen} 
+        options={{ title: 'Change Password' }} 
+      />
+    </Drawer.Navigator>
+  );
+}
+
+// ✅ Manager Drawer
+function ManagerDrawer() {
+  return (
+    <Drawer.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerTintColor: '#fff',
+        drawerActiveTintColor: '#CB1E2A',
+        drawerLabelStyle: { fontSize: 16 },
+      }}
+    >
+      <Drawer.Screen 
+        name="ManagerDashboard" 
+        component={ManagerDashboard} 
+        options={{ title: 'Manager Dashboard' }} 
+      />
+      <Drawer.Screen 
+        name="DriverAllocation" 
+        component={DriverAllocation} 
+        options={{ title: 'Driver Allocation' }} 
+      />
+      <Drawer.Screen 
+        name="AgentDashboard" 
+        component={AgentDashboard} 
+        options={{ title: 'Sales Operations' }} 
+      />
+      <Drawer.Screen 
+        name="VehicleProgress" 
+        component={VehicleProgressScreen} 
+        options={{ title: 'Vehicle Progress' }} 
+      />
+      <Drawer.Screen 
+        name="History" 
+        component={HistoryScreen} 
+        options={{ title: 'Reports' }} 
+      />
+    </Drawer.Navigator>
+  );
+}
+
+// ✅ Supervisor Drawer
+function SupervisorDrawer() {
+  return (
+    <Drawer.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerTintColor: '#fff',
+        drawerActiveTintColor: '#CB1E2A',
+        drawerLabelStyle: { fontSize: 16 },
+      }}
+    >
+      <Drawer.Screen 
+        name="SupervisorDashboard" 
+        component={SupervisorDashboard} 
+        options={{ title: 'Supervisor Dashboard' }} 
+      />
+      <Drawer.Screen 
+        name="VehicleProgress" 
+        component={VehicleProgressScreen} 
+        options={{ title: 'Vehicle Progress' }} 
+      />
+      <Drawer.Screen 
+        name="History" 
+        component={HistoryScreen} 
+        options={{ title: 'Supervision History' }} 
       />
     </Drawer.Navigator>
   );
 }
 
 export default function App() {
-  const [initialRoute, setInitialRoute] = useState('Login');
+  const [initialRoute, setInitialRoute] = useState('LoginScreen');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     async function checkLogin() {
       try {
-        const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
-        const role = await AsyncStorage.getItem('userRole');
+        const userToken = await AsyncStorage.getItem('userToken');
+        const userRole = await AsyncStorage.getItem('userRole');
+        const userName = await AsyncStorage.getItem('userName');
 
-        if (isLoggedIn === 'true' && role) {
-          switch (role) {
-            case 'admin':
-              setInitialRoute('AdminDrawer');
-              break;
-            case 'agent':
-              setInitialRoute('AgentDrawer');
-              break;
-            case 'dispatch':
-              setInitialRoute('DispatchDashboard');
-              break;
-            case 'driver':
-              setInitialRoute('DriverDashboard');
-              break;
-            default:
-              setInitialRoute('Login');
-          }
+        console.log('🔍 App startup check:', { userToken, userRole, userName });
+
+        if (userToken === 'authenticated' && userRole && userName) {
+          // Map roles to their respective screens
+          const roleRouteMap = {
+            'Admin': 'AdminDrawer',
+            'Manager': 'ManagerDrawer',
+            'Sales Agent': 'AgentDrawer',
+            'Driver': 'DriverDashboard',
+            'Dispatch': 'DispatchDashboard',
+            'Supervisor': 'SupervisorDrawer'
+          };
+
+          const targetRoute = roleRouteMap[userRole] || 'LoginScreen';
+          console.log('✅ Auto-login:', userRole, '→', targetRoute);
+          setInitialRoute(targetRoute);
         } else {
-          setInitialRoute('Login');
+          console.log('❌ No valid session found, redirecting to login');
+          setInitialRoute('LoginScreen');
         }
       } catch (err) {
-        console.error('Error checking login state:', err);
-        setInitialRoute('Login');
+        console.error('❌ Error checking login state:', err);
+        setInitialRoute('LoginScreen');
       } finally {
         setIsReady(true);
       }
     }
+    
     checkLogin();
   }, []);
 
-  if (!isReady) return null; // Optional: Replace with loading/splash screen
+  if (!isReady) {
+    return null; // Could add a loading screen here
+  }
 
   return (
     <>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName={initialRoute}>
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AdminDrawer" component={AdminDrawer} options={{ headerShown: false }} />
-          <Stack.Screen name="AgentDrawer" component={AgentDrawer} options={{ headerShown: false }} />
-          <Stack.Screen name="DispatchDashboard" component={DispatchDashboard} options={{ title: 'Dispatch Dashboard' }} />
-          <Stack.Screen name="DriverDashboard" component={DriverDashboard} options={{ title: 'Driver Dashboard' }} />
-          <Stack.Screen name="DispatchDetail" component={DispatchVehicleDetail} options={{ title: 'Vehicle Details' }} />
-          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Release History' }} />
+        <Stack.Navigator 
+          initialRouteName={initialRoute}
+          screenOptions={{
+            headerStyle: { backgroundColor: '#CB1E2A' },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: 'bold' },
+          }}
+        >
+          {/* Authentication Screens */}
+          <Stack.Screen 
+            name="LoginScreen" 
+            component={LoginScreen} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="SignUpScreen" 
+            component={SignUpScreen} 
+            options={{ title: 'Create Account' }} 
+          />
+          <Stack.Screen 
+            name="ForgotPasswordScreen" 
+            component={ForgotPasswordScreen} 
+            options={{ title: 'Reset Password' }} 
+          />
+
+          {/* Main Dashboard Screens */}
+          <Stack.Screen 
+            name="AdminDrawer" 
+            component={AdminDrawer} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="ManagerDrawer" 
+            component={ManagerDrawer} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="AgentDrawer" 
+            component={AgentDrawer} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="SupervisorDrawer" 
+            component={SupervisorDrawer} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="DriverDashboard" 
+            component={DriverDashboard} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="DispatchDashboard" 
+            component={DispatchDashboard} 
+            options={{ headerShown: false }} 
+          />
+
+          {/* Individual Component Screens */}
+          <Stack.Screen 
+            name="AdminDashboard" 
+            component={AdminDashboard} 
+            options={{ title: 'Admin Dashboard' }} 
+          />
+          <Stack.Screen 
+            name="ManagerDashboard" 
+            component={ManagerDashboard} 
+            options={{ title: 'Manager Dashboard' }} 
+          />
+          <Stack.Screen 
+            name="AgentDashboard" 
+            component={AgentDashboard} 
+            options={{ title: 'Sales Agent Dashboard' }} 
+          />
+          <Stack.Screen 
+            name="SupervisorDashboard" 
+            component={SupervisorDashboard} 
+            options={{ title: 'Supervisor Dashboard' }} 
+          />
+
+          {/* Utility Screens */}
+          <Stack.Screen 
+            name="UserManagement" 
+            component={UserManagementScreen} 
+            options={{ title: 'User Management' }} 
+          />
+          <Stack.Screen 
+            name="DriverAllocation" 
+            component={DriverAllocation} 
+            options={{ title: 'Driver Allocation' }} 
+          />
+          <Stack.Screen 
+            name="VehicleProgress" 
+            component={VehicleProgressScreen} 
+            options={{ title: 'Vehicle Progress' }} 
+          />
+          <Stack.Screen 
+            name="VehicleStatus" 
+            component={VehicleStatusScreen} 
+            options={{ title: 'Vehicle Status' }} 
+          />
+          <Stack.Screen 
+            name="AdminVehicleTracking" 
+            component={AdminVehicleTracking} 
+            options={{ title: 'Vehicle Tracking' }} 
+          />
+          <Stack.Screen 
+            name="DispatchDetail" 
+            component={DispatchVehicleDetail} 
+            options={{ title: 'Vehicle Details' }} 
+          />
+          <Stack.Screen 
+            name="History" 
+            component={HistoryScreen} 
+            options={{ title: 'History' }} 
+          />
+          <Stack.Screen 
+            name="ChangePassword" 
+            component={ChangePasswordScreen} 
+            options={{ title: 'Change Password' }} 
+          />
+
+          {/* Testing & Development - Removed TestMapScreen */}
+          {/* 
+          <Stack.Screen 
+            name="TestMap" 
+            component={TestMapScreen} 
+            options={{ title: 'Map Test (Dev)' }} 
+          />
+          */}
         </Stack.Navigator>
       </NavigationContainer>
+
       <Toast />
     </>
   );
