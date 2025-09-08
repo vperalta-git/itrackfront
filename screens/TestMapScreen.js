@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Alert, TouchableOpacity } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 const INITIAL_REGION = {
@@ -90,7 +90,7 @@ export default function TestMapScreen() {
       </TouchableOpacity>
       
       <MapView
-        provider="osm"
+        provider={PROVIDER_DEFAULT}
         style={styles.map}
         region={mapRegion}
         onMapReady={() => console.log('Map is ready!')}

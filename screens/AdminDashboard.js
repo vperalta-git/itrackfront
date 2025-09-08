@@ -77,6 +77,9 @@ export default function AdminDashboard() {
   
   // Available processes
   const availableProcesses = [
+    { id: 'delivery_to_isuzu_pasig', label: 'Delivery to Isuzu Pasig', icon: '🚛' },
+    { id: 'stock_integration', label: 'Stock Integration', icon: '📦' },
+    { id: 'documentation_check', label: 'Documentation Check', icon: '📋' },
     { id: 'tinting', label: 'Tinting', icon: '🪟' },
     { id: 'carwash', label: 'Car Wash', icon: '🚿' },
     { id: 'ceramic_coating', label: 'Ceramic Coating', icon: '✨' },
@@ -374,9 +377,15 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (selectedProcesses.length === 0) {
-      Alert.alert('Missing Processes', 'Please select at least one process for this vehicle.');
-      return;
+    // Auto-assign default delivery processes if none selected
+    let processesToAssign = selectedProcesses;
+    if (processesToAssign.length === 0) {
+      processesToAssign = [
+        'delivery_to_isuzu_pasig',
+        'stock_integration',
+        'documentation_check'
+      ];
+      console.log('No processes selected for stock assignment, using default delivery processes:', processesToAssign);
     }
 
     try {
@@ -395,7 +404,7 @@ export default function AdminDashboard() {
         assignedAgent: selectedAgent,
         status: 'Assigned',
         allocatedBy: 'Admin',
-        requestedProcesses: selectedProcesses,
+        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -418,7 +427,7 @@ export default function AdminDashboard() {
         }),
       });
 
-      Alert.alert('Success', 'Vehicle assigned successfully');
+      Alert.alert('Success', `Vehicle assigned successfully with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
       setSelectedVin('');
       setSelectedAgent('');
       setSelectedDriver('');
@@ -436,9 +445,15 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (selectedProcesses.length === 0) {
-      Alert.alert('Missing Processes', 'Please select at least one process for this vehicle.');
-      return;
+    // Auto-assign default delivery processes if none selected
+    let processesToAssign = selectedProcesses;
+    if (processesToAssign.length === 0) {
+      processesToAssign = [
+        'delivery_to_isuzu_pasig',
+        'stock_integration',
+        'documentation_check'
+      ];
+      console.log('No processes selected, using default delivery processes:', processesToAssign);
     }
 
     try {
@@ -451,7 +466,7 @@ export default function AdminDashboard() {
         assignedAgent: selectedAgent,
         status: 'Assigned',
         allocatedBy: 'Admin',
-        requestedProcesses: selectedProcesses,
+        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -464,7 +479,7 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign');
 
-      Alert.alert('Success', 'Vehicle assigned to driver');
+      Alert.alert('Success', `Vehicle assigned to driver with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
       setManualModel('');
       setManualVin('');
       setSelectedDriver('');
@@ -502,6 +517,70 @@ export default function AdminDashboard() {
             }
           },
         },
+      ]
+    );
+  };
+
+  // Handle release confirmation function
+  const handleConfirmRelease = async () => {
+    if (!selectedReleaseVehicle) return;
+
+    Alert.alert(
+      'Confirm Vehicle Release',
+      `Are you sure you want to release "${selectedReleaseVehicle.unitName}" (${selectedReleaseVehicle.unitId}) to the customer?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Release Vehicle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Create release record
+              const releaseData = {
+                vehicleId: selectedReleaseVehicle._id,
+                unitName: selectedReleaseVehicle.unitName,
+                unitId: selectedReleaseVehicle.unitId,
+                bodyColor: selectedReleaseVehicle.bodyColor,
+                variation: selectedReleaseVehicle.variation,
+                completedProcesses: selectedReleaseVehicle.processes || [],
+                releasedBy: await AsyncStorage.getItem('userName') || 'Admin',
+                releasedAt: new Date().toISOString(),
+                status: 'Released to Customer'
+              };
+
+              console.log('📋 Confirming vehicle release:', releaseData);
+
+              // Send to release endpoint
+              const response = await fetch(buildApiUrl('/api/releases'), {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(releaseData),
+              });
+
+              const result = await response.json();
+
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to confirm release');
+              }
+
+              Alert.alert(
+                'Success', 
+                `Vehicle ${selectedReleaseVehicle.unitName} has been released to customer!`
+              );
+              
+              // Reset and refresh
+              setShowReleaseConfirmModal(false);
+              setSelectedReleaseVehicle(null);
+              fetchPendingReleases();
+              
+            } catch (error) {
+              console.error('Error confirming release:', error);
+              Alert.alert('Error', error.message || 'Failed to confirm release');
+            }
+          }
+        }
       ]
     );
   };

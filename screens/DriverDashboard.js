@@ -326,7 +326,7 @@ export default function DriverDashboard() {
           {/* Map Container */}
           <View style={styles.mapContainer}>
             <MapView
-              provider="osm"
+              provider={PROVIDER_DEFAULT}
               style={styles.map}
               initialRegion={{
                 latitude: DESTINATION_COORDS.latitude,

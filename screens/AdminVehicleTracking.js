@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
 const API_URL = 'https://itrack-backend-1.onrender.com';
 
@@ -86,7 +86,7 @@ export default function AdminVehicleTracking() {
       ) : (
         <>
           <MapView
-            provider="osm"
+            provider={PROVIDER_DEFAULT}
             style={styles.map}
             region={{
               latitude: selectedVehicle?.location?.latitude || 14.5791,

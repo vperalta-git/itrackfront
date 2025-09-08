@@ -2,19 +2,18 @@
 // Supports dynamic network detection and automatic failover
 
 // Production and development server URLs
-const PRODUCTION_SERVER_URL = 'https://your-app-name.onrender.com'; // Update this when you deploy
+const PRODUCTION_SERVER_URL = 'https://itrack-backend.onrender.com'; // Your deployed Render backend
 const LOCAL_SERVER_URLS = [
-  'http://192.168.254.147:5000', // Your current network
+  'http://192.168.254.147:5000', // Your current network (server is running here)
+  'http://localhost:5000',       // Local development
+  'http://127.0.0.1:5000',       // Loopback
   'http://192.168.1.147:5000',   // Common home network range
   'http://192.168.0.147:5000',   // Another common range
   'http://10.0.0.147:5000',      // Another common range
-  'http://localhost:5000',       // Local development
-  'http://127.0.0.1:5000',       // Loopback
 ];
 
 // Determine if we're in production or development
-const isProduction = process.env.NODE_ENV === 'production' || 
-                    process.env.EXPO_PUBLIC_ENV === 'production';
+const isProduction = false; // Use local backend for now since Render has deployment issues
 
 // Multiple potential server URLs for network flexibility
 const POTENTIAL_SERVER_URLS = isProduction 

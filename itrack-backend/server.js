@@ -66,7 +66,11 @@ const DriverAllocationSchema = new mongoose.Schema({
     of: Date,
     default: {}
   }, // Map of process_id -> completion_date
-  overallProgress: { type: Number, default: 0 }, // Percentage completion
+  overallProgress: { 
+    completed: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    isComplete: { type: Boolean, default: false }
+  }, // Progress tracking object
   isReady: { type: Boolean, default: false }, // Ready for release
   readyBy: String,
   readyAt: Date,
