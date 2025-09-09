@@ -3,12 +3,12 @@
 
 // RENDER-FIRST server priority - works on any WiFi network
 const RENDER_FIRST_URLS = [
-  'https://itrack-backend.onrender.com',   // 🥇 ALWAYS TRY RENDER FIRST
-  'https://itrack-backend.onrender.com',   // 🥇 RETRY RENDER (important!)
-  'http://192.168.254.147:5000',           // 🥈 Local fallback 1
+  // 'https://itrack-backend.onrender.com',   // 🚨 TEMPORARILY DISABLED - Render is serving React app instead of API
+  'http://192.168.254.147:5000',           // � LOCAL FIRST (until Render is fixed)
   'http://10.97.63.190:5000',              // 🥈 Local fallback 2 (your phone's network)
   'http://localhost:5000',                 // 🥉 Local development
   'http://127.0.0.1:5000',                 // 🥉 Loopback
+  'https://itrack-backend.onrender.com',   // 🚨 LAST RESORT (currently broken)
   'http://192.168.1.147:5000',             // 🔄 Common network ranges
   'http://192.168.0.147:5000',
   'http://192.168.43.147:5000',
