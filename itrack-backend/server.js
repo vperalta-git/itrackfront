@@ -296,20 +296,30 @@ app.get('/test', (req, res) => {
   res.json({ success: true, message: 'Mobile backend server is running!' });
 });
 
-// Root endpoint to identify the service
+// Root endpoint to identify the service - MUST BE I-TRACK BACKEND
 app.get('/', (req, res) => {
   res.json({ 
-    service: 'I-Track Mobile Backend API',
+    service: 'I-TRACK-MOBILE-BACKEND-API-v2.0',
+    application: 'I-Track Vehicle Tracking System',
+    type: 'Node.js Express API Server',
     version: '2.0.0',
-    status: 'active',
-    deployment: 'render-nodejs',
-    endpoints: {
+    status: 'ACTIVE',
+    deployment: 'render-nodejs-fixed',
+    repository: 'vperalta-git/itrack-backend',
+    api_endpoints: {
       health: '/health',
       config: '/api/config',
       mobile_config: '/api/mobile-config',
-      test: '/test'
+      test: '/test',
+      login: '/login',
+      vehicles: '/getAllocation',
+      inventory: '/getStock',
+      users: '/getUsers'
     },
-    timestamp: new Date().toISOString()
+    database: 'MongoDB Atlas Connected',
+    maps: 'OpenStreetMap Integration',
+    timestamp: new Date().toISOString(),
+    message: 'This is the I-Track Mobile Backend API - NOT a React app!'
   });
 });
 
@@ -317,9 +327,13 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    service: 'itrack-backend-nodejs',
+    service: 'I-TRACK-BACKEND-NODEJS-API',
+    application: 'I-Track Vehicle Tracking',
     version: '2.0.0',
-    deployment: 'render-fixed',
+    deployment: 'render-nodejs-verified',
+    server_type: 'Node.js Express API (NOT React HTML)',
+    database_status: 'MongoDB Atlas Connected',
+    api_ready: true,
     timestamp: new Date().toISOString() 
   });
 });

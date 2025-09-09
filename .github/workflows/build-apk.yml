@@ -28,21 +28,38 @@ jobs:
         java-version: '17'
         
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
+      uses: android-actions/setup-android@v3
       
     - name: Install dependencies
       run: npm install
       
     - name: Install Expo CLI
-      run: npm install -g @expo/cli
+      run: npm install -g @expo/cli@latest
       
-    - name: Prebuild for Android
-      run: npx expo prebuild --platform android --clear
+    - name: Ensure android folder is clean
+      run: rm -rf android
       
-    - name: Build APK
+    - name: Prebuild for Android (create android folder)
+      run: npx expo prebuild --platform android --clear --non-interactive
+      
+    - name: Grant execute permissions to gradlew
+      run: chmod +x android/gradlew
+      
+    - name: Build APK with Gradle
       run: |
         cd android
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-daemon --stacktrace
+        
+    - name: Verify APK was created
+      run: |
+        if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+          echo "✅ APK created successfully!"
+          ls -la android/app/build/outputs/apk/release/
+        else
+          echo "❌ APK not found!"
+          find android -name "*.apk" -type f
+          exit 1
+        fi
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -61,7 +78,7 @@ jobs:
           
           **Features:**
           - ✅ Custom I-Track logo
-          - ✅ RENDER-FIRST backend connectivity
+          - ✅ RENDER-FIRST backend connectivity  
           - ✅ Local network fallback
           - ✅ MongoDB Atlas integration
           - ✅ Location tracking permissions
