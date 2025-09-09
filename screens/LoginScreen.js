@@ -253,7 +253,7 @@ export default function LoginScreen() {
           <View style={styles.card}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('../assets/logoitrack.png')}
+                source={require('../assets/isuzufront.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
