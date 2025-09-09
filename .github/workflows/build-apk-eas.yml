@@ -1,0 +1,142 @@
+name: Build APK with EAS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: 'Build profile to use'
+        required: false
+        default: 'preview'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Install EAS CLI
+      run: npm install -g eas-cli@latest
+      
+    - name: Create EAS configuration
+      run: |
+        cat > eas.json << 'EOF'
+        {
+          "cli": {
+            "version": ">= 5.0.0"
+          },
+          "build": {
+            "preview": {
+              "android": {
+                "buildType": "apk",
+                "gradleCommand": ":app:assembleRelease"
+              }
+            },
+            "production": {
+              "android": {
+                "buildType": "app-bundle"
+              }
+            }
+          }
+        }
+        EOF
+        
+        echo "Created eas.json:"
+        cat eas.json
+        
+    - name: Setup Expo authentication
+      run: |
+        if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
+          echo "Using EXPO_TOKEN for authentication"
+          export EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}"
+        else
+          echo "⚠️ EXPO_TOKEN not found, trying anonymous build..."
+        fi
+        
+    - name: Build APK with EAS
+      run: |
+        echo "Starting EAS build..."
+        
+        # Try with token first
+        if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
+          export EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}"
+          eas build --platform android --profile preview --non-interactive --wait --local
+        else
+          echo "Building without authentication (may have limitations)..."
+          eas build --platform android --profile preview --non-interactive --wait --local
+        fi
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        
+    - name: Find built APK
+      run: |
+        echo "Searching for built APK..."
+        find . -name "*.apk" -type f | head -10
+        
+        # Look for EAS build output
+        if [ -d "build" ]; then
+          find build -name "*.apk" -type f
+        fi
+        
+        # Copy APK to root for upload
+        APK_FILE=$(find . -name "*.apk" -type f | grep -E "(app-release|build)" | head -1)
+        if [ -n "$APK_FILE" ]; then
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" ./I-Track-EAS.apk
+          ls -la I-Track-EAS.apk
+        else
+          echo "❌ No APK found!"
+          exit 1
+        fi
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: I-Track-EAS-Build-${{ github.sha }}
+        path: I-Track-EAS.apk
+        
+    - name: Create Release
+      if: success()
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: eas-v1.0.0-${{ github.run_number }}
+        name: I-Track Mobile App (EAS Build) v1.0.0-${{ github.run_number }}
+        body: |
+          🚀 **I-Track Mobile App APK (EAS Build)**
+          
+          This APK was built using Expo Application Services (EAS) for maximum compatibility.
+          
+          **Features:**
+          - ✅ Custom I-Track logo
+          - ✅ RENDER-FIRST backend connectivity  
+          - ✅ Local network fallback
+          - ✅ MongoDB Atlas integration
+          - ✅ Location tracking permissions
+          - ✅ OpenStreetMap integration
+          
+          **Installation:**
+          1. Download the APK file below
+          2. Enable "Install from unknown sources" on your Android device
+          3. Install the APK
+          4. Grant location permissions when prompted
+          
+          **Backend Status:**
+          - Production: https://itrack-backend-1.onrender.com ✅
+          - Fallback: Local network servers
+          - Database: MongoDB Atlas ✅
+          
+        files: I-Track-EAS.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
