@@ -61,9 +61,26 @@ jobs:
           echo "❌ Android folder not created!"
           exit 1
         fi
+        
+    - name: Install Android dependencies
+      run: |
+        cd android
+        echo "Installing Android project dependencies..."
+        if [ -f "package.json" ]; then
+          npm install
+        fi
       
     - name: Grant execute permissions to gradlew
-      run: chmod +x android/gradlew
+      run: |
+        if [ -f "android/gradlew" ]; then
+          chmod +x android/gradlew
+          echo "✅ gradlew permissions set"
+        else
+          echo "❌ gradlew not found! Listing android contents:"
+          ls -la android/
+          find android -name "gradlew*" -type f
+          exit 1
+        fi
       
     - name: Build APK with Gradle
       run: |

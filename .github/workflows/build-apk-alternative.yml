@@ -1,0 +1,158 @@
+name: Build Android APK (Alternative Method)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if other workflow exists'
+        required: false
+        default: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Install Expo CLI (Legacy)
+      run: |
+        npm install -g expo-cli@6.3.10
+        expo --version
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 34
+        build-tools: 34.0.0
+        
+    - name: Create local.properties for Android
+      run: |
+        mkdir -p android
+        echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+        echo "Created local.properties with ANDROID_HOME: $ANDROID_HOME"
+        
+    - name: Eject Expo project (legacy method)
+      run: |
+        echo "Using legacy expo eject..."
+        expo eject --non-interactive || true
+        
+        # If eject fails, try manual android folder creation
+        if [ ! -d "android" ]; then
+          echo "Expo eject failed, creating basic android structure..."
+          
+          # Download a basic React Native template
+          npx react-native init TempProject --template react-native-template-typescript
+          
+          # Copy android folder from template
+          cp -r TempProject/android ./
+          rm -rf TempProject
+          
+          # Update android project with our app details
+          sed -i 's/TempProject/itrack/g' android/settings.gradle
+          sed -i 's/com.tempproject/com.acmobility.itrack/g' android/app/src/main/AndroidManifest.xml
+          
+          echo "Basic android structure created"
+        fi
+        
+        ls -la android/
+        
+    - name: Grant execute permissions to gradlew
+      run: |
+        if [ -f "android/gradlew" ]; then
+          chmod +x android/gradlew
+          echo "✅ gradlew permissions set"
+        else
+          echo "❌ gradlew not found!"
+          find . -name "gradlew" -type f
+        fi
+        
+    - name: Build APK with Gradle
+      run: |
+        cd android
+        
+        # Clean and build
+        ./gradlew clean
+        ./gradlew assembleRelease --stacktrace --info
+        
+    - name: Find and verify APK
+      run: |
+        echo "Searching for APK files..."
+        find . -name "*.apk" -type f
+        
+        # Look for the release APK
+        if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+          echo "✅ APK found at expected location!"
+          ls -la android/app/build/outputs/apk/release/
+          cp android/app/build/outputs/apk/release/app-release.apk ./I-Track-Alternative.apk
+        else
+          echo "❌ APK not found at expected location. Searching..."
+          find android -name "*.apk" -type f | head -5
+          
+          # Try to find any APK and copy it
+          APK_FILE=$(find android -name "*.apk" -type f | head -1)
+          if [ -n "$APK_FILE" ]; then
+            echo "Found APK at: $APK_FILE"
+            cp "$APK_FILE" ./I-Track-Alternative.apk
+          else
+            echo "No APK files found anywhere!"
+            exit 1
+          fi
+        fi
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: I-Track-Alternative-Build-${{ github.sha }}
+        path: I-Track-Alternative.apk
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: alternative-v1.0.0-${{ github.run_number }}
+        name: I-Track Mobile App (Alternative Build) v1.0.0-${{ github.run_number }}
+        body: |
+          🚀 **I-Track Mobile App APK (Alternative Build Method)**
+          
+          This APK was built using an alternative method due to issues with the standard Expo workflow.
+          
+          **Features:**
+          - ✅ Custom I-Track logo
+          - ✅ RENDER-FIRST backend connectivity  
+          - ✅ Local network fallback
+          - ✅ MongoDB Atlas integration
+          - ✅ Location tracking permissions
+          - ✅ OpenStreetMap integration
+          
+          **Installation:**
+          1. Download the APK file below
+          2. Enable "Install from unknown sources" on your Android device
+          3. Install the APK
+          4. Grant location permissions when prompted
+          
+          **Backend Status:**
+          - Production: https://itrack-backend-1.onrender.com
+          - Fallback: Local network servers
+          - Database: MongoDB Atlas
+          
+        files: I-Track-Alternative.apk
+        draft: false
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
