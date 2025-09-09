@@ -296,9 +296,32 @@ app.get('/test', (req, res) => {
   res.json({ success: true, message: 'Mobile backend server is running!' });
 });
 
-// Health check
+// Root endpoint to identify the service
+app.get('/', (req, res) => {
+  res.json({ 
+    service: 'I-Track Mobile Backend API',
+    version: '2.0.0',
+    status: 'active',
+    deployment: 'render-nodejs',
+    endpoints: {
+      health: '/health',
+      config: '/api/config',
+      mobile_config: '/api/mobile-config',
+      test: '/test'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check  
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    service: 'itrack-backend-nodejs',
+    version: '2.0.0',
+    deployment: 'render-fixed',
+    timestamp: new Date().toISOString() 
+  });
 });
 
 // API Configuration endpoint - provides dynamic server URLs for mobile app
@@ -326,9 +349,28 @@ app.get('/api/config', (req, res) => {
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`
       ]),
-      recommended: isProduction 
-        ? 'https://itrack-backend.onrender.com'
-        : `http://${primaryIP}:${port}`
+      // ALWAYS prioritize Render for mobile app universal access
+      recommended: 'https://itrack-backend.onrender.com',
+      // Priority order for mobile app discovery
+      priority: [
+        'https://itrack-backend.onrender.com',  // 🥇 Always try Render first
+        `http://${primaryIP}:${port}`,          // 🥈 Local network fallback
+        `http://localhost:${port}`,             // 🥉 Local development fallback
+        ...localIPs.map(ip => `http://${ip}:${port}`)
+      ]
+    },
+    mobileAppConfig: {
+      alwaysUseRender: true,
+      renderUrl: 'https://itrack-backend.onrender.com',
+      fallbackUrls: localIPs.map(ip => `http://${ip}:${port}`).concat([
+        `http://localhost:${port}`,
+        `http://127.0.0.1:${port}`,
+        'http://10.97.63.190:5000',    // User's phone network
+        'http://192.168.254.147:5000', // User's computer network
+      ]),
+      connectionStrategy: 'render-first',
+      maxRetries: 3,
+      timeoutMs: 5000
     },
     networkRanges: [
       'http://192.168.254.{IP}:5000',  // Current network range
@@ -379,6 +421,23 @@ app.get('/api/config', (req, res) => {
   };
   
   res.json(config);
+});
+
+// Simple mobile-friendly endpoint that always prioritizes Render
+app.get('/api/mobile-config', (req, res) => {
+  res.json({
+    success: true,
+    serverUrl: 'https://itrack-backend.onrender.com',
+    environment: 'production',
+    message: 'Always use Render for universal network access',
+    fallbacks: [
+      'https://itrack-backend.onrender.com',  // Primary
+      'http://192.168.254.147:5000',          // Local fallback 1
+      'http://10.97.63.190:5000',             // Local fallback 2
+      'http://localhost:5000'                 // Local development
+    ],
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ================== MAPS & GEOCODING ENDPOINTS (OpenStreetMap) ==================

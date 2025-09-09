@@ -1,0 +1,85 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+      
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Install Expo CLI
+      run: npm install -g @expo/cli
+      
+    - name: Prebuild for Android
+      run: npx expo prebuild --platform android --clear
+      
+    - name: Build APK
+      run: |
+        cd android
+        ./gradlew assembleRelease
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: I-Track-v1.0.0-${{ github.sha }}
+        path: android/app/build/outputs/apk/release/app-release.apk
+        
+    - name: Create Release
+      if: github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.0-${{ github.run_number }}
+        name: I-Track Mobile App v1.0.0-${{ github.run_number }}
+        body: |
+          🚀 **I-Track Mobile App APK**
+          
+          **Features:**
+          - ✅ Custom I-Track logo
+          - ✅ RENDER-FIRST backend connectivity
+          - ✅ Local network fallback
+          - ✅ MongoDB Atlas integration
+          - ✅ Location tracking permissions
+          - ✅ OpenStreetMap integration
+          
+          **Installation:**
+          1. Download the APK file below
+          2. Enable "Install from unknown sources" on your Android device
+          3. Install the APK
+          4. Grant location permissions when prompted
+          
+          **Backend Status:**
+          - Production: Render.com deployment
+          - Fallback: Local network servers
+          - Database: MongoDB Atlas
+          
+        files: android/app/build/outputs/apk/release/app-release.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

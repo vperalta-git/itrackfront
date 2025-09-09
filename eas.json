@@ -4,7 +4,13 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "ubuntu-18.04-android-30-ndk-r19c"
+        "image": "latest"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
       }
     }
   }

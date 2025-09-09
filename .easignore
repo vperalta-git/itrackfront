@@ -1,11 +1,50 @@
-# Exclude backend folder from EAS builds
+# EAS Build ignore file
+# This file specifies files and folders to exclude from the build archive
 
+# Backend folder (not needed for mobile app build)
 itrack-backend/
 
-# Exclude other unnecessary files for mobile builds
+# Android gradle cache (for non-CNG projects)
+android/.gradle
 
-_.log
+# Node modules (will be installed during build)
+node_modules/
+
+# Git and version control
 .git/
+.gitignore
+
+# IDE and editor files
 .vscode/
-_.md
-;,. 9-
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs and cache
+dist/
+build/
+.expo/
+
+# Documentation files
+*.md
+docs/
+
+# Test files
+__tests__/
+*.test.js
+*.spec.js
+
+# Environment files
+.env*
+
+# Temporary files
+tmp/
+temp/
