@@ -1,24 +1,23 @@
 // Enhanced API Configuration for I-Track Mobile App
-// Supports dynamic network detection and automatic failover
+// Dynamically fetches server configuration from the backend
 
-// Production and development server URLs
-const PRODUCTION_SERVER_URL = 'https://itrack-backend.onrender.com'; // Your deployed Render backend
-const LOCAL_SERVER_URLS = [
-  'http://192.168.254.147:5000', // Your current network (server is running here)
-  'http://localhost:5000',       // Local development
-  'http://127.0.0.1:5000',       // Loopback
-  'http://192.168.1.147:5000',   // Common home network range
-  'http://192.168.0.147:5000',   // Another common range
-  'http://10.0.0.147:5000',      // Another common range
+// Known server endpoints to try for initial configuration
+const INITIAL_SERVER_URLS = [
+  'https://itrack-backend.onrender.com',   // Production server
+  'http://192.168.254.147:5000',           // Current network
+  'http://localhost:5000',                 // Local development
+  'http://127.0.0.1:5000',                 // Loopback
+  'http://192.168.1.147:5000',             // Common home network
+  'http://192.168.0.147:5000',             // Another common range
+  'http://192.168.43.147:5000',            // Mobile hotspot
+  'http://192.168.100.147:5000',           // Corporate range
+  'http://10.0.0.147:5000',                // Another range
+  'http://172.16.0.147:5000',              // Corporate network
 ];
 
-// Determine if we're in production or development
-const isProduction = false; // Use local backend for now since Render has deployment issues
-
-// Multiple potential server URLs for network flexibility
-const POTENTIAL_SERVER_URLS = isProduction 
-  ? [PRODUCTION_SERVER_URL, ...LOCAL_SERVER_URLS] 
-  : LOCAL_SERVER_URLS;
+// Global configuration state
+let API_CONFIG = null;
+let CURRENT_SERVER_URL = null;
 
 // Default endpoints for backwards compatibility
 const DEFAULT_ENDPOINTS = {
@@ -49,11 +48,7 @@ const DEFAULT_ENDPOINTS = {
   CONFIG: '/api/config'
 };
 
-// Dynamic API configuration (will be fetched from server)
-let API_CONFIG = null;
-let CURRENT_SERVER_URL = null;
-
-// Test server connectivity
+// Test server connectivity with health check
 const testServerConnection = async (url) => {
   try {
     const controller = new AbortController();
@@ -69,211 +64,213 @@ const testServerConnection = async (url) => {
     });
     
     clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.status === 'OK';
-    }
-    return false;
+    return response.ok;
   } catch (error) {
     console.log(`❌ Connection test failed for ${url}:`, error.message);
     return false;
   }
 };
 
-// Find working server URL
-const findWorkingServerUrl = async () => {
-  console.log('🔍 Searching for available server...');
+// Find the first working server and fetch its configuration
+const discoverServerConfig = async () => {
+  console.log('🔍 Discovering available server...');
   
-  for (const url of POTENTIAL_SERVER_URLS) {
-    console.log(`⏳ Testing connection to: ${url}`);
-    const isWorking = await testServerConnection(url);
+  for (const url of INITIAL_SERVER_URLS) {
+    console.log(`⏳ Testing server: ${url}`);
     
-    if (isWorking) {
-      console.log(`✅ Found working server: ${url}`);
-      CURRENT_SERVER_URL = url;
-      return url;
+    try {
+      // Test basic connectivity
+      const isHealthy = await testServerConnection(url);
+      if (!isHealthy) continue;
+      
+      // Fetch dynamic configuration
+      const configResponse = await fetch(`${url}/api/config`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000,
+      });
+      
+      if (configResponse.ok) {
+        const config = await configResponse.json();
+        
+        if (config.success) {
+          console.log(`✅ Server discovered: ${url}`);
+          console.log(`🌐 Environment: ${config.environment}`);
+          console.log(`📍 Server IP: ${config.serverInfo.primaryIP}`);
+          
+          CURRENT_SERVER_URL = url;
+          API_CONFIG = {
+            serverUrl: url,
+            ...config
+          };
+          
+          return API_CONFIG;
+        }
+      }
+    } catch (error) {
+      console.log(`❌ Config fetch failed for ${url}:`, error.message);
+      continue;
     }
   }
   
-  console.warn('⚠️ No working server found, using default URL');
-  CURRENT_SERVER_URL = POTENTIAL_SERVER_URLS[0];
-  return CURRENT_SERVER_URL;
+  // Fallback to first URL if no server responds with config
+  console.warn('⚠️ No server responded with config, using fallback');
+  CURRENT_SERVER_URL = INITIAL_SERVER_URLS[0];
+  API_CONFIG = {
+    serverUrl: CURRENT_SERVER_URL,
+    environment: 'unknown',
+    apiUrls: {
+      recommended: CURRENT_SERVER_URL
+    }
+  };
+  
+  return API_CONFIG;
 };
 
-// Helper function to get current API base URL
+// Get current API base URL
 export const getApiBaseUrl = () => {
-  return API_CONFIG?.backend?.BASE_URL || CURRENT_SERVER_URL || POTENTIAL_SERVER_URLS[0];
+  if (API_CONFIG) {
+    return API_CONFIG.apiUrls?.recommended || API_CONFIG.serverUrl || CURRENT_SERVER_URL;
+  }
+  return CURRENT_SERVER_URL || INITIAL_SERVER_URLS[0];
 };
 
-// Helper function to build API URLs
+// Build full API URL for endpoint
 export const buildApiUrl = (endpoint) => {
   return `${getApiBaseUrl()}${endpoint}`;
 };
 
-// Enhanced fetch API configuration from server
-export const fetchApiConfig = async (forceRefresh = false) => {
+// Initialize API configuration
+export const initializeApi = async (forceRefresh = false) => {
   if (API_CONFIG && !forceRefresh) {
     return API_CONFIG;
   }
-
+  
   try {
-    // First find a working server
-    const workingUrl = await findWorkingServerUrl();
+    console.log('� Initializing I-Track Mobile API...');
+    const config = await discoverServerConfig();
     
-    console.log(`📡 Fetching API config from: ${workingUrl}`);
-    const response = await fetch(`${workingUrl}/api/config`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      timeout: 5000,
-    });
+    console.log(`📱 API initialized successfully!`);
+    console.log(`🔗 Server: ${getApiBaseUrl()}`);
+    console.log(`🏷️ Environment: ${config.environment}`);
     
-    const data = await response.json();
-    
-    if (data.success && data.config) {
-      API_CONFIG = data.config;
-      CURRENT_SERVER_URL = workingUrl;
-      
-      console.log(`📱 API Configuration loaded successfully!`);
-      console.log(`🌐 Server: ${API_CONFIG.backend.BASE_URL}`);
-      console.log(`📍 Local IP: ${API_CONFIG.backend.LOCAL_IP}`);
-      console.log(`🖥️ Environment: ${API_CONFIG.backend.ENVIRONMENT}`);
-      
-      return API_CONFIG;
-    } else {
-      throw new Error('Invalid config response');
-    }
+    return config;
   } catch (error) {
-    console.warn(`⚠️ Failed to fetch API config, using defaults:`, error.message);
-    
-    // Use default configuration with the working URL we found
-    const defaultUrl = CURRENT_SERVER_URL || POTENTIAL_SERVER_URLS[0];
-    API_CONFIG = {
-      backend: {
-        BASE_URL: defaultUrl,
-        NAME: 'Local Development Backend (Fallback)',
-        ENVIRONMENT: 'development'
-      },
-      endpoints: DEFAULT_ENDPOINTS
-    };
-    return API_CONFIG;
+    console.error(`❌ API initialization failed:`, error.message);
+    throw error;
   }
 };
 
-// Network-aware API call with automatic failover
+// Network-aware fetch with automatic failover
 export const safeFetch = async (endpoint, options = {}) => {
-  let lastError = null;
-  
-  // Try current server first
-  if (CURRENT_SERVER_URL) {
-    try {
-      const response = await fetch(`${CURRENT_SERVER_URL}${endpoint}`, {
-        ...options,
-        timeout: 10000, // 10 second timeout
-      });
-      
-      if (response.ok) {
-        return response;
-      }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    } catch (error) {
-      console.warn(`❌ Request failed on ${CURRENT_SERVER_URL}: ${error.message}`);
-      lastError = error;
-    }
+  // Ensure API is initialized
+  if (!API_CONFIG) {
+    await initializeApi();
   }
   
-  // If current server failed, try to find another one
-  console.log('🔄 Attempting to find alternative server...');
-  const workingUrl = await findWorkingServerUrl();
+  const url = buildApiUrl(endpoint);
   
-  if (workingUrl && workingUrl !== CURRENT_SERVER_URL) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      timeout: 10000, // 10 second timeout
+    });
+    
+    if (response.ok) {
+      return response;
+    }
+    
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  } catch (error) {
+    console.error(`❌ Request failed for ${url}:`, error.message);
+    
+    // Try to discover new server if current one failed
+    console.log('🔄 Attempting to discover alternative server...');
     try {
-      const response = await fetch(`${workingUrl}${endpoint}`, {
+      await initializeApi(true); // Force refresh
+      const newUrl = buildApiUrl(endpoint);
+      
+      const response = await fetch(newUrl, {
         ...options,
         timeout: 10000,
       });
       
       if (response.ok) {
-        CURRENT_SERVER_URL = workingUrl;
-        console.log(`✅ Switched to working server: ${workingUrl}`);
+        console.log(`✅ Successfully switched to: ${getApiBaseUrl()}`);
         return response;
       }
-    } catch (error) {
-      console.error(`❌ Backup server also failed: ${error.message}`);
-      lastError = error;
+    } catch (retryError) {
+      console.error(`❌ Retry also failed:`, retryError.message);
     }
+    
+    throw error;
   }
-  
-  throw lastError || new Error('No working server found');
 };
 
-// Get API endpoints
-export const getApiEndpoints = () => {
-  return API_CONFIG?.endpoints || DEFAULT_ENDPOINTS;
-};
-
-// Get current server status
+// Get server status
 export const getServerStatus = async () => {
   try {
     const response = await safeFetch('/health');
     const data = await response.json();
+    
     return {
       online: true,
       status: data.status,
-      serverUrl: CURRENT_SERVER_URL,
+      serverUrl: getApiBaseUrl(),
+      environment: API_CONFIG?.environment,
       timestamp: data.timestamp || new Date().toISOString()
     };
   } catch (error) {
     return {
       online: false,
       error: error.message,
-      serverUrl: CURRENT_SERVER_URL,
+      serverUrl: getApiBaseUrl(),
       timestamp: new Date().toISOString()
     };
   }
 };
 
-// Refresh server connection (useful when switching networks)
+// Refresh connection (useful when switching networks)
 export const refreshConnection = async () => {
-  console.log('🔄 Refreshing server connection...');
-  CURRENT_SERVER_URL = null;
-  API_CONFIG = null;
+  console.log('🔄 Refreshing connection...');
   
-  await fetchApiConfig(true);
+  // Reset state
+  API_CONFIG = null;
+  CURRENT_SERVER_URL = null;
+  
+  // Rediscover server
+  await initializeApi(true);
   const status = await getServerStatus();
   
   console.log('📊 Connection refresh result:', status);
   return status;
 };
 
-// Default endpoints for backwards compatibility
+// Get API endpoints
+export const getApiEndpoints = () => {
+  return DEFAULT_ENDPOINTS;
+};
+
+// Export defaults for backwards compatibility
 export const API_BASE_URL = getApiBaseUrl();
 export const API_ENDPOINTS = DEFAULT_ENDPOINTS;
 
-// Initialize API configuration on import
+// Auto-initialize on import
 let initPromise = null;
 
-export const initializeApi = async () => {
+const autoInit = async () => {
   if (initPromise) return initPromise;
   
-  initPromise = (async () => {
-    try {
-      console.log('🚀 Initializing I-Track Mobile API...');
-      const config = await fetchApiConfig();
-      console.log(`📱 Mobile App API initialized successfully!`);
-      console.log(`🌐 Connected to: ${config.backend.BASE_URL}`);
-      return config;
-    } catch (error) {
-      console.error(`❌ Failed to initialize API:`, error.message);
-      throw error;
-    }
-  })();
+  initPromise = initializeApi().catch(error => {
+    console.error('❌ Auto-initialization failed:', error.message);
+    return null;
+  });
   
   return initPromise;
 };
 
-// Auto-initialize
-initializeApi().catch(console.error);
+// Start auto-initialization
+autoInit();
