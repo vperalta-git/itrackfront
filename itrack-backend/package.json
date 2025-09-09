@@ -1,19 +1,13 @@
 {
-  "name": "itrack-backend-nodejs-api",
-  "version": "2.0.0",
-  "description": "I-Track Mobile Backend API - Node.js Express Server",
+  "name": "itrack-backend",
+  "version": "1.0.0",
   "main": "server.js",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
-  "keywords": ["itrack", "mobile", "backend", "api", "nodejs", "express"],
-  "author": "I-Track Development Team",
+  "keywords": [],
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.10.0",
@@ -23,5 +17,6 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "mongoose": "^8.13.2"
-  }
+  },
+  "description": ""
 }

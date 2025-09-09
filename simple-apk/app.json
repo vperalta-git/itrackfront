@@ -1,14 +1,13 @@
 {
   "expo": {
-    "name": "itrack",
+    "name": "I-Track",
     "slug": "itrack",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logoitrack.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logoitrack.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,31 +16,20 @@
       "bundleIdentifier": "com.acmobility.itrack",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "config": {
-        "googleSignIn": {
-          "reservedClientId": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
-        }
       }
     },
     "android": {
       "package": "com.acmobility.itrack",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logoitrack.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "INTERNET"
-      ],
-      "config": {
-        "googleSignIn": {
-          "apiKey": "YOUR_ANDROID_API_KEY",
-          "certificateHash": "YOUR_CERTIFICATE_SHA1_HASH"
-        }
-      }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

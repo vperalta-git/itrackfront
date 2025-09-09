@@ -4,9 +4,6 @@
 # Backend folder (not needed for mobile app build)
 itrack-backend/
 
-# Android gradle cache (for non-CNG projects)
-android/.gradle
-
 # Node modules (will be installed during build)
 node_modules/
 

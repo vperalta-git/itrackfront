@@ -1,20 +1,13 @@
 services:
   - type: web
-    name: itrack-backend-nodejs-api
+    name: itrack-backend
     env: node
     plan: free
-    runtime: node
-    buildCommand: npm install --production
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
-      - key: SERVICE_TYPE
-        value: nodejs-api
-      - key: APP_NAME
-        value: itrack-backend
     healthCheckPath: /health
-    domains:
-      - itrack-backend.onrender.com

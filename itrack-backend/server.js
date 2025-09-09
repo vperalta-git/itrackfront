@@ -168,6 +168,97 @@ app.get('/getUsers', async (req, res) => {
   }
 });
 
+// Create User
+app.post('/createUser', async (req, res) => {
+  try {
+    const { username, password, role, name, email, phone, assignedTo } = req.body;
+    
+    // Validate required fields
+    if (!username || !password || !role) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Username, password, and role are required' 
+      });
+    }
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Username already exists' 
+      });
+    }
+    
+    const newUser = new User({
+      username: username.toLowerCase(),
+      password: password, // In production, this should be hashed
+      role: role,
+      name: name || username,
+      email: email || '',
+      phone: phone || '',
+      assignedTo: assignedTo || null,
+      accountName: name || username,
+      date: new Date()
+    });
+    
+    await newUser.save();
+    
+    // Return user without password
+    const userResponse = { ...newUser.toObject() };
+    delete userResponse.password;
+    
+    console.log('✅ Created user:', username, 'with role:', role);
+    res.json({ success: true, message: 'User created successfully', data: userResponse });
+  } catch (error) {
+    console.error('❌ Create user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update User
+app.put('/updateUser/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = { ...req.body };
+    
+    // Remove password from update data if empty
+    if (!updateData.password) {
+      delete updateData.password;
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('✅ Updated user:', updatedUser.username);
+    res.json({ success: true, message: 'User updated successfully', data: updatedUser });
+  } catch (error) {
+    console.error('❌ Update user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete User
+app.delete('/deleteUser/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedUser = await User.findByIdAndDelete(id);
+    
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('✅ Deleted user:', deletedUser.username);
+    res.json({ success: true, message: 'User deleted successfully', data: deletedUser });
+  } catch (error) {
+    console.error('❌ Delete user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get Driver Allocations
 app.get('/getAllocation', async (req, res) => {
   try {
@@ -296,30 +387,20 @@ app.get('/test', (req, res) => {
   res.json({ success: true, message: 'Mobile backend server is running!' });
 });
 
-// Root endpoint to identify the service - MUST BE I-TRACK BACKEND
+// Root endpoint to identify the service
 app.get('/', (req, res) => {
   res.json({ 
-    service: 'I-TRACK-MOBILE-BACKEND-API-v2.0',
-    application: 'I-Track Vehicle Tracking System',
-    type: 'Node.js Express API Server',
+    service: 'I-Track Mobile Backend API',
     version: '2.0.0',
-    status: 'ACTIVE',
-    deployment: 'render-nodejs-fixed',
-    repository: 'vperalta-git/itrack-backend',
-    api_endpoints: {
+    status: 'active',
+    deployment: 'render-nodejs',
+    endpoints: {
       health: '/health',
       config: '/api/config',
       mobile_config: '/api/mobile-config',
-      test: '/test',
-      login: '/login',
-      vehicles: '/getAllocation',
-      inventory: '/getStock',
-      users: '/getUsers'
+      test: '/test'
     },
-    database: 'MongoDB Atlas Connected',
-    maps: 'OpenStreetMap Integration',
-    timestamp: new Date().toISOString(),
-    message: 'This is the I-Track Mobile Backend API - NOT a React app!'
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -327,13 +408,9 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    service: 'I-TRACK-BACKEND-NODEJS-API',
-    application: 'I-Track Vehicle Tracking',
+    service: 'itrack-backend-nodejs',
     version: '2.0.0',
-    deployment: 'render-nodejs-verified',
-    server_type: 'Node.js Express API (NOT React HTML)',
-    database_status: 'MongoDB Atlas Connected',
-    api_ready: true,
+    deployment: 'render-fixed',
     timestamp: new Date().toISOString() 
   });
 });

@@ -1253,17 +1253,12 @@ export default function AdminDashboard() {
 
           // Update vehicle status in inventory
           const inventoryUpdateData = {
-            unitName: vehicle.unitName,
-            unitId: vehicle.unitId,
-            bodyColor: vehicle.bodyColor,
-            variation: vehicle.variation,
-            quantity: vehicle.quantity || 1,
             status: 'Assigned to Dispatch'
           };
           
           console.log('📋 Updating inventory with data:', inventoryUpdateData);
           
-          const inventoryResponse = await fetch(buildApiUrl(`/api/inventory/${vehicle._id}`), {
+          const inventoryResponse = await fetch(buildApiUrl(`/updateStock/${vehicle._id}`), {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
