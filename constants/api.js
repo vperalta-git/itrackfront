@@ -1,18 +1,20 @@
 // Enhanced API Configuration for I-Track Mobile App
-// Dynamically fetches server configuration from the backend
+// RENDER-FIRST approach for universal network access
 
-// Known server endpoints to try for initial configuration
-const INITIAL_SERVER_URLS = [
-  'https://itrack-backend.onrender.com',   // Production server
-  'http://192.168.254.147:5000',           // Current network
-  'http://localhost:5000',                 // Local development
-  'http://127.0.0.1:5000',                 // Loopback
-  'http://192.168.1.147:5000',             // Common home network
-  'http://192.168.0.147:5000',             // Another common range
-  'http://192.168.43.147:5000',            // Mobile hotspot
-  'http://192.168.100.147:5000',           // Corporate range
-  'http://10.0.0.147:5000',                // Another range
-  'http://172.16.0.147:5000',              // Corporate network
+// RENDER-FIRST server priority - works on any WiFi network
+const RENDER_FIRST_URLS = [
+  'https://itrack-backend.onrender.com',   // 🥇 ALWAYS TRY RENDER FIRST
+  'https://itrack-backend.onrender.com',   // 🥇 RETRY RENDER (important!)
+  'http://192.168.254.147:5000',           // 🥈 Local fallback 1
+  'http://10.97.63.190:5000',              // 🥈 Local fallback 2 (your phone's network)
+  'http://localhost:5000',                 // 🥉 Local development
+  'http://127.0.0.1:5000',                 // 🥉 Loopback
+  'http://192.168.1.147:5000',             // 🔄 Common network ranges
+  'http://192.168.0.147:5000',
+  'http://192.168.43.147:5000',
+  'http://192.168.100.147:5000',
+  'http://10.0.0.147:5000',
+  'http://172.16.0.147:5000',
 ];
 
 // Global configuration state
@@ -51,8 +53,10 @@ const DEFAULT_ENDPOINTS = {
 // Test server connectivity with health check
 const testServerConnection = async (url) => {
   try {
+    console.log(`🔍 Testing: ${url}`);
+    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
     const response = await fetch(`${url}/health`, {
       method: 'GET',
@@ -64,78 +68,121 @@ const testServerConnection = async (url) => {
     });
     
     clearTimeout(timeoutId);
-    return response.ok;
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`✅ ${url} is healthy`);
+      return true;
+    }
+    
+    console.log(`❌ ${url} returned status ${response.status}`);
+    return false;
   } catch (error) {
-    console.log(`❌ Connection test failed for ${url}:`, error.message);
+    if (error.name === 'AbortError') {
+      console.log(`⏱️ ${url} timed out`);
+    } else {
+      console.log(`❌ ${url} failed: ${error.message}`);
+    }
     return false;
   }
 };
 
 // Find the first working server and fetch its configuration
 const discoverServerConfig = async () => {
-  console.log('🔍 Discovering available server...');
+  console.log('🔍 Discovering server... RENDER FIRST approach');
   
-  for (const url of INITIAL_SERVER_URLS) {
+  for (const url of RENDER_FIRST_URLS) {
     console.log(`⏳ Testing server: ${url}`);
     
     try {
-      // Test basic connectivity
-      const isHealthy = await testServerConnection(url);
-      if (!isHealthy) continue;
+      // Test basic connectivity with longer timeout for Render
+      const timeout = url.includes('render.com') ? 10000 : 5000; // 10s for Render, 5s for local
       
-      // Fetch dynamic configuration
-      const configResponse = await fetch(`${url}/api/config`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      const healthResponse = await fetch(`${url}/health`, {
         method: 'GET',
+        signal: controller.signal,
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        timeout: 5000,
       });
       
-      if (configResponse.ok) {
-        const config = await configResponse.json();
-        
-        if (config.success) {
-          console.log(`✅ Server discovered: ${url}`);
-          console.log(`🌐 Environment: ${config.environment}`);
-          console.log(`📍 Server IP: ${config.serverInfo.primaryIP}`);
-          
-          CURRENT_SERVER_URL = url;
-          API_CONFIG = {
-            serverUrl: url,
-            ...config
-          };
-          
-          return API_CONFIG;
-        }
+      clearTimeout(timeoutId);
+      
+      if (!healthResponse.ok) {
+        console.log(`❌ Health check failed for ${url}: ${healthResponse.status}`);
+        continue;
       }
+      
+      // Try to fetch mobile config (simpler endpoint)
+      try {
+        const configResponse = await fetch(`${url}/api/mobile-config`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          timeout: timeout,
+        });
+        
+        if (configResponse.ok) {
+          const config = await configResponse.json();
+          
+          if (config.success) {
+            console.log(`✅ Server discovered: ${url}`);
+            console.log(`🌐 Server URL: ${config.serverUrl}`);
+            console.log(`🏷️ Environment: ${config.environment}`);
+            
+            CURRENT_SERVER_URL = config.serverUrl || url; // Use recommended server URL
+            API_CONFIG = {
+              serverUrl: CURRENT_SERVER_URL,
+              environment: config.environment,
+              fallbacks: config.fallbacks || [],
+              ...config
+            };
+            
+            return API_CONFIG;
+          }
+        }
+      } catch (configError) {
+        console.log(`❌ Config fetch failed for ${url}, but health OK - using as fallback`);
+        // If health check passed but config failed, still use this server
+        CURRENT_SERVER_URL = url;
+        API_CONFIG = {
+          serverUrl: url,
+          environment: 'unknown',
+          fallbacks: []
+        };
+        return API_CONFIG;
+      }
+      
     } catch (error) {
-      console.log(`❌ Config fetch failed for ${url}:`, error.message);
+      console.log(`❌ Failed to connect to ${url}:`, error.message);
       continue;
     }
   }
   
-  // Fallback to first URL if no server responds with config
-  console.warn('⚠️ No server responded with config, using fallback');
-  CURRENT_SERVER_URL = INITIAL_SERVER_URLS[0];
+  // If all servers failed, use Render as last resort
+  console.warn('⚠️ All servers failed, forcing Render as last resort');
+  CURRENT_SERVER_URL = 'https://itrack-backend.onrender.com';
   API_CONFIG = {
     serverUrl: CURRENT_SERVER_URL,
-    environment: 'unknown',
-    apiUrls: {
-      recommended: CURRENT_SERVER_URL
-    }
+    environment: 'production',
+    fallbacks: []
   };
   
   return API_CONFIG;
 };
 
-// Get current API base URL
+// Get current API base URL - ALWAYS prioritize configured server URL
 export const getApiBaseUrl = () => {
-  if (API_CONFIG) {
-    return API_CONFIG.apiUrls?.recommended || API_CONFIG.serverUrl || CURRENT_SERVER_URL;
+  if (API_CONFIG && API_CONFIG.serverUrl) {
+    return API_CONFIG.serverUrl;
   }
-  return CURRENT_SERVER_URL || INITIAL_SERVER_URLS[0];
+  return CURRENT_SERVER_URL || 'https://itrack-backend.onrender.com'; // Default to Render
 };
 
 // Build full API URL for endpoint
