@@ -34,13 +34,33 @@ jobs:
       run: npm install
       
     - name: Install Expo CLI
-      run: npm install -g @expo/cli@latest
-      
+      run: |
+        npm install -g @expo/cli@latest
+        npx expo --version
+        
+    - name: Debug - Check app.json
+      run: |
+        echo "=== App.json contents ==="
+        cat app.json
+        echo "=== Package.json expo version ==="
+        cat package.json | grep expo
+        
     - name: Ensure android folder is clean
       run: rm -rf android
       
     - name: Prebuild for Android (create android folder)
-      run: npx expo prebuild --platform android --clear --non-interactive
+      run: |
+        echo "Starting prebuild..."
+        npx expo prebuild --platform android --npm
+        echo "Prebuild completed. Checking android folder..."
+        ls -la
+        if [ -d "android" ]; then
+          echo "✅ Android folder created successfully!"
+          ls -la android/
+        else
+          echo "❌ Android folder not created!"
+          exit 1
+        fi
       
     - name: Grant execute permissions to gradlew
       run: chmod +x android/gradlew
