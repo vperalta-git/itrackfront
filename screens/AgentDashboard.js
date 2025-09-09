@@ -14,6 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { Picker } from "@react-native-picker/picker";
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
 
@@ -23,6 +24,7 @@ const TAB_DASHBOARD = "Dashboard";
 const TAB_REPORTS = "Reports";
 const TAB_VEHICLE_STOCKS = "Vehicle Stocks";
 const TAB_VEHICLE_PREP = "Vehicle Preparation";
+const TAB_VEHICLE_TRACKING = "Vehicle Tracking";
 
 const STATUS_COLORS = {
   "In Progress": "#CB1E2A", // Red
@@ -55,6 +57,8 @@ export default function AgentDashboard() {
   const [reports, setReports] = useState([]);
   const [vehicleStocks, setVehicleStocks] = useState([]);
   const [vehiclePreps, setVehiclePreps] = useState([]);
+  const [agentAllocations, setAgentAllocations] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -123,11 +127,12 @@ export default function AgentDashboard() {
       }
 
       // Fetch all data in parallel for better performance
-      const [vehiclesResponse, reportsResponse, stocksResponse, prepResponse] = await Promise.all([
+      const [vehiclesResponse, reportsResponse, stocksResponse, prepResponse, allocationsResponse] = await Promise.all([
         safeFetchJSON(buildApiUrl('/api/dispatch/assignments')),
         safeFetchJSON(buildApiUrl('/getRequest')),
         safeFetchJSON(buildApiUrl('/getStock')),
-        safeFetchJSON(buildApiUrl('/getCompletedRequests'))
+        safeFetchJSON(buildApiUrl('/getCompletedRequests')),
+        safeFetchJSON(buildApiUrl('/getAllocation'))
       ]);
 
       if (vehiclesResponse?.success && vehiclesResponse?.data) {
@@ -151,12 +156,63 @@ export default function AgentDashboard() {
         }));
       }
 
+      // Filter allocations for this agent
+      if (allocationsResponse?.success && allocationsResponse?.data) {
+        const currentAgentName = await AsyncStorage.getItem("accountName");
+        const agentSpecificAllocations = allocationsResponse.data.filter(allocation => 
+          allocation.allocatedBy === currentAgentName || 
+          allocation.assignedTo === currentAgentName ||
+          allocation.assignedDriver === currentAgentName
+        );
+        setAgentAllocations(agentSpecificAllocations);
+        
+        // Load vehicle locations for agent's vehicles
+        if (agentSpecificAllocations.length > 0) {
+          await loadAgentVehicleLocations(agentSpecificAllocations);
+        }
+      }
+
     } catch (err) {
       console.error("Error fetching data:", err);
       Alert.alert("Error", "Failed to load dashboard data. Please check your connection and try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Load vehicle locations for agent's assigned vehicles
+  const loadAgentVehicleLocations = async (allocations) => {
+    try {
+      const allocationsWithLocations = await Promise.all(
+        allocations.map(async (allocation) => {
+          try {
+            const response = await fetch(buildApiUrl(`/vehicles/${allocation.unitId || allocation._id}`));
+            if (response.ok) {
+              const vehicle = await response.json();
+              if (vehicle.location) {
+                return {
+                  ...allocation,
+                  location: {
+                    latitude: vehicle.location.lat,
+                    longitude: vehicle.location.lng,
+                  }
+                };
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to load location for vehicle:', allocation.unitName);
+          }
+          return allocation;
+        })
+      );
+      
+      setAgentAllocations(allocationsWithLocations);
+      if (allocationsWithLocations.length > 0) {
+        setSelectedVehicle(allocationsWithLocations[0]);
+      }
+    } catch (error) {
+      console.error('Error loading vehicle locations:', error);
     }
   };
 
@@ -229,6 +285,7 @@ export default function AgentDashboard() {
       { key: TAB_REPORTS, label: "Reports", icon: "📈" },
       { key: TAB_VEHICLE_STOCKS, label: "Inventory", icon: "🚗" },
       { key: TAB_VEHICLE_PREP, label: "Preparation", icon: "🔧" },
+      { key: TAB_VEHICLE_TRACKING, label: "My Vehicles", icon: "📍" },
     ];
 
     return (
@@ -793,6 +850,157 @@ export default function AgentDashboard() {
                 </View>
               )}
             </View>
+          </ScrollView>
+        );
+
+      case TAB_VEHICLE_TRACKING:
+        return (
+          <ScrollView style={styles.tabContent}>
+            {/* Header */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>My Vehicle Tracking</Text>
+              <Text style={styles.sectionSubtitle}>
+                Track real-time locations of vehicles assigned to you
+              </Text>
+            </View>
+
+            {/* Map View */}
+            {agentAllocations.length > 0 ? (
+              <View style={styles.mapSection}>
+                <MapView
+                  provider={PROVIDER_DEFAULT}
+                  style={styles.agentMap}
+                  region={{
+                    latitude: selectedVehicle?.location?.latitude || 14.5791,
+                    longitude: selectedVehicle?.location?.longitude || 121.0655,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }}
+                  onMapReady={() => console.log('Agent map ready')}
+                  onError={(error) => {
+                    console.error('Agent map error:', error);
+                    Alert.alert('Map Error', 'Failed to load map. Please try again.');
+                  }}
+                >
+                  {agentAllocations
+                    .filter(allocation => allocation.location)
+                    .map((allocation, index) => (
+                      <Marker
+                        key={allocation._id || index}
+                        coordinate={allocation.location}
+                        title={`${allocation.unitName} (${allocation.variation || 'N/A'})`}
+                        description={`Driver: ${allocation.assignedDriver || 'Not assigned'}`}
+                        pinColor="#CB1E2A"
+                        onPress={() => setSelectedVehicle(allocation)}
+                      />
+                    ))}
+                </MapView>
+
+                {/* Map Legend */}
+                <View style={styles.mapLegend}>
+                  <Text style={styles.legendTitle}>🚗 My Assigned Vehicles</Text>
+                  <Text style={styles.legendText}>
+                    Showing {agentAllocations.filter(a => a.location).length} of {agentAllocations.length} vehicles with GPS data
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.emptyMapState}>
+                <Text style={styles.emptyMapTitle}>📍 No Vehicles Assigned</Text>
+                <Text style={styles.emptyMapText}>
+                  You don't have any vehicles assigned to you yet. Vehicle assignments will appear here when they're allocated.
+                </Text>
+              </View>
+            )}
+
+            {/* Vehicle List */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>My Assigned Vehicles</Text>
+              
+              {agentAllocations.length > 0 ? (
+                agentAllocations.map((allocation, index) => (
+                  <TouchableOpacity
+                    key={allocation._id || index}
+                    style={[
+                      styles.vehicleTrackingCard,
+                      selectedVehicle?._id === allocation._id && styles.selectedVehicleCard
+                    ]}
+                    onPress={() => setSelectedVehicle(allocation)}
+                  >
+                    <View style={styles.vehicleCardHeader}>
+                      <Text style={styles.vehicleTrackingName}>
+                        {allocation.unitName || 'Unknown Vehicle'}
+                      </Text>
+                      <View style={[
+                        styles.trackingStatusBadge,
+                        { backgroundColor: allocation.location ? '#22C55E' : '#6B7280' }
+                      ]}>
+                        <Text style={styles.trackingStatusText}>
+                          {allocation.location ? '📍 GPS Active' : '📍 No GPS'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.vehicleCardContent}>
+                      <View style={styles.vehicleInfoRow}>
+                        <Text style={styles.vehicleInfoLabel}>Unit ID:</Text>
+                        <Text style={styles.vehicleInfoValue}>
+                          {allocation.unitId || 'N/A'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.vehicleInfoRow}>
+                        <Text style={styles.vehicleInfoLabel}>Driver:</Text>
+                        <Text style={styles.vehicleInfoValue}>
+                          {allocation.assignedDriver || 'Not assigned'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.vehicleInfoRow}>
+                        <Text style={styles.vehicleInfoLabel}>Status:</Text>
+                        <Text style={styles.vehicleInfoValue}>
+                          {allocation.status || 'Unknown'}
+                        </Text>
+                      </View>
+
+                      {allocation.location && (
+                        <View style={styles.vehicleInfoRow}>
+                          <Text style={styles.vehicleInfoLabel}>Location:</Text>
+                          <Text style={styles.vehicleInfoValue}>
+                            {allocation.location.latitude.toFixed(4)}, {allocation.location.longitude.toFixed(4)}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.vehicleInfoRow}>
+                        <Text style={styles.vehicleInfoLabel}>Date Assigned:</Text>
+                        <Text style={styles.vehicleInfoValue}>
+                          {new Date(allocation.date || allocation.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No vehicles assigned</Text>
+                  <Text style={styles.emptyStateText}>
+                    When vehicles are assigned to you, they will appear here for tracking.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Refresh Button */}
+            <TouchableOpacity 
+              style={styles.refreshTrackingButton} 
+              onPress={() => {
+                console.log('Refreshing agent vehicle tracking...');
+                fetchAllData();
+              }}
+            >
+              <Text style={styles.refreshTrackingText}>🔄 Refresh Tracking</Text>
+            </TouchableOpacity>
           </ScrollView>
         );
 

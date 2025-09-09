@@ -1214,4 +1214,158 @@ export default StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+
+  // Vehicle Tracking Styles
+  mapSection: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  agentMap: {
+    height: 250,
+    width: '100%',
+  },
+
+  mapLegend: {
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+
+  legendText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+
+  emptyMapState: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 20,
+    padding: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  emptyMapTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+
+  emptyMapText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  vehicleTrackingCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
+  selectedVehicleCard: {
+    borderColor: '#CB1E2A',
+    borderWidth: 2,
+    shadowColor: '#CB1E2A',
+    shadowOpacity: 0.2,
+  },
+
+  vehicleCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  vehicleTrackingName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+  },
+
+  trackingStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  trackingStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  vehicleCardContent: {
+    gap: 8,
+  },
+
+  vehicleInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  vehicleInfoLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  vehicleInfoValue: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 8,
+  },
+
+  refreshTrackingButton: {
+    backgroundColor: '#CB1E2A',
+    marginHorizontal: 16,
+    marginVertical: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  refreshTrackingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
