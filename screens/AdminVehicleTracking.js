@@ -34,35 +34,74 @@ export default function AdminVehicleTracking() {
 
   const fetchVehicleLocation = async (unitId) => {
     try {
+      console.log('📍 Fetching location for vehicle:', unitId);
       const res = await fetch(`${API_URL}/vehicles/${unitId}`);
+      
+      if (!res.ok) {
+        console.warn('⚠️ Vehicle location not found for:', unitId);
+        return null;
+      }
+      
       const vehicle = await res.json();
-      return vehicle.location
-        ? {
-            ...vehicle,
-            lat: vehicle.location.lat,
-            lng: vehicle.location.lng,
-          }
-        : null;
-    } catch {
+      
+      if (vehicle.location && vehicle.location.lat && vehicle.location.lng) {
+        return {
+          ...vehicle,
+          lat: vehicle.location.lat,
+          lng: vehicle.location.lng,
+        };
+      } else {
+        console.warn('⚠️ Invalid location data for vehicle:', unitId);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error fetching vehicle location:', error);
       return null;
     }
   };
 
   const loadAllLocations = async () => {
+    if (allocations.length === 0) {
+      console.log('📍 No allocations to load locations for');
+      return;
+    }
+    
     setLoading(true);
-    const results = await Promise.all(
-      allocations.map(async (a) => {
-        const loc = await fetchVehicleLocation(a.unitId);
-        return loc
-          ? {
+    console.log('📍 Loading locations for', allocations.length, 'vehicles');
+    
+    try {
+      const results = await Promise.all(
+        allocations.map(async (a) => {
+          if (!a.unitId) {
+            console.warn('⚠️ Vehicle missing unitId:', a.unitName);
+            return null;
+          }
+          
+          const loc = await fetchVehicleLocation(a.unitId);
+          if (loc && loc.lat && loc.lng) {
+            return {
               ...a,
               location: { latitude: loc.lat, longitude: loc.lng },
-            }
-          : null;
-      })
-    );
-    setAllocations(results.filter(Boolean));
-    setLoading(false);
+            };
+          } else {
+            console.warn('⚠️ No valid location for vehicle:', a.unitName);
+            return null;
+          }
+        })
+      );
+      
+      const validResults = results.filter(Boolean);
+      console.log('📍 Successfully loaded', validResults.length, 'vehicle locations');
+      setAllocations(validResults);
+      
+      if (validResults.length > 0 && !selectedVehicle) {
+        setSelectedVehicle(validResults[0]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading vehicle locations:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -94,16 +133,23 @@ export default function AdminVehicleTracking() {
               latitudeDelta: 0.05,
               longitudeDelta: 0.05,
             }}
+            onMapReady={() => console.log('✅ Map loaded successfully')}
+            onError={(error) => console.error('❌ Map error:', error)}
           >
-            {allocations.map((v, index) => (
-              <Marker
-                key={index}
-                coordinate={v.location}
-                title={`${v.unitName} (${v.variation})`}
-                description={`Driver: ${v.assignedDriver}`}
-                pinColor="blue"
-              />
-            ))}
+            {allocations
+              .filter(v => v.location && v.location.latitude && v.location.longitude)
+              .map((v, index) => (
+                <Marker
+                  key={v._id || index}
+                  coordinate={{
+                    latitude: v.location.latitude,
+                    longitude: v.location.longitude
+                  }}
+                  title={`${v.unitName || 'Unknown'} (${v.variation || 'N/A'})`}
+                  description={`Driver: ${v.assignedDriver || 'Unassigned'}`}
+                  pinColor="blue"
+                />
+              ))}
           </MapView>
 
           <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
@@ -111,17 +157,24 @@ export default function AdminVehicleTracking() {
           </TouchableOpacity>
 
           <ScrollView style={styles.list}>
-            {allocations.map((item) => (
-              <TouchableOpacity
-                key={item._id}
-                style={styles.vehicleItem}
-                onPress={() => setSelectedVehicle(item)}
-              >
-                <Text style={styles.vehicleText}>
-                  {item.unitName} ({item.variation}) — {item.assignedDriver}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {allocations.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No vehicles currently tracked</Text>
+                <Text style={styles.emptySubtext}>Vehicles assigned to dispatch will appear here</Text>
+              </View>
+            ) : (
+              allocations.map((item) => (
+                <TouchableOpacity
+                  key={item._id}
+                  style={styles.vehicleItem}
+                  onPress={() => setSelectedVehicle(item)}
+                >
+                  <Text style={styles.vehicleText}>
+                    {item.unitName} ({item.variation}) — {item.assignedDriver}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </>
       )}
@@ -168,5 +221,21 @@ const styles = StyleSheet.create({
   vehicleText: {
     fontSize: 14,
     color: '#333',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 5,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
   },
 });

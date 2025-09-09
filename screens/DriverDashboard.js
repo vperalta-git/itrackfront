@@ -351,6 +351,8 @@ export default function DriverDashboard() {
               showsMyLocationButton={true}
               showsCompass={true}
               mapType="standard"
+              onMapReady={() => console.log('✅ Driver map loaded successfully')}
+              onError={(error) => console.error('❌ Driver map error:', error)}
             >
               {/* Destination Marker */}
               <Marker 
