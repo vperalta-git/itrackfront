@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -17,11 +16,6 @@
       "bundleIdentifier": "com.acmobility.itrack",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "config": {
-        "googleSignIn": {
-          "reservedClientId": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
-        }
       }
     },
     "android": {
@@ -35,13 +29,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "INTERNET"
-      ],
-      "config": {
-        "googleSignIn": {
-          "apiKey": "YOUR_ANDROID_API_KEY",
-          "certificateHash": "YOUR_CERTIFICATE_SHA1_HASH"
-        }
-      }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

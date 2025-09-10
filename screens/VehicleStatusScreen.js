@@ -8,7 +8,7 @@ export default function VehicleStatusScreen() {
 
   const fetchVehicles = async () => {
     try {
-      const res = await fetch('http://itrack-backend-1.onrender.com/vehicles');
+      const res = await fetch('https://itrack-backend-1.onrender.com/vehicles');
       const data = await res.json();
       setVehicles(data);
     } catch (err) {
@@ -19,7 +19,7 @@ export default function VehicleStatusScreen() {
 
   const updateStatus = async (vin, stage) => {
     try {
-      const res = await fetch(`http://itrack-backend-1.onrender.com/vehicles/${vin}/update-status`, {
+      const res = await fetch(`https://itrack-backend-1.onrender.com/vehicles/${vin}/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage }),

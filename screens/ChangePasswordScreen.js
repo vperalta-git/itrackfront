@@ -17,7 +17,7 @@ export default function ChangePasswordScreen() {
     }
 
     try {
-      const res = await fetch('http://itrack-backend-1.onrender.com/admin/change-password', {
+      const res = await fetch('https://itrack-backend-1.onrender.com/admin/change-password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

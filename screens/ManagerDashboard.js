@@ -6,7 +6,7 @@ const ManagerDashboard = () => {
 
   const fetchSalesAgents = async () => {
     try {
-      const res = await fetch(`http://itrack-backend-1.onrender.com/manager/${userId}/salesAgents`);
+      const res = await fetch(`https://itrack-backend-1.onrender.com/manager/${userId}/salesAgents`);
       const data = await res.json();
       setSalesAgents(data);
     } catch (err) {

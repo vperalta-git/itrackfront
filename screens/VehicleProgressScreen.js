@@ -6,7 +6,7 @@ export default function VehicleProgressScreen() {
 
   const fetchVehicles = async () => {
     try {
-      const res = await fetch('http://itrack-backend-1.onrender.com/vehicles');
+      const res = await fetch('https://itrack-backend-1.onrender.com/vehicles');
       const data = await res.json();
       setVehicles(data);
     } catch (err) {

@@ -14,18 +14,15 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
-import * as Location from "expo-location";
 import { buildApiUrl } from '../constants/api';
+import DriverMapsView from '../components/DriverMapsView';
 
-const DESTINATION_COORDS = { latitude: 14.5791, longitude: 121.0655 }; // Isuzu Pasig
 const { width, height } = Dimensions.get('window');
 
 export default function DriverDashboard() {
   const navigation = useNavigation();
   const [driverAllocations, setDriverAllocations] = useState([]);
   const [selectedAllocation, setSelectedAllocation] = useState(null);
-  const [currentLocation, setCurrentLocation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -87,47 +84,6 @@ export default function DriverDashboard() {
       fetchDriverAllocations();
     }
   }, [driverName, fetchDriverAllocations]);
-
-  // Location tracking
-  useEffect(() => {
-    let locationSubscription;
-    
-    const startLocationTracking = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert("Permission Denied", "Location permission is required for tracking.");
-          return;
-        }
-
-        locationSubscription = await Location.watchPositionAsync(
-          { 
-            accuracy: Location.Accuracy.High, 
-            timeInterval: 10000, // Update every 10 seconds
-            distanceInterval: 50 // Update every 50 meters
-          },
-          (location) => {
-            const coords = {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            };
-            setCurrentLocation(coords);
-          }
-        );
-      } catch (error) {
-        console.error("Location setup error:", error);
-        Alert.alert("Location Error", "Failed to set up location tracking.");
-      }
-    };
-
-    startLocationTracking();
-
-    return () => {
-      if (locationSubscription) {
-        locationSubscription.remove();
-      }
-    };
-  }, []);
 
   // Update allocation status
   const updateAllocationStatus = async (id, newStatus) => {
@@ -330,71 +286,8 @@ export default function DriverDashboard() {
 
         {/* Right: Map + Details */}
         <View style={[styles.mapAndStatus, !showShipments && styles.mapExpanded]}>
-          {/* Map Container */}
-          <View style={styles.mapContainer}>
-            <MapView
-              provider={PROVIDER_DEFAULT}
-              style={styles.map}
-              initialRegion={{
-                latitude: DESTINATION_COORDS.latitude,
-                longitude: DESTINATION_COORDS.longitude,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1,
-              }}
-              region={currentLocation ? {
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              } : undefined}
-              showsUserLocation={true}
-              showsMyLocationButton={true}
-              showsCompass={true}
-              mapType="standard"
-              onMapReady={() => console.log('✅ Driver map loaded successfully')}
-              onError={(error) => console.error('❌ Driver map error:', error)}
-            >
-              {/* Destination Marker */}
-              <Marker 
-                coordinate={DESTINATION_COORDS} 
-                title="Isuzu Pasig Dealership"
-                description="Final delivery destination"
-                pinColor="red"
-              />
-              
-              {/* Current Location Marker */}
-              {currentLocation && (
-                <Marker 
-                  coordinate={currentLocation} 
-                  title="Your Location"
-                  description="Current driver position"
-                  pinColor="blue"
-                />
-              )}
-              
-              {/* Route Line */}
-              {currentLocation && (
-                <Polyline 
-                  coordinates={[currentLocation, DESTINATION_COORDS]} 
-                  strokeColor="#CB1E2A"
-                  strokeWidth={3}
-                  lineDashPattern={[5, 5]}
-                />
-              )}
-            </MapView>
-            
-            {/* Location Info Overlay */}
-            {currentLocation && (
-              <View style={styles.mapLocationOverlay}>
-                <Text style={styles.mapLocationText}>
-                  📍 Your Location: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-                </Text>
-                <Text style={styles.mapLocationText}>
-                  🏭 Destination: Isuzu Pasig Dealership
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Integrated Driver Maps */}
+          <DriverMapsView style={styles.mapContainer} />
 
           {/* Assignment Details */}
           <View style={styles.statusTimeline}>

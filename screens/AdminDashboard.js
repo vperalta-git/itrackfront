@@ -18,6 +18,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
+import AdminMapsView from '../components/AdminMapsView';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -1607,6 +1608,14 @@ export default function AdminDashboard() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity 
+              style={[styles.tab, currentTab === 'maps' && styles.activeTab]}
+              onPress={() => setCurrentTab('maps')}
+            >
+              <Text style={[styles.tabText, currentTab === 'maps' && styles.activeTabText]}>
+                🗺️ Maps
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
               style={[styles.tab, currentTab === 'release' && styles.activeTab]}
               onPress={() => setCurrentTab('release')}
             >
@@ -1628,6 +1637,7 @@ export default function AdminDashboard() {
           {currentTab === 'dashboard' ? renderDashboardContent() : 
            currentTab === 'inventory' ? renderInventoryContent() : 
            currentTab === 'dispatch' ? renderDispatchAssignmentContent() :
+           currentTab === 'maps' ? <AdminMapsView style={{ flex: 1, minHeight: 500 }} /> :
            currentTab === 'release' ? renderReleaseContent() :
            renderReportsContent()}
         </View>

@@ -8,7 +8,7 @@ const SupervisorDashboard = () => {
 
   const fetchManagers = async () => {
     try {
-      const res = await fetch(`http://itrack-backend-1.onrender.com/supervisor/${userId}/managers`);
+      const res = await fetch(`https://itrack-backend-1.onrender.com/supervisor/${userId}/managers`);
       const data = await res.json();
       setManagers(data);
     } catch (err) {
