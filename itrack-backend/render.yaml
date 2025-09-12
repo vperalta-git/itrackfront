@@ -3,11 +3,17 @@ services:
     name: itrack-backend
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm audit fix
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: MONGODB_URI
+        value: mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0
     healthCheckPath: /health
+    disk:
+      name: itrack-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
