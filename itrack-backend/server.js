@@ -116,12 +116,13 @@ const CompletedRequestSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // ================== MODELS ==================
-const User = mongoose.model('User', UserSchema);
-const DriverAllocation = mongoose.model('DriverAllocation', DriverAllocationSchema);
-const Inventory = mongoose.model('Inventory', InventorySchema);
-const VehicleStock = mongoose.model('VehicleStock', VehicleStockSchema);
-const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema);
-const CompletedRequest = mongoose.model('CompletedRequest', CompletedRequestSchema);
+// Use existing models if already compiled, otherwise create new ones
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const DriverAllocation = mongoose.models.DriverAllocation || mongoose.model('DriverAllocation', DriverAllocationSchema);
+const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', InventorySchema);
+const VehicleStock = mongoose.models.VehicleStock || mongoose.model('VehicleStock', VehicleStockSchema);
+const ServiceRequest = mongoose.models.ServiceRequest || mongoose.model('ServiceRequest', ServiceRequestSchema);
+const CompletedRequest = mongoose.models.CompletedRequest || mongoose.model('CompletedRequest', CompletedRequestSchema);
 
 // ================== MOBILE APP ROUTES (Original Working) ==================
 
@@ -439,24 +440,24 @@ app.get('/api/config', (req, res) => {
       platform: os.platform()
     },
     apiUrls: {
-      production: 'https://itrack-backend.onrender.com',
+      production: 'https://itrack-backend-1.onrender.com',
       development: localIPs.map(ip => `http://${ip}:${port}`).concat([
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`
       ]),
       // ALWAYS prioritize Render for mobile app universal access
-      recommended: 'https://itrack-backend.onrender.com',
+      recommended: 'https://itrack-backend-1.onrender.com',
       // Priority order for mobile app discovery
       priority: [
-        'https://itrack-backend.onrender.com',  // 🥇 Always try Render first
-        `http://${primaryIP}:${port}`,          // 🥈 Local network fallback
-        `http://localhost:${port}`,             // 🥉 Local development fallback
+        'https://itrack-backend-1.onrender.com',  // 🥇 Always try Render first
+        `http://${primaryIP}:${port}`,            // 🥈 Local network fallback
+        `http://localhost:${port}`,               // 🥉 Local development fallback
         ...localIPs.map(ip => `http://${ip}:${port}`)
       ]
     },
     mobileAppConfig: {
       alwaysUseRender: true,
-      renderUrl: 'https://itrack-backend.onrender.com',
+      renderUrl: 'https://itrack-backend-1.onrender.com',
       fallbackUrls: localIPs.map(ip => `http://${ip}:${port}`).concat([
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`,
@@ -508,9 +509,9 @@ app.get('/api/config', (req, res) => {
     },
     features: {
       mapsSupported: true,
-      geocodingProvider: 'OpenStreetMap/Nominatim',
-      directionsProvider: 'OSRM',
-      nearbyPlacesProvider: 'Overpass API'
+      geocodingProvider: 'Google Maps API',
+      directionsProvider: 'Google Directions API',
+      nearbyPlacesProvider: 'Google Places API'
     },
     timestamp: new Date().toISOString()
   };
@@ -764,12 +765,13 @@ app.delete('/api/dispatch/assignments/:id', async (req, res) => {
   }
 });
 
-// ================== MAPS & GEOCODING ENDPOINTS (OpenStreetMap) ==================
+// ================== MAPS & GEOCODING ENDPOINTS (Google Maps API) ==================
 
-// Geocoding: Convert address to coordinates
+// Geocoding: Convert address to coordinates using Google Maps Geocoding API
 app.get('/api/maps/geocode', async (req, res) => {
   try {
     const { address } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!address) {
       return res.status(400).json({ 
@@ -778,24 +780,34 @@ app.get('/api/maps/geocode', async (req, res) => {
       });
     }
     
-    // Using Nominatim (OpenStreetMap) for geocoding
-    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5`;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google Maps API key not configured'
+      });
+    }
     
-    const response = await fetch(nominatimUrl, {
-      headers: {
-        'User-Agent': 'I-Track Mobile App v1.0'
-      }
-    });
+    // Using Google Maps Geocoding API
+    const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
     
+    const response = await fetch(googleUrl);
     const data = await response.json();
     
-    const results = data.map(item => ({
-      address: item.display_name,
-      latitude: parseFloat(item.lat),
-      longitude: parseFloat(item.lon),
-      importance: item.importance,
-      type: item.type,
-      class: item.class
+    if (data.status !== 'OK') {
+      return res.status(400).json({
+        success: false,
+        error: `Geocoding failed: ${data.status}`,
+        details: data.error_message
+      });
+    }
+    
+    const results = data.results.map(result => ({
+      address: result.formatted_address,
+      latitude: result.geometry.location.lat,
+      longitude: result.geometry.location.lng,
+      placeId: result.place_id,
+      types: result.types,
+      components: result.address_components
     }));
     
     res.json({
@@ -805,7 +817,7 @@ app.get('/api/maps/geocode', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error('Google Maps Geocoding error:', error);
     res.status(500).json({
       success: false,
       error: 'Geocoding service temporarily unavailable'
@@ -813,10 +825,11 @@ app.get('/api/maps/geocode', async (req, res) => {
   }
 });
 
-// Reverse Geocoding: Convert coordinates to address
+// Reverse Geocoding: Convert coordinates to address using Google Maps
 app.get('/api/maps/reverse-geocode', async (req, res) => {
   try {
     const { lat, lon } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!lat || !lon) {
       return res.status(400).json({ 
@@ -825,18 +838,29 @@ app.get('/api/maps/reverse-geocode', async (req, res) => {
       });
     }
     
-    // Using Nominatim for reverse geocoding
-    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google Maps API key not configured'
+      });
+    }
     
-    const response = await fetch(nominatimUrl, {
-      headers: {
-        'User-Agent': 'I-Track Mobile App v1.0'
-      }
-    });
+    // Using Google Maps Reverse Geocoding API
+    const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}`;
     
+    const response = await fetch(googleUrl);
     const data = await response.json();
     
-    if (data.error) {
+    if (data.status !== 'OK') {
+      return res.status(400).json({
+        success: false,
+        error: `Reverse geocoding failed: ${data.status}`,
+        details: data.error_message
+      });
+    }
+    
+    const result = data.results[0];
+    if (!result) {
       return res.status(404).json({
         success: false,
         error: 'No address found for these coordinates'
@@ -845,24 +869,18 @@ app.get('/api/maps/reverse-geocode', async (req, res) => {
     
     res.json({
       success: true,
-      address: data.display_name,
-      details: {
-        house_number: data.address?.house_number,
-        road: data.address?.road,
-        suburb: data.address?.suburb,
-        city: data.address?.city || data.address?.town || data.address?.village,
-        state: data.address?.state,
-        postcode: data.address?.postcode,
-        country: data.address?.country
-      },
+      address: result.formatted_address,
+      placeId: result.place_id,
+      types: result.types,
+      components: result.address_components,
       coordinates: {
-        latitude: parseFloat(data.lat),
-        longitude: parseFloat(data.lon)
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lon)
       }
     });
     
   } catch (error) {
-    console.error('Reverse geocoding error:', error);
+    console.error('Google Maps Reverse geocoding error:', error);
     res.status(500).json({
       success: false,
       error: 'Reverse geocoding service temporarily unavailable'
@@ -870,10 +888,11 @@ app.get('/api/maps/reverse-geocode', async (req, res) => {
   }
 });
 
-// Get route directions between two points
+// Get route directions between two points using Google Directions API
 app.get('/api/maps/directions', async (req, res) => {
   try {
-    const { start_lat, start_lon, end_lat, end_lon } = req.query;
+    const { start_lat, start_lon, end_lat, end_lon, mode = 'driving' } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!start_lat || !start_lon || !end_lat || !end_lon) {
       return res.status(400).json({ 
@@ -882,40 +901,59 @@ app.get('/api/maps/directions', async (req, res) => {
       });
     }
     
-    // Using OpenRouteService (free alternative to Google Directions)
-    // Note: For production, you might want to get an API key from openrouteservice.org
-    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${start_lon},${start_lat};${end_lon},${end_lat}?overview=full&geometries=geojson`;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google Maps API key not configured'
+      });
+    }
     
-    const response = await fetch(routeUrl);
+    // Using Google Directions API
+    const origin = `${start_lat},${start_lon}`;
+    const destination = `${end_lat},${end_lon}`;
+    const googleUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode}&key=${apiKey}`;
+    
+    const response = await fetch(googleUrl);
     const data = await response.json();
     
-    if (data.code !== 'Ok') {
-      return res.status(404).json({
+    if (data.status !== 'OK') {
+      return res.status(400).json({
         success: false,
-        error: 'No route found between these points'
+        error: `Directions failed: ${data.status}`,
+        details: data.error_message
       });
     }
     
     const route = data.routes[0];
+    const leg = route.legs[0];
     
     res.json({
       success: true,
       route: {
-        distance: route.distance, // in meters
-        duration: route.duration, // in seconds
-        geometry: route.geometry, // GeoJSON LineString
-        steps: route.legs[0]?.steps || []
+        distance: leg.distance.value, // in meters
+        duration: leg.duration.value, // in seconds
+        distance_text: leg.distance.text,
+        duration_text: leg.duration.text,
+        start_address: leg.start_address,
+        end_address: leg.end_address,
+        steps: leg.steps.map(step => ({
+          distance: step.distance.value,
+          duration: step.duration.value,
+          instruction: step.html_instructions.replace(/<[^>]*>/g, ''), // Remove HTML tags
+          maneuver: step.maneuver
+        })),
+        polyline: route.overview_polyline.points
       },
       summary: {
-        distance_km: (route.distance / 1000).toFixed(2),
-        duration_minutes: Math.round(route.duration / 60),
+        distance_km: (leg.distance.value / 1000).toFixed(2),
+        duration_minutes: Math.round(leg.duration.value / 60),
         start_coordinates: [parseFloat(start_lat), parseFloat(start_lon)],
         end_coordinates: [parseFloat(end_lat), parseFloat(end_lon)]
       }
     });
     
   } catch (error) {
-    console.error('Directions error:', error);
+    console.error('Google Maps Directions error:', error);
     res.status(500).json({
       success: false,
       error: 'Directions service temporarily unavailable'
@@ -923,10 +961,11 @@ app.get('/api/maps/directions', async (req, res) => {
   }
 });
 
-// Get nearby places (Points of Interest)
+// Get nearby places using Google Places API (Nearby Search)
 app.get('/api/maps/nearby', async (req, res) => {
   try {
-    const { lat, lon, radius = 1000, type = 'amenity' } = req.query;
+    const { lat, lon, radius = 1000, type = 'restaurant' } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!lat || !lon) {
       return res.status(400).json({ 
@@ -935,36 +974,46 @@ app.get('/api/maps/nearby', async (req, res) => {
       });
     }
     
-    // Using Overpass API for nearby places
-    const overpassUrl = 'https://overpass-api.de/api/interpreter';
-    const query = `
-      [out:json][timeout:25];
-      (
-        node["${type}"]["name"](around:${radius},${lat},${lon});
-      );
-      out geom;
-    `;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'Google Maps API key not configured'
+      });
+    }
     
-    const response = await fetch(overpassUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `data=${encodeURIComponent(query)}`
-    });
+    // Using Google Places API - Nearby Search
+    const location = `${lat},${lon}`;
+    const googleUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location}&radius=${radius}&type=${type}&key=${apiKey}`;
     
+    const response = await fetch(googleUrl);
     const data = await response.json();
     
-    const places = data.elements.map(element => ({
-      id: element.id,
-      name: element.tags.name,
-      type: element.tags[type],
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      return res.status(400).json({
+        success: false,
+        error: `Places search failed: ${data.status}`,
+        details: data.error_message
+      });
+    }
+    
+    const places = data.results.map(place => ({
+      id: place.place_id,
+      name: place.name,
+      rating: place.rating,
+      price_level: place.price_level,
+      types: place.types,
+      vicinity: place.vicinity,
       coordinates: {
-        latitude: element.lat,
-        longitude: element.lon
+        latitude: place.geometry.location.lat,
+        longitude: place.geometry.location.lng
       },
-      tags: element.tags
-    })).filter(place => place.name); // Only include places with names
+      photos: place.photos ? place.photos.map(photo => ({
+        reference: photo.photo_reference,
+        width: photo.width,
+        height: photo.height
+      })) : [],
+      open_now: place.opening_hours?.open_now
+    }));
     
     res.json({
       success: true,
@@ -972,15 +1021,16 @@ app.get('/api/maps/nearby', async (req, res) => {
       count: places.length,
       search_area: {
         center: { latitude: parseFloat(lat), longitude: parseFloat(lon) },
-        radius_meters: parseInt(radius)
+        radius_meters: parseInt(radius),
+        type: type
       }
     });
     
   } catch (error) {
-    console.error('Nearby places error:', error);
+    console.error('Google Maps Places error:', error);
     res.status(500).json({
       success: false,
-      error: 'Nearby places service temporarily unavailable'
+      error: 'Places search service temporarily unavailable'
     });
   }
 });

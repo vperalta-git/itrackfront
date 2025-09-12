@@ -1,9 +1,10 @@
 services:
   - type: web
-    name: itrack-backend
+    name: itrack-backend-api
     env: node
-    plan: free
-    buildCommand: npm install && npm audit fix
+    plan: starter
+    runtime: node
+    buildCommand: npm install --production
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
@@ -12,8 +13,7 @@ services:
         value: 10000
       - key: MONGODB_URI
         value: mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
     healthCheckPath: /health
-    disk:
-      name: itrack-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
+    autoDeploy: true
