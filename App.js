@@ -1,12 +1,6 @@
 //App.js
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigat      <Drawer.Screen 
-        name="HistoryScreen" 
-        component={HistoryScreen} 
-        options={{ title: 'System History' }} 
-      />
-    </Drawer.Navigator>
-  );
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
