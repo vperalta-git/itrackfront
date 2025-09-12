@@ -46,6 +46,10 @@ mongoose.connect(mongoURI, {
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// ================== ENHANCED USER ROUTES ==================
+const userRoutes = require('./routes/userRoutes');
+app.use('/api', userRoutes);
+
 // ================== SCHEMAS (Original Working Versions) ==================
 
 // User Schema

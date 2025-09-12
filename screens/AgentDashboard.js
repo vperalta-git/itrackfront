@@ -17,6 +17,7 @@ import { Picker } from "@react-native-picker/picker";
 import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
 import AgentMapsView from '../components/AgentMapsView';
+import ImprovedMapsView from '../components/ImprovedMapsView';
 
 import styles from "../styles/AgentDashboardStyles";
 
@@ -25,6 +26,7 @@ const TAB_REPORTS = "Reports";
 const TAB_VEHICLE_STOCKS = "Vehicle Stocks";
 const TAB_VEHICLE_PREP = "Vehicle Preparation";
 const TAB_VEHICLE_TRACKING = "Vehicle Tracking";
+const TAB_HISTORY = "History";
 
 const STATUS_COLORS = {
   "In Progress": "#CB1E2A", // Red
@@ -286,6 +288,7 @@ export default function AgentDashboard() {
       { key: TAB_VEHICLE_STOCKS, label: "Inventory", icon: "🚗" },
       { key: TAB_VEHICLE_PREP, label: "Preparation", icon: "🔧" },
       { key: TAB_VEHICLE_TRACKING, label: "My Vehicles", icon: "📍" },
+      { key: TAB_HISTORY, label: "History", icon: "📝" },
     ];
 
     return (
@@ -864,8 +867,12 @@ export default function AgentDashboard() {
               </Text>
             </View>
 
-            {/* Integrated Agent Maps */}
-            <AgentMapsView style={{ flex: 1, minHeight: 400 }} />
+            {/* Improved Maps Component */}
+            <ImprovedMapsView 
+              style={{ flex: 1, minHeight: 400 }} 
+              userRole="agent"
+              agentFilter={accountName}
+            />
 
             {/* Vehicle List */}
             <View style={styles.section}>
@@ -958,6 +965,25 @@ export default function AgentDashboard() {
           </View>
         );
 
+      case TAB_HISTORY:
+        return (
+          <View style={styles.tabContent}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>My Activity History</Text>
+              <Text style={styles.sectionSubtitle}>
+                View your vehicle allocations and activities
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => navigation.navigate('HistoryScreen')}
+              >
+                <Text style={styles.addButtonText}>📝 View Full History</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+
       default:
         return null;
     }
@@ -972,12 +998,20 @@ export default function AgentDashboard() {
             <Text style={styles.headerTitle}>I-Track Agent</Text>
             <Text style={styles.headerSubtitle}>Vehicle Management</Text>
           </View>
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={styles.modernLogoutBtn}
-          >
-            <Text style={styles.modernLogoutText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('UserProfile')}
+              style={styles.profileButton}
+            >
+              <Text style={styles.profileButtonText}>👤</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={styles.modernLogoutBtn}
+            >
+              <Text style={styles.modernLogoutText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 

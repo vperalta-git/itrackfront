@@ -30,6 +30,28 @@ export default StyleSheet.create({
     flex: 1,
   },
 
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#6B7280",
+  },
+
+  profileButtonText: {
+    fontSize: 18,
+    color: "#6B7280",
+  },
+
   headerTitle: {
     fontSize: 24,
     fontWeight: "700",
@@ -201,6 +223,107 @@ export default StyleSheet.create({
   statCardSubtitle: {
     fontSize: 12,
     color: "#6B7280", // Gray
+  },
+
+  // Team Grid Styles for Manager Dashboard
+  teamGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  teamMemberCard: {
+    backgroundColor: "#FFFFFF", // White
+    borderRadius: 12,
+    padding: 16,
+    width: "48%",
+    marginBottom: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#E5E7EB", // Light Gray
+  },
+
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#CB1E2A", // Red
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  avatarText: {
+    color: "#FFFFFF", // White
+    fontSize: 20,
+    fontWeight: "700",
+  },
+
+  teamMemberName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2D2D2D", // Dark Gray
+    marginBottom: 2,
+    textAlign: "center",
+  },
+
+  teamMemberRole: {
+    fontSize: 12,
+    color: "#6B7280", // Gray
+    textAlign: "center",
+  },
+
+  // Performance Card Styles for Manager Dashboard
+  performanceCard: {
+    backgroundColor: "#FFFFFF", // White
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: "#CB1E2A", // Red
+  },
+
+  performanceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  performanceInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  performanceName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2D2D2D", // Dark Gray
+    marginBottom: 2,
+  },
+
+  performanceRole: {
+    fontSize: 12,
+    color: "#6B7280", // Gray
+  },
+
+  performanceStats: {
+    marginTop: 8,
+  },
+
+  performanceStat: {
+    fontSize: 14,
+    color: "#6B7280", // Gray
+    marginBottom: 4,
   },
 
   // Quick Actions

@@ -45,29 +45,47 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = async () => {
-    if (!forgotPasswordEmail) {
-      Alert.alert('Error', 'Please enter your email/username');
+    if (!forgotPasswordEmail.trim()) {
+      Alert.alert('Error', 'Please enter your username (not email)');
       return;
     }
 
     try {
-      // For now, just show a success message
-      // In a real app, you'd send this to your backend
-      Alert.alert(
-        'Password Reset',
-        'If an account with that email exists, you will receive password reset instructions.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setShowForgotPassword(false);
-              setForgotPasswordEmail('');
+      setIsLoading(true);
+      const response = await fetch(buildApiUrl('/forgot-password'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: forgotPasswordEmail.trim() // Changed from email to username
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        Alert.alert(
+          'Password Reset Sent',
+          result.message || 'If the username exists and has an email, a temporary password has been sent.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowForgotPassword(false);
+                setForgotPasswordEmail('');
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.message || 'Failed to send password reset');
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send password reset. Please try again.');
+      console.error('Forgot password error:', error);
+      Alert.alert('Error', 'Failed to send password reset. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -104,16 +122,41 @@ export default function LoginScreen() {
 
       const data = await res.json();
 
-      if (!res.ok || !data.success || !data.user) {
+      if (!res.ok || !data.success) {
         Alert.alert('Error', data.message || 'Login failed');
         return;
       }
 
+      // Handle temporary password case
+      if (data.requirePasswordChange) {
+        Alert.alert(
+          'Password Change Required', 
+          data.message || 'You must change your password immediately.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate to password change screen or show modal
+                // For now, we'll continue with login but show a warning
+                console.log('⚠️ User needs to change password');
+              }
+            }
+          ]
+        );
+      }
+
+      // Support both old format (for backwards compatibility) and new format
+      const user = data.user || { 
+        role: data.role, 
+        accountName: data.accountName || data.name,
+        username: username 
+      };
+
       // Set all required AsyncStorage keys for consistent session management
       await AsyncStorage.setItem('userToken', 'authenticated');
-      await AsyncStorage.setItem('userName', data.user.accountName || data.user.username || '');
-      await AsyncStorage.setItem('accountName', data.user.accountName || '');
-      await AsyncStorage.setItem('userRole', data.user.role || '');
+      await AsyncStorage.setItem('userName', user.accountName || user.username || '');
+      await AsyncStorage.setItem('accountName', user.accountName || '');
+      await AsyncStorage.setItem('userRole', user.role || '');
 
       if (rememberMe) {
         await AsyncStorage.setItem('rememberedUsername', username);
@@ -121,7 +164,7 @@ export default function LoginScreen() {
         await AsyncStorage.removeItem('rememberedUsername');
       }
 
-      switch ((data.user.role || '').toLowerCase()) {
+      switch ((user.role || '').toLowerCase()) {
         case 'admin':
           navigation.replace('AdminDrawer');
           break;
@@ -362,7 +405,7 @@ export default function LoginScreen() {
             </Text>
             
             <TextInput
-              placeholder="Email or Username"
+              placeholder="Username"
               value={forgotPasswordEmail}
               onChangeText={setForgotPasswordEmail}
               style={styles.input}

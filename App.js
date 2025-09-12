@@ -1,6 +1,12 @@
 //App.js
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigat      <Drawer.Screen 
+        name="HistoryScreen" 
+        component={HistoryScreen} 
+        options={{ title: 'System History' }} 
+      />
+    </Drawer.Navigator>
+  );
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,13 +24,14 @@ import VehicleStatusScreen from './screens/VehicleStatusScreen';
 import DispatchDashboard from './screens/DispatchDashboard';
 import DispatchVehicleDetail from './screens/DispatchVehicleDetail';
 import HistoryScreen from './screens/HistoryScreen';
-import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import AdminVehicleTracking from './screens/AdminVehicleTracking';
 import UserManagementScreen from './screens/UserManagementScreen';
 import DriverAllocation from './screens/DriverAllocation';
 // import TestMapScreen from './screens/TestMapScreen'; // Removed test map feature
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SignUpScreen from './screens/SignUpScreen';
+import UserProfile from './screens/UserProfile';
+import ThemeProvider from './context/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -114,11 +121,6 @@ function AdminDrawer() {
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'System History' }} 
-      />
-      <Drawer.Screen 
-        name="ChangePassword" 
-        component={ChangePasswordScreen} 
-        options={{ title: 'Change Password' }} 
       />
     </Drawer.Navigator>
   );
@@ -241,7 +243,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <NavigationContainer>
         <Stack.Navigator 
           initialRouteName={initialRoute}
@@ -354,14 +356,14 @@ export default function App() {
             options={{ title: 'Vehicle Details' }} 
           />
           <Stack.Screen 
-            name="History" 
+            name="HistoryScreen" 
             component={HistoryScreen} 
             options={{ title: 'History' }} 
           />
           <Stack.Screen 
-            name="ChangePassword" 
-            component={ChangePasswordScreen} 
-            options={{ title: 'Change Password' }} 
+            name="UserProfile" 
+            component={UserProfile} 
+            options={{ title: 'User Profile' }} 
           />
 
           {/* Testing & Development - Removed TestMapScreen */}
@@ -376,6 +378,6 @@ export default function App() {
       </NavigationContainer>
 
       <Toast />
-    </>
+    </ThemeProvider>
   );
 }

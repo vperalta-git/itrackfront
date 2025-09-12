@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import AdminMapsView from '../components/AdminMapsView';
+import ImprovedMapsView from '../components/ImprovedMapsView';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -1637,7 +1638,7 @@ export default function AdminDashboard() {
           {currentTab === 'dashboard' ? renderDashboardContent() : 
            currentTab === 'inventory' ? renderInventoryContent() : 
            currentTab === 'dispatch' ? renderDispatchAssignmentContent() :
-           currentTab === 'maps' ? <AdminMapsView style={{ flex: 1, minHeight: 500 }} /> :
+           currentTab === 'maps' ? <ImprovedMapsView style={{ flex: 1, minHeight: 500 }} userRole="admin" /> :
            currentTab === 'release' ? renderReleaseContent() :
            renderReportsContent()}
         </View>
