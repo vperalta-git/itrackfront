@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
+import { buildApiUrl } from '../constants/api';
 
 export default function UserProfile() {
   const navigation = useNavigation();

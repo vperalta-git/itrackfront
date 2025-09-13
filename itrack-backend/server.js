@@ -4,6 +4,11 @@ const cors = require('cors');
 const os = require('os');
 require('dotenv').config();
 
+// ================== IMPORT CONTROLLERS ==================
+const vehicleController = require('./controllers/vehicleController');
+const mapsController = require('./controllers/mapsController');
+const userController = require('./controllers/userController');
+
 console.log('🚀 Starting I-Track Mobile Backend Server...');
 
 // Get local IP addresses for network flexibility
@@ -123,6 +128,42 @@ const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', Inven
 const VehicleStock = mongoose.models.VehicleStock || mongoose.model('VehicleStock', VehicleStockSchema);
 const ServiceRequest = mongoose.models.ServiceRequest || mongoose.model('ServiceRequest', ServiceRequestSchema);
 const CompletedRequest = mongoose.models.CompletedRequest || mongoose.model('CompletedRequest', CompletedRequestSchema);
+
+// ================== NEW MAPS API ROUTES (CRITICAL FOR FIXING CRASHES) ==================
+console.log('🗺️ Setting up Maps API routes...');
+
+// Maps API - Admin Dashboard Maps
+app.get('/api/maps/vehicles', mapsController.getAllVehicleLocations);
+
+// Maps API - Driver Dashboard Maps  
+app.get('/api/maps/driver/:driverId/route', mapsController.getDriverRoute);
+
+// Maps API - Agent Dashboard Maps
+app.get('/api/maps/agent/:agentId/vehicles', mapsController.getAgentVehicleLocations);
+
+// Maps API - Update vehicle location (GPS tracking)
+app.put('/api/maps/vehicle/:vehicleId/location', mapsController.updateVehicleLocation);
+
+// Vehicle API with Controllers
+app.get('/api/vehicles', vehicleController.getAllVehicles);
+app.get('/api/vehicles/locations', vehicleController.getVehicleLocations);
+app.post('/api/vehicles', vehicleController.createVehicle);
+app.get('/api/vehicles/:id', vehicleController.getVehicleById);
+app.put('/api/vehicles/:id', vehicleController.updateVehicle);
+app.delete('/api/vehicles/:id', vehicleController.deleteVehicle);
+
+// User API with Controllers
+app.get('/api/users', userController.getAllUsers);
+app.get('/api/users/:id', userController.getUserById);
+app.post('/api/users', userController.createUser);
+app.put('/api/users/:id', userController.updateUser);
+app.delete('/api/users/:id', userController.deleteUser);
+app.get('/api/users/role/:role', userController.getUsersByRole);
+app.get('/api/manager/:managerId/agents', userController.getManagerAgents);
+app.get('/api/managers', userController.getAllManagers);
+app.get('/api/dashboard/stats/:userId', userController.getUserDashboardStats);
+
+console.log('✅ Maps API and Controllers loaded successfully!');
 
 // ================== MOBILE APP ROUTES (Original Working) ==================
 
@@ -1057,6 +1098,27 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   - Loopback: http://127.0.0.1:${PORT}`);
   console.log('');
   console.log('📋 Available endpoints:');
+  console.log('  === MAPS API (NEW - FIXES CRASHES) ===');
+  console.log('  - GET  /api/maps/vehicles (Admin Maps)');
+  console.log('  - GET  /api/maps/driver/:driverId/route (Driver Maps)');
+  console.log('  - GET  /api/maps/agent/:agentId/vehicles (Agent Maps)');
+  console.log('  - PUT  /api/maps/vehicle/:vehicleId/location (GPS Update)');
+  console.log('  === VEHICLE API ===');
+  console.log('  - GET  /api/vehicles & /api/vehicles/locations');
+  console.log('  - POST /api/vehicles');
+  console.log('  - GET  /api/vehicles/:id');
+  console.log('  - PUT  /api/vehicles/:id');
+  console.log('  - DELETE /api/vehicles/:id');
+  console.log('  === USER API ===');
+  console.log('  - GET  /api/users & /api/users/:id');
+  console.log('  - POST /api/users');
+  console.log('  - PUT  /api/users/:id');
+  console.log('  - DELETE /api/users/:id');
+  console.log('  - GET  /api/users/role/:role');
+  console.log('  - GET  /api/manager/:managerId/agents');
+  console.log('  - GET  /api/managers');
+  console.log('  - GET  /api/dashboard/stats/:userId');
+  console.log('  === LEGACY MOBILE ROUTES ===');
   console.log('  - POST /login');
   console.log('  - GET  /getUsers');
   console.log('  - GET  /getAllocation');

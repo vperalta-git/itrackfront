@@ -1491,4 +1491,94 @@ export default StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // Agent Filter Styles for Manager Dashboard
+  agentFilterSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+
+  agentFilterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  agentFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+
+  agentFilterButtonActive: {
+    backgroundColor: '#CB1E2A',
+    borderColor: '#CB1E2A',
+  },
+
+  agentFilterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+
+  agentFilterTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Enhanced Stats for Manager Dashboard
+  managerStatsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 12,
+  },
+
+  managerStatCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flex: 1,
+    minWidth: '45%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  managerStatIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+
+  managerStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+
+  managerStatLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  managerStatSubtitle: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
 });

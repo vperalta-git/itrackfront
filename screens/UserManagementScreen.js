@@ -404,6 +404,29 @@ export default function UserManagementScreen() {
                 </Picker>
               </View>
 
+              {/* Only show "Assign to Manager" for Sales Agent role */}
+              {newUser.role === 'Sales Agent' && (
+                <>
+                  <Text style={styles.modalLabel}>Assign to Manager</Text>
+                  <View style={styles.modalPickerContainer}>
+                    <Picker
+                      selectedValue={newUser.assignedTo}
+                      onValueChange={(val) => setNewUser({ ...newUser, assignedTo: val })}
+                      style={styles.modalPicker}
+                    >
+                      <Picker.Item label="None" value="" />
+                      {managers.map((manager) => (
+                        <Picker.Item 
+                          key={manager._id} 
+                          label={manager.accountName || manager.username} 
+                          value={manager._id} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
               <View style={styles.modalButtons}>
                 <TouchableOpacity 
                   style={[styles.modalButton, styles.modalButtonPrimary]} 
@@ -421,23 +444,6 @@ export default function UserManagementScreen() {
                   <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={styles.modalLabel}>Assign to Manager</Text>
-              <View style={styles.modalPickerContainer}>
-                <Picker
-                  selectedValue={newUser.assignedTo}
-                  onValueChange={(val) => setNewUser({ ...newUser, assignedTo: val })}
-                  style={styles.modalPicker}
-                >
-                  <Picker.Item label="None" value="" />
-                  {managers.map((manager) => (
-                    <Picker.Item 
-                      key={manager._id} 
-                      label={manager.accountName || manager.username} 
-                      value={manager._id} 
-                    />
-                  ))}
-                </Picker>
               </View>
             </View>
           </KeyboardAvoidingView>

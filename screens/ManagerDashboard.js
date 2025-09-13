@@ -43,6 +43,10 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myAgents, setMyAgents] = useState([]);
+  
+  // NEW: Agent filtering functionality
+  const [selectedAgent, setSelectedAgent] = useState('all'); // 'all' or specific agent ID
+  const [showAgentFilter, setShowAgentFilter] = useState(false);
 
   const [stats, setStats] = useState({
     totalStocks: 0,
@@ -309,14 +313,62 @@ export default function ManagerDashboard() {
       fields.some((f) => String(item[f] || "").toLowerCase().includes(search.toLowerCase()))
     );
 
+  // NEW: Filter data by selected agent
+  const filterByAgent = (list, agentField = 'allocatedBy') => {
+    if (selectedAgent === 'all') return list;
+    
+    const selectedAgentData = myAgents.find(agent => agent._id === selectedAgent);
+    if (!selectedAgentData) return list;
+    
+    return list.filter(item => 
+      item[agentField] === selectedAgentData.accountName ||
+      item.assignedTo === selectedAgentData.accountName ||
+      item.assignedAgent === selectedAgentData.accountName
+    );
+  };
+
+  // NEW: Get filtered data for current agent selection
+  const getFilteredData = (list, fields, agentField = 'allocatedBy') => {
+    return filterByAgent(filterBySearch(list, fields), agentField);
+  };
+
+  // NEW: Agent Filter Component
+  const renderAgentFilter = () => (
+    <View style={styles.agentFilterSection}>
+      <Text style={styles.filterLabel}>Filter by Agent:</Text>
+      <View style={styles.agentFilterContainer}>
+        <TouchableOpacity 
+          style={[styles.agentFilterButton, selectedAgent === 'all' && styles.agentFilterButtonActive]}
+          onPress={() => setSelectedAgent('all')}
+        >
+          <Text style={[styles.agentFilterText, selectedAgent === 'all' && styles.agentFilterTextActive]}>
+            All Agents ({myAgents.length})
+          </Text>
+        </TouchableOpacity>
+        
+        {myAgents.map(agent => (
+          <TouchableOpacity 
+            key={agent._id}
+            style={[styles.agentFilterButton, selectedAgent === agent._id && styles.agentFilterButtonActive]}
+            onPress={() => setSelectedAgent(agent._id)}
+          >
+            <Text style={[styles.agentFilterText, selectedAgent === agent._id && styles.agentFilterTextActive]}>
+              {agent.accountName}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   const renderTabs = () => {
     const tabs = [
-      { key: TAB_DASHBOARD, label: "Overview", icon: "📊" },
-      { key: TAB_REPORTS, label: "Reports", icon: "📈" },
+      { key: TAB_DASHBOARD, label: "Team Overview", icon: "📊" },
+      { key: TAB_REPORTS, label: "Team Reports", icon: "📈" },
       { key: TAB_VEHICLE_STOCKS, label: "Inventory", icon: "🚗" },
-      { key: TAB_VEHICLE_PREP, label: "Preparation", icon: "🔧" },
+      { key: TAB_VEHICLE_PREP, label: "Team Progress", icon: "🔧" },
       { key: TAB_VEHICLE_TRACKING, label: "Team Vehicles", icon: "📍" },
-      { key: TAB_HISTORY, label: "History", icon: "📝" },
+      { key: TAB_HISTORY, label: "Team History", icon: "📝" },
     ];
 
     return (
@@ -352,6 +404,9 @@ export default function ManagerDashboard() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+        
+        {/* Agent Filter - Show on relevant tabs */}
+        {(activeTab !== TAB_DASHBOARD) && myAgents.length > 0 && renderAgentFilter()}
       </View>
     );
   };
@@ -527,12 +582,15 @@ export default function ManagerDashboard() {
         );
 
       case TAB_VEHICLE_STOCKS: {
-        const filteredStocks = filterBySearch(vehicleStocks, [
+        // Apply both search and agent filtering
+        const filteredStocks = getFilteredData(vehicleStocks, [
           "unitName",
-          "conductionNumber",
+          "conductionNumber", 
           "bodyColor",
           "variation",
-        ]);
+        ], 'assignedTo');
+
+        const selectedAgentData = selectedAgent === 'all' ? null : myAgents.find(a => a._id === selectedAgent);
 
         const renderStockCard = ({ item }) => {
           const getStatusStyle = (status) => {
@@ -599,6 +657,14 @@ export default function ManagerDashboard() {
                   <Text style={styles.stockInfoLabel}>Quantity</Text>
                   <Text style={styles.stockInfoValue}>{item.quantity || 1}</Text>
                 </View>
+                
+                {/* Show assigned agent if viewing all agents */}
+                {selectedAgent === 'all' && item.assignedTo && (
+                  <View style={styles.stockInfoRow}>
+                    <Text style={styles.stockInfoLabel}>Agent</Text>
+                    <Text style={styles.stockInfoValue}>{item.assignedTo}</Text>
+                  </View>
+                )}
               </View>
             </View>
           );
@@ -608,7 +674,18 @@ export default function ManagerDashboard() {
           <View style={styles.stocksContainer}>
             {/* Header Section */}
             <View style={styles.stocksHeader}>
-              <Text style={styles.stocksTitle}>Team Vehicle Inventory</Text>
+              <Text style={styles.stocksTitle}>
+                {selectedAgentData 
+                  ? `${selectedAgentData.accountName}'s Inventory` 
+                  : 'Team Vehicle Inventory'
+                }
+              </Text>
+              <Text style={styles.stocksSubtitle}>
+                {selectedAgent === 'all' 
+                  ? `Managing ${myAgents.length} agents' inventory`
+                  : `Vehicles assigned to ${selectedAgentData?.accountName}`
+                }
+              </Text>
             </View>
 
             {/* Search Section */}
@@ -625,20 +702,22 @@ export default function ManagerDashboard() {
             {/* Stats Cards */}
             <View style={styles.stocksStatsContainer}>
               <View style={[styles.stocksStatCard, { backgroundColor: '#CB1E2A' }]}>
-                <Text style={styles.stocksStatNumber}>{vehicleStocks.length}</Text>
-                <Text style={styles.stocksStatLabel}>Total Stock</Text>
+                <Text style={styles.stocksStatNumber}>{filteredStocks.length}</Text>
+                <Text style={styles.stocksStatLabel}>
+                  {selectedAgent === 'all' ? 'Total Stock' : 'Agent Stock'}
+                </Text>
               </View>
               
               <View style={[styles.stocksStatCard, { backgroundColor: '#2D2D2D' }]}>
                 <Text style={styles.stocksStatNumber}>
-                  {vehicleStocks.filter(v => (v.status || 'Available') === 'Available').length}
+                  {filteredStocks.filter(v => (v.status || 'Available') === 'Available').length}
                 </Text>
                 <Text style={styles.stocksStatLabel}>Available</Text>
               </View>
               
               <View style={[styles.stocksStatCard, { backgroundColor: '#8B0000' }]}>
                 <Text style={styles.stocksStatNumber}>
-                  {vehicleStocks.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
+                  {filteredStocks.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
                 </Text>
                 <Text style={styles.stocksStatLabel}>In Use</Text>
               </View>
@@ -647,9 +726,12 @@ export default function ManagerDashboard() {
             {/* Stocks List */}
             {filteredStocks.length === 0 ? (
               <View style={styles.stocksEmptyContainer}>
-                <Text style={styles.stocksEmptyText}>No vehicle stocks found</Text>
+                <Text style={styles.stocksEmptyText}>
+                  {selectedAgent === 'all' ? 'No vehicle stocks found' : 'No stocks for this agent'}
+                </Text>
                 <Text style={styles.stocksEmptySubtext}>
-                  {search ? 'Try adjusting your search terms' : 'Add your first stock to get started'}
+                  {search ? 'Try adjusting your search terms' : 
+                   selectedAgent === 'all' ? 'Add vehicle stock to get started' : 'This agent has no assigned vehicles'}
                 </Text>
               </View>
             ) : (
