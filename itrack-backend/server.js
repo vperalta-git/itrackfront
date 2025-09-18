@@ -8,6 +8,7 @@ require('dotenv').config();
 const vehicleController = require('./controllers/vehicleController');
 const mapsController = require('./controllers/mapsController');
 const userController = require('./controllers/userController');
+const testDriveController = require('./controllers/testDriveController');
 
 console.log('🚀 Starting I-Track Mobile Backend Server...');
 
@@ -162,6 +163,30 @@ app.get('/api/users/role/:role', userController.getUsersByRole);
 app.get('/api/manager/:managerId/agents', userController.getManagerAgents);
 app.get('/api/managers', userController.getAllManagers);
 app.get('/api/dashboard/stats/:userId', userController.getUserDashboardStats);
+
+// ================== TEST DRIVE API ROUTES ==================
+// Get all test drives (Admin/Supervisor)
+app.get('/api/testdrives', testDriveController.getAllTestDrives);
+// Get test drives for specific agent
+app.get('/api/testdrives/agent/:agentId', testDriveController.getAgentTestDrives);
+// Get single test drive details
+app.get('/api/testdrives/:id', testDriveController.getTestDriveById);
+// Create new test drive request (Agent)
+app.post('/api/testdrives', testDriveController.createTestDriveRequest);
+// Update test drive status (Admin/Supervisor approval)
+app.put('/api/testdrives/:id/status', testDriveController.updateTestDriveStatus);
+// Complete test drive with feedback
+app.put('/api/testdrives/:id/complete', testDriveController.completeTestDrive);
+// Cancel test drive
+app.put('/api/testdrives/:id/cancel', testDriveController.cancelTestDrive);
+// Get available vehicles for test drive
+app.get('/api/testdrives/vehicles', testDriveController.getAvailableVehicles);
+// Get dashboard statistics
+app.get('/api/testdrives/dashboard/stats', testDriveController.getDashboardStats);
+// Get upcoming test drives
+app.get('/api/testdrives/upcoming', testDriveController.getUpcomingTestDrives);
+// Search test drives
+app.get('/api/testdrives/search', testDriveController.searchTestDrives);
 
 console.log('✅ Maps API and Controllers loaded successfully!');
 

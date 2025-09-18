@@ -214,40 +214,56 @@ export const findNearbyPlaces = async (latitude, longitude, radius = 1000, type 
 
 /**
  * Get current location with permission handling
- * @param {Object} options - Geolocation options
+ * @param {Object} options - Geolocation options (React Native)
  * @returns {Promise<Object>} - Current location coordinates
  */
-export const getCurrentLocation = () => {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this device'));
-      return;
+export const getCurrentLocation = async () => {
+  try {
+    // Import expo-location dynamically to avoid import errors
+    const Location = await import('expo-location');
+    
+    console.log('📍 Requesting location permissions...');
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    
+    if (status !== 'granted') {
+      console.warn('📍 Location permission denied, using default location');
+      // Return default Manila location instead of throwing error
+      return {
+        latitude: DEFAULT_LOCATIONS.MANILA.latitude,
+        longitude: DEFAULT_LOCATIONS.MANILA.longitude,
+        accuracy: null,
+        timestamp: Date.now(),
+      };
     }
 
-    const options = {
-      enableHighAccuracy: true,
+    console.log('📍 Getting current position...');
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
       timeout: 15000,
       maximumAge: 300000, // 5 minutes
+    });
+
+    const result = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      accuracy: location.coords.accuracy,
+      timestamp: location.timestamp,
     };
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        };
-        console.log('📍 Current location obtained:', location);
-        resolve(location);
-      },
-      (error) => {
-        console.error('❌ Geolocation error:', error);
-        reject(new Error(`Failed to get current location: ${error.message}`));
-      },
-      options
-    );
-  });
+    console.log('✅ Current location obtained:', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Location error:', error);
+    // Don't throw error, return default location
+    console.log('📍 Using default Manila location as fallback');
+    return {
+      latitude: DEFAULT_LOCATIONS.MANILA.latitude,
+      longitude: DEFAULT_LOCATIONS.MANILA.longitude,
+      accuracy: null,
+      timestamp: Date.now(),
+    };
+  }
 };
 
 /**

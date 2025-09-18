@@ -25,6 +25,9 @@ import DriverAllocation from './screens/DriverAllocation';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import UserProfile from './screens/UserProfile';
+import TestDriveBookingScreen from './screens/TestDriveBookingScreen';
+import TestDriveManagementScreen from './screens/TestDriveManagementScreen';
+import BookingDetailsScreen from './screens/BookingDetailsScreen';
 import ThemeProvider from './context/ThemeContext';
 
 const Stack = createNativeStackNavigator();
@@ -60,6 +63,11 @@ function AgentDrawer() {
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'Service History' }} 
+      />
+      <Drawer.Screen 
+        name="TestDriveBooking" 
+        component={TestDriveBookingScreen} 
+        options={{ title: 'Book Test Drive' }} 
       />
     </Drawer.Navigator>
   );
@@ -116,6 +124,11 @@ function AdminDrawer() {
         component={HistoryScreen} 
         options={{ title: 'System History' }} 
       />
+      <Drawer.Screen 
+        name="TestDriveManagement" 
+        component={TestDriveManagementScreen} 
+        options={{ title: 'Approve Test Drives' }} 
+      />
     </Drawer.Navigator>
   );
 }
@@ -151,10 +164,15 @@ function ManagerDrawer() {
         component={VehicleProgressScreen} 
         options={{ title: 'Vehicle Progress' }} 
       />
-      <Drawer.Screen 
+            <Drawer.Screen 
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'Reports' }} 
+      />
+      <Drawer.Screen 
+        name="TestDriveBooking" 
+        component={TestDriveBookingScreen} 
+        options={{ title: 'Book Test Drive' }} 
       />
     </Drawer.Navigator>
   );
@@ -185,6 +203,16 @@ function SupervisorDrawer() {
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'Supervision History' }} 
+      />
+      <Drawer.Screen 
+        name="TestDriveBooking" 
+        component={TestDriveBookingScreen} 
+        options={{ title: 'Book Test Drive' }} 
+      />
+      <Drawer.Screen 
+        name="TestDriveManagement" 
+        component={TestDriveManagementScreen} 
+        options={{ title: 'Approve Test Drives' }} 
       />
     </Drawer.Navigator>
   );
@@ -358,6 +386,21 @@ export default function App() {
             name="UserProfile" 
             component={UserProfile} 
             options={{ title: 'User Profile' }} 
+          />
+          <Stack.Screen 
+            name="TestDriveBookingScreen" 
+            component={TestDriveBookingScreen} 
+            options={{ title: 'Book Test Drive' }} 
+          />
+          <Stack.Screen 
+            name="TestDriveManagementScreen" 
+            component={TestDriveManagementScreen} 
+            options={{ title: 'Test Drive Management' }} 
+          />
+          <Stack.Screen 
+            name="BookingDetails" 
+            component={BookingDetailsScreen} 
+            options={{ title: 'Booking Details' }} 
           />
 
           {/* Testing & Development - Removed TestMapScreen */}

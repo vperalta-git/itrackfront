@@ -444,7 +444,6 @@ export default function UserManagementScreen() {
                   <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-              </View>
             </View>
           </KeyboardAvoidingView>
         </View>

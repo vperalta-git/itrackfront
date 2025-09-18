@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { buildApiUrl } from '../constants/api';
 
 export default function HistoryScreen() {
   const navigation = useNavigation();
@@ -82,11 +83,11 @@ export default function HistoryScreen() {
 
       // Fetch data in parallel
       const [allocations, users, completedRequests, inProgressRequests, auditTrail] = await Promise.all([
-        safeFetch('https://itrack-backend-1.onrender.com/getAllocation'),
-        safeFetch('https://itrack-backend-1.onrender.com/admin/users'),
-        safeFetch('https://itrack-backend-1.onrender.com/getCompletedRequests'),
-        safeFetch('https://itrack-backend-1.onrender.com/getRequest'),
-        safeFetch('https://itrack-backend-1.onrender.com/api/audit-trail'),
+        safeFetch(buildApiUrl('/getAllocation')),
+        safeFetch(buildApiUrl('/admin/users')),
+        safeFetch(buildApiUrl('/getCompletedRequests')),
+        safeFetch(buildApiUrl('/getRequest')),
+        safeFetch(buildApiUrl('/api/audit-trail')),
       ]);
 
       // Create user map for profile pictures and names

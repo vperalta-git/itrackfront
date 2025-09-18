@@ -323,6 +323,16 @@ const GoogleMapsIntegratedView = ({ style, userRole = 'agent', agentFilter = nul
     console.log('✅ Google Maps integrated view ready');
   };
 
+  const handleMapError = (error) => {
+    console.error('❌ Maps: MapView error:', error);
+    // Don't crash the app, show user-friendly message
+    Alert.alert(
+      'Map Loading Issue', 
+      'The map is having trouble loading. The app will continue to work with vehicle data. You can try refreshing.',
+      [{ text: 'OK', onPress: () => fetchAllocations() }]
+    );
+  };
+
   const handleMarkerPress = (allocation) => {
     setSelectedMarker(allocation);
     console.log('📍 Marker selected:', allocation.title);
@@ -388,7 +398,7 @@ const GoogleMapsIntegratedView = ({ style, userRole = 'agent', agentFilter = nul
       
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+        provider={PROVIDER_DEFAULT}
         style={styles.map}
         region={mapRegion}
         onRegionChangeComplete={setMapRegion}
@@ -397,6 +407,7 @@ const GoogleMapsIntegratedView = ({ style, userRole = 'agent', agentFilter = nul
         showsCompass={true}
         mapType="standard"
         onMapReady={handleMapReady}
+        onError={handleMapError}
       >
         {/* Current Location Marker */}
         {currentLocation && (

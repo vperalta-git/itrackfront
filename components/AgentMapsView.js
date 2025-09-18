@@ -150,10 +150,10 @@ const AgentMapsView = ({ style }) => {
           
           return (
             <Marker
-              key={allocation._id || `agent-${index}`}
+              key={`agent-allocation-${index}`}
               coordinate={{ latitude: lat, longitude: lng }}
-              title={`🎯 ${allocation.unitName} (${allocation.unitId})`}
-              description={`Status: ${allocation.status} • Driver: ${allocation.assignedDriver || 'Unassigned'}`}
+              title={`🎯 ${allocation.unitName || 'Vehicle'} (${allocation.unitId || 'N/A'})`}
+              description={`Status: ${allocation.status || 'Assigned'} • Driver: ${allocation.assignedDriver || 'Unassigned'}`}
               pinColor={getStatusColor(allocation.status)}
             />
           );
@@ -169,10 +169,10 @@ const AgentMapsView = ({ style }) => {
           
           return (
             <Marker
-              key={allocation._id || `other-${index}`}
+              key={`other-vehicle-${index}`}
               coordinate={{ latitude: lat, longitude: lng }}
-              title={`${allocation.unitName} (${allocation.unitId})`}
-              description={`Agent: ${allocation.assignedAgent || 'Unassigned'} • Status: ${allocation.status}`}
+              title={`${allocation.unitName || 'Vehicle'} (${allocation.unitId || 'N/A'})`}
+              description={`Agent: ${allocation.assignedAgent || 'Unassigned'} • Status: ${allocation.status || 'Unknown'}`}
               pinColor="gray"
             />
           );
@@ -230,6 +230,20 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     minHeight: 300,
+  },
+  customMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#CB1E2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  markerText: {
+    fontSize: 16,
+    color: '#FFFFFF',
   },
   loadingText: {
     marginTop: 10,

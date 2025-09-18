@@ -144,7 +144,7 @@ const EnhancedAdminMapsView = ({ style }) => {
       </View>
       
       <MapView
-        provider={PROVIDER_GOOGLE}
+        provider={PROVIDER_DEFAULT}
         style={styles.map}
         initialRegion={defaultRegion}
         showsUserLocation={!!currentLocation}

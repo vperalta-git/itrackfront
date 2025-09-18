@@ -1,5 +1,5 @@
 const Vehicle = require('../models/Vehicle');
-const Allocation = require('../models/Allocation');
+const DriverAllocation = require('../models/DriverAllocation');
 const User = require('../models/User');
 
 const mapsController = {
@@ -68,11 +68,11 @@ const mapsController = {
       // Try to get allocations
       let allocations = [];
       try {
-        allocations = await Allocation.find({ 
+        allocations = await DriverAllocation.find({ 
           vehicleId: { $in: vehicles.map(v => v._id) }
         }).populate('vehicleId');
       } catch (allocError) {
-        console.warn('Allocation model not found for driver route');
+        console.warn('DriverAllocation model not found for driver route');
       }
       
       if (allocations.length === 0) {

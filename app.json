@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "itrack",
+    "name": "I-Track Paldo na",
     "slug": "itrack",
-    "version": "6.0.0",
+    "version": "13.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.acmobility.itrack",
-      "versionCode": 6,
+      "versionCode": 13,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
