@@ -1,236 +1,565 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const os = require('os');
-require('dotenv').config();
-
-// ================== IMPORT CONTROLLERS ==================
-const vehicleController = require('./controllers/vehicleController');
-const mapsController = require('./controllers/mapsController');
-const userController = require('./controllers/userController');
-const testDriveController = require('./controllers/testDriveController');
-
-console.log('🚀 Starting I-Track Mobile Backend Server...');
-
-// Get local IP addresses for network flexibility
-function getLocalIPAddresses() {
-  const interfaces = os.networkInterfaces();
-  const addresses = [];
-  
-  for (const name of Object.keys(interfaces)) {
-    for (const interface of interfaces[name]) {
-      // Skip over non-IPv4 and internal addresses
-      if (interface.family === 'IPv4' && !interface.internal) {
-        addresses.push(interface.address);
-      }
-    }
-  }
-  
-  return addresses.length > 0 ? addresses : ['localhost'];
-}
-
-// Get primary IP address (first non-internal IPv4)
-function getPrimaryIPAddress() {
-  const addresses = getLocalIPAddresses();
-  return addresses[0] || 'localhost';
-}
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
-// Enable CORS for all origins
-app.use(cors());
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'itrack-mobile-session-secret-key-2025',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
+    touchAfter: 24 * 3600 // lazy session update
+  }),
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+  }
+}));
+
+app.use(cors({
+  credentials: true,
+  origin: true // Configure properly for production
+}));
 app.use(express.json());
 
-// MongoDB connection
-const mongoURI = process.env.MONGODB_URI || 
-  'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
+// API Configuration for I-Track Mobile App
+const API_CONFIG = {
+  // Development Mobile Backend (current)
+  MOBILE_BACKEND: {
+    BASE_URL: 'http://192.168.254.147:5000',
+    NAME: 'Mobile Development Backend'
+  },
+  
+  // Production Render Backend
+  RENDER_BACKEND: {
+    BASE_URL: 'https://itrack-backend-1.onrender.com',
+    NAME: 'Render Production Backend'
+  }
+};
 
-mongoose.connect(mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ Connected to MongoDB Atlas'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+// Current active backend - Use local development backend
+const ACTIVE_BACKEND = API_CONFIG.MOBILE_BACKEND;
 
-// ================== ENHANCED USER ROUTES ==================
-const userRoutes = require('./routes/userRoutes');
-app.use('/api', userRoutes);
+// Helper function to build full API URL
+const buildApiUrl = (endpoint) => {
+  return `${ACTIVE_BACKEND.BASE_URL}${endpoint}`;
+};
 
-// ================== SCHEMAS (Original Working Versions) ==================
+console.log(`📱 Mobile App connected to: ${ACTIVE_BACKEND.NAME}`);
+console.log(`🔗 Base URL: ${ACTIVE_BACKEND.BASE_URL}`);
 
-// User Schema
+// ==================== EMAIL CONFIGURATION ====================
+
+// Gmail configuration for sending emails
+let transporter;
+
+function initializeEmailService() {
+  console.log('📧 Initializing Gmail service...');
+  
+  const emailConfig = {
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER || 'your-email@gmail.com',
+      pass: process.env.GMAIL_APP_PASSWORD || 'your-app-password'
+    }
+  };
+
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.log('⚠️  Gmail credentials not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    console.log('📝 To set up Gmail App Password:');
+    console.log('   1. Go to Google Account settings');
+    console.log('   2. Enable 2-Factor Authentication');
+    console.log('   3. Generate an App Password for "Mail"');
+    console.log('   4. Set GMAIL_USER=your-email@gmail.com');
+    console.log('   5. Set GMAIL_APP_PASSWORD=your-16-digit-app-password');
+    return;
+  }
+
+  try {
+    transporter = nodemailer.createTransporter(emailConfig);
+    console.log('✅ Gmail service initialized successfully');
+    
+    // Test the connection
+    transporter.verify((error, success) => {
+      if (error) {
+        console.log('❌ Gmail connection failed:', error.message);
+      } else {
+        console.log('✅ Gmail is ready to send emails');
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to initialize Gmail service:', error);
+  }
+}
+
+// Initialize email service
+initializeEmailService();
+
+// Email sending utility function
+async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
+  if (!transporter) {
+    console.log('❌ Email service not configured');
+    return { success: false, message: 'Email service not configured' };
+  }
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .temp-password { background: #fff; padding: 20px; border: 2px solid #667eea; border-radius: 8px; font-size: 18px; font-weight: bold; text-align: center; margin: 20px 0; letter-spacing: 2px; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+            .button { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔐 Password Reset - I-Track Mobile</h1>
+                <p>Temporary access credentials</p>
+            </div>
+            <div class="content">
+                <h2>Hello ${username},</h2>
+                <p>You have requested a password reset for your I-Track Mobile account. Here are your temporary login credentials:</p>
+                
+                <div class="temp-password">
+                    ${temporaryPassword}
+                </div>
+                
+                <div class="warning">
+                    <strong>⚠️ Important Security Notice:</strong>
+                    <ul>
+                        <li>This temporary password expires in 1 hour</li>
+                        <li>You will be required to change your password immediately after logging in</li>
+                        <li>Do not share this password with anyone</li>
+                        <li>If you didn't request this reset, please contact your administrator</li>
+                    </ul>
+                </div>
+                
+                <h3>Next Steps:</h3>
+                <ol>
+                    <li>Open your I-Track Mobile app</li>
+                    <li>Log in using your username and the temporary password above</li>
+                    <li>You will be prompted to set a new permanent password</li>
+                    <li>Choose a strong password with at least 8 characters</li>
+                </ol>
+                
+                <div class="footer">
+                    <p>This email was sent automatically by I-Track Mobile System</p>
+                    <p>If you need assistance, please contact your system administrator</p>
+                    <p><strong>I-Track Mobile © ${new Date().getFullYear()}</strong></p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
+
+  const mailOptions = {
+    from: `"I-Track Mobile System" <${process.env.GMAIL_USER}>`,
+    to: userEmail,
+    subject: '🔐 I-Track Mobile - Password Reset Request',
+    html: htmlContent,
+    text: `Hello ${username},\n\nYour temporary password for I-Track Mobile is: ${temporaryPassword}\n\nThis password expires in 1 hour. Please log in and change your password immediately.\n\nI-Track Mobile System`
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('✅ Password reset email sent successfully to:', userEmail);
+    return { success: true, message: 'Email sent successfully' };
+  } catch (error) {
+    console.error('❌ Failed to send email:', error);
+    return { success: false, message: 'Failed to send email', error: error.message };
+  }
+}
+
+// MongoDB URI for your MongoDB Atlas cluster
+const mongoURI = 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+
+// Connect to MongoDB
+mongoose.connect(mongoURI)
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// User Schema with Role Validation and Enhanced Password Management
 const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
+  username: { type: String, required: true },
   password: { type: String, required: true },
-  role: { type: String, required: true },
+  role: { type: String, enum: ['Admin', 'Dispatch', 'Driver', 'Supervisor', 'Manager', 'SalesAgent'], default: 'SalesAgent' },
   accountName: { type: String, required: true },
+  email: { type: String, required: false }, // For password reset functionality
+  name: { type: String, required: false }, // Additional name field
+  isActive: { type: Boolean, default: true },
+  profilePicture: { type: String, default: null },
+  phoneNumber: { type: String, required: false },
+  phoneno: { type: String, required: false }, // Alternative phone field for compatibility
+  createdBy: { type: String, default: 'System' },
+  updatedBy: { type: String, default: 'System' },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
+  // Enhanced password management fields
+  temporaryPassword: { type: String },
+  temporaryPasswordExpires: { type: Date },
+  lastLogin: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
-// Driver Allocation Schema
+// Update the updatedAt field before saving
+UserSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+const User = mongoose.model('User', UserSchema);
+
+// Vehicle Schema
+const VehicleSchema = new mongoose.Schema({
+  vin: String,
+  unitId: String, // Added for consistency with DriverAllocation
+  model: String,
+  driver: String,
+  current_status: String,
+  requested_processes: [String],
+  preparation_status: {
+    tinting: { type: Boolean, default: false },
+    carwash: { type: Boolean, default: false },
+    ceramic_coating: { type: Boolean, default: false },
+    accessories: { type: Boolean, default: false },
+    rust_proof: { type: Boolean, default: false },
+    ready_for_release: { type: Boolean, default: false },
+  },
+  location: { lat: Number, lng: Number },
+  customer_name: String, // Added for agent dashboard
+  customer_number: String, // Added for agent dashboard
+});
+const Vehicle = mongoose.model('Vehicle', VehicleSchema);
+
+// Driver Allocation Schema (enhanced for dispatch functionality)
 const DriverAllocationSchema = new mongoose.Schema({
   unitName: String,
-  conductionNumber: String, 
   unitId: String,
   bodyColor: String,
   variation: String,
   assignedDriver: String,
-  status: String,
-  date: { type: Date, default: Date.now },
+  assignedAgent: String,
+  status: { type: String, default: 'Pending' },
   allocatedBy: String,
+  
+  // Process management
+  requestedProcesses: [String],
+  processStatus: {
+    type: Map,
+    of: Boolean,
+    default: {}
+  },
+  processCompletedBy: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+  processCompletedAt: {
+    type: Map,
+    of: Date,
+    default: {}
+  },
+  
+  // Progress tracking
+  overallProgress: {
+    completed: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    isComplete: { type: Boolean, default: false }
+  },
+  
+  // Release management
+  readyForRelease: { type: Boolean, default: false },
+  releasedAt: Date,
+  releasedBy: String,
+  
+  date: { type: Date, default: Date.now }
 }, { timestamps: true });
+const DriverAllocation = mongoose.model('DriverAllocation', DriverAllocationSchema);
 
-// Inventory Schema  
-const InventorySchema = new mongoose.Schema({
-  unitName: String,
-  unitId: String,
-  bodyColor: String,
-  variation: String,
-  quantity: { type: Number, default: 1 },
-}, { timestamps: true });
+// ======================== AUTH =========================
 
-// Vehicle Stock Schema
-const VehicleStockSchema = new mongoose.Schema({
-  unitName: String,
-  bodyColor: String,
-  variation: String,
-  unitId: String,
-}, { timestamps: true });
-
-// Service Request Schema
-const ServiceRequestSchema = new mongoose.Schema({
-  dateCreated: Date,
-  vehicleRegNo: String,
-  service: Array,
-  status: String,
-  inProgressAt: Date,
-  completedAt: Date,
-  serviceDurationMinutes: Number,
-  preparedBy: String,
-}, { timestamps: true });
-
-// Completed Request Schema
-const CompletedRequestSchema = new mongoose.Schema({
-  dateCreated: Date,
-  vehicleRegNo: String,
-  service: Array,
-  status: String,
-  inProgressAt: Date,
-  completedAt: Date,
-  serviceDurationMinutes: Number,
-  preparedBy: String,
-}, { timestamps: true });
-
-// ================== MODELS ==================
-// Use existing models if already compiled, otherwise create new ones
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
-const DriverAllocation = mongoose.models.DriverAllocation || mongoose.model('DriverAllocation', DriverAllocationSchema);
-const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', InventorySchema);
-const VehicleStock = mongoose.models.VehicleStock || mongoose.model('VehicleStock', VehicleStockSchema);
-const ServiceRequest = mongoose.models.ServiceRequest || mongoose.model('ServiceRequest', ServiceRequestSchema);
-const CompletedRequest = mongoose.models.CompletedRequest || mongoose.model('CompletedRequest', CompletedRequestSchema);
-
-// ================== NEW MAPS API ROUTES (CRITICAL FOR FIXING CRASHES) ==================
-console.log('🗺️ Setting up Maps API routes...');
-
-// Maps API - Admin Dashboard Maps
-app.get('/api/maps/vehicles', mapsController.getAllVehicleLocations);
-
-// Maps API - Driver Dashboard Maps  
-app.get('/api/maps/driver/:driverId/route', mapsController.getDriverRoute);
-
-// Maps API - Agent Dashboard Maps
-app.get('/api/maps/agent/:agentId/vehicles', mapsController.getAgentVehicleLocations);
-
-// Maps API - Update vehicle location (GPS tracking)
-app.put('/api/maps/vehicle/:vehicleId/location', mapsController.updateVehicleLocation);
-
-// Vehicle API with Controllers
-app.get('/api/vehicles', vehicleController.getAllVehicles);
-app.get('/api/vehicles/locations', vehicleController.getVehicleLocations);
-app.post('/api/vehicles', vehicleController.createVehicle);
-app.get('/api/vehicles/:id', vehicleController.getVehicleById);
-app.put('/api/vehicles/:id', vehicleController.updateVehicle);
-app.delete('/api/vehicles/:id', vehicleController.deleteVehicle);
-
-// User API with Controllers
-app.get('/api/users', userController.getAllUsers);
-app.get('/api/users/:id', userController.getUserById);
-app.post('/api/users', userController.createUser);
-app.put('/api/users/:id', userController.updateUser);
-app.delete('/api/users/:id', userController.deleteUser);
-app.get('/api/users/role/:role', userController.getUsersByRole);
-app.get('/api/manager/:managerId/agents', userController.getManagerAgents);
-app.get('/api/managers', userController.getAllManagers);
-app.get('/api/dashboard/stats/:userId', userController.getUserDashboardStats);
-
-// ================== TEST DRIVE API ROUTES ==================
-// Get all test drives (Admin/Supervisor)
-app.get('/api/testdrives', testDriveController.getAllTestDrives);
-// Get test drives for specific agent
-app.get('/api/testdrives/agent/:agentId', testDriveController.getAgentTestDrives);
-// Get single test drive details
-app.get('/api/testdrives/:id', testDriveController.getTestDriveById);
-// Create new test drive request (Agent)
-app.post('/api/testdrives', testDriveController.createTestDriveRequest);
-// Update test drive status (Admin/Supervisor approval)
-app.put('/api/testdrives/:id/status', testDriveController.updateTestDriveStatus);
-// Complete test drive with feedback
-app.put('/api/testdrives/:id/complete', testDriveController.completeTestDrive);
-// Cancel test drive
-app.put('/api/testdrives/:id/cancel', testDriveController.cancelTestDrive);
-// Get available vehicles for test drive
-app.get('/api/testdrives/vehicles', testDriveController.getAvailableVehicles);
-// Get dashboard statistics
-app.get('/api/testdrives/dashboard/stats', testDriveController.getDashboardStats);
-// Get upcoming test drives
-app.get('/api/testdrives/upcoming', testDriveController.getUpcomingTestDrives);
-// Search test drives
-app.get('/api/testdrives/search', testDriveController.searchTestDrives);
-
-console.log('✅ Maps API and Controllers loaded successfully!');
-
-// ================== MOBILE APP ROUTES (Original Working) ==================
-
-// Login endpoint
+// Enhanced Login with Temporary Password Support
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     console.log('📥 Login attempt:', username);
+
+    // Check admin credentials first
+    if (username === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
+      req.session.user = {
+        username: 'isuzupasigadmin',
+        role: 'Admin',
+        accountName: 'Isuzu Pasig Admin'
+      };
+      return res.json({ 
+        success: true, 
+        user: {
+          role: 'Admin', 
+          accountName: 'Isuzu Pasig Admin',
+          email: 'admin@isuzupasig.com'
+        }
+      });
+    }
+
+    // Find user in database by email or username
+    const user = await User.findOne({
+      $or: [
+        { email: username.toLowerCase().trim() },
+        { username: username.toLowerCase().trim() }
+      ]
+    });
     
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Username and password required' });
-    }
-
-    const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Invalid email or username' });
     }
 
-    if (user.password !== password) {
+    let isValidLogin = false;
+    let isTemporaryPassword = false;
+
+    // Check if using temporary password
+    if (user.temporaryPassword && 
+        user.temporaryPasswordExpires && 
+        user.temporaryPasswordExpires > Date.now()) {
+      
+      if (password === user.temporaryPassword) {
+        isValidLogin = true;
+        isTemporaryPassword = true;
+        
+        console.log('🔑 User logged in with temporary password:', username);
+        
+        // Clear temporary password after successful use
+        user.temporaryPassword = undefined;
+        user.temporaryPasswordExpires = undefined;
+        await user.save();
+      }
+    }
+
+    // If not using temporary password, check regular password
+    if (!isValidLogin) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        isValidLogin = true;
+        console.log('🔑 User logged in with regular password:', username);
+      }
+    }
+
+    if (!isValidLogin) {
       return res.status(401).json({ success: false, message: 'Invalid password' });
     }
 
-    res.json({
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Create session
+    const sessionUser = {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      accountName: user.accountName,
+      name: user.name || user.accountName,
+      email: user.email,
+      assignedTo: user.assignedTo
+    };
+
+    req.session.user = sessionUser;
+
+    const response = {
       success: true,
-      message: 'Login successful',
       user: {
-        username: user.username,
         role: user.role,
         accountName: user.accountName,
-        assignedTo: user.assignedTo
+        name: user.name || user.accountName,
+        email: user.email,
+        username: user.username
       }
-    });
+    };
+
+    // If temporary password was used, notify frontend to prompt password change
+    if (isTemporaryPassword) {
+      response.requirePasswordChange = true;
+      response.message = 'Login successful with temporary password. Please change your password immediately.';
+      console.log('⚠️  User should change password immediately:', username);
+    }
+
+    res.json(response);
+  } catch (err) {
+    console.error('❌ Login error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
+// ==================== PASSWORD MANAGEMENT ROUTES ====================
+
+// Forgot Password - Send temporary password via email
+app.post('/forgot-password', async (req, res) => {
+  try {
+    const { username } = req.body;
+    console.log('🔑 Forgot password request for:', username);
+
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Username is required' });
+    }
+
+    // Find user by username
+    const user = await User.findOne({ username: username.toLowerCase() });
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ 
+        success: true, 
+        message: 'If the username exists and has an email, a temporary password has been sent.' 
+      });
+    }
+
+    if (!user.email) {
+      return res.json({ 
+        success: true, 
+        message: 'If the username exists and has an email, a temporary password has been sent.' 
+      });
+    }
+
+    // Generate temporary password (8 characters, alphanumeric)
+    const temporaryPassword = Math.random().toString(36).slice(-8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Save temporary password to user
+    user.temporaryPassword = temporaryPassword;
+    user.temporaryPasswordExpires = expiresAt;
+    await user.save();
+
+    // Send email with temporary password
+    const emailResult = await sendPasswordResetEmail(user.email, user.username, temporaryPassword);
+    
+    if (emailResult.success) {
+      console.log('✅ Temporary password sent to:', user.email);
+      res.json({ 
+        success: true, 
+        message: 'Temporary password sent to your email address. Please check your inbox.' 
+      });
+    } else {
+      console.error('❌ Failed to send email:', emailResult.message);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send email. Please contact administrator.' 
+      });
+    }
+
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('❌ Forgot password error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Get Users
+// Change Password - For logged-in users
+app.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    console.log('🔐 Change password request for user:', req.session?.user?.username);
+
+    // Check if user is logged in
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    }
+
+    // Find user
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
+    await user.save();
+
+    console.log('✅ Password changed successfully for user:', user.username);
+    res.json({ success: true, message: 'Password changed successfully' });
+
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get current user info (for profile)
+app.get('/profile', (req, res) => {
+  try {
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    res.json({ 
+      success: true, 
+      user: req.session.user 
+    });
+  } catch (error) {
+    console.error('❌ Profile fetch error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Logout
+app.post('/logout', (req, res) => {
+  try {
+    console.log('👋 Logout request from:', req.session?.user?.username);
+    
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('❌ Logout error:', err);
+        return res.status(500).json({ success: false, message: 'Could not log out' });
+      }
+      
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
+  } catch (error) {
+    console.error('❌ Logout error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// (Other routes remain unchanged...)
+
+// ========== USER MANAGEMENT ENDPOINTS ==========
+
+// Get all users
 app.get('/getUsers', async (req, res) => {
   try {
-    const users = await User.find({}).select('-password');
+    const users = await User.find({}).select('-password -temporaryPassword');
     console.log(`📊 Found ${users.length} users`);
     res.json({ success: true, data: users });
   } catch (error) {
@@ -239,47 +568,37 @@ app.get('/getUsers', async (req, res) => {
   }
 });
 
-// Create User
+// Create new user
 app.post('/createUser', async (req, res) => {
   try {
-    const { username, password, role, name, email, phone, assignedTo } = req.body;
-    
-    // Validate required fields
-    if (!username || !password || !role) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username, password, and role are required' 
-      });
-    }
+    const { username, password, role, accountName, email } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({ username: username.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username already exists' 
-      });
+      return res.status(400).json({ success: false, message: 'Username already exists' });
     }
+    
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
     
     const newUser = new User({
       username: username.toLowerCase(),
-      password: password, // In production, this should be hashed
-      role: role,
-      name: name || username,
-      email: email || '',
-      phone: phone || '',
-      assignedTo: assignedTo || null,
-      accountName: name || username,
-      date: new Date()
+      password: hashedPassword,
+      role: role || 'salesAgent',
+      accountName,
+      email
     });
     
     await newUser.save();
+    console.log('✅ Created user:', newUser.username);
     
-    // Return user without password
-    const userResponse = { ...newUser.toObject() };
+    // Remove password from response
+    const userResponse = newUser.toObject();
     delete userResponse.password;
+    delete userResponse.temporaryPassword;
     
-    console.log('✅ Created user:', username, 'with role:', role);
     res.json({ success: true, message: 'User created successfully', data: userResponse });
   } catch (error) {
     console.error('❌ Create user error:', error);
@@ -287,18 +606,17 @@ app.post('/createUser', async (req, res) => {
   }
 });
 
-// Update User
+// Update user
 app.put('/updateUser/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = { ...req.body };
     
-    // Remove password from update data if empty
-    if (!updateData.password) {
-      delete updateData.password;
-    }
+    // Remove sensitive fields from update
+    delete updateData.password;
+    delete updateData.temporaryPassword;
     
-    const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password -temporaryPassword');
     
     if (!updatedUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -312,10 +630,11 @@ app.put('/updateUser/:id', async (req, res) => {
   }
 });
 
-// Delete User
+// Delete user
 app.delete('/deleteUser/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
     const deletedUser = await User.findByIdAndDelete(id);
     
     if (!deletedUser) {
@@ -323,51 +642,28 @@ app.delete('/deleteUser/:id', async (req, res) => {
     }
     
     console.log('✅ Deleted user:', deletedUser.username);
-    res.json({ success: true, message: 'User deleted successfully', data: deletedUser });
+    res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     console.error('❌ Delete user error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get Driver Allocations
-app.get('/getAllocation', async (req, res) => {
-  try {
-    const allocations = await DriverAllocation.find({}).sort({ createdAt: -1 });
-    console.log(`📊 Found ${allocations.length} allocations`);
-    res.json({ success: true, data: allocations });
-  } catch (error) {
-    console.error('❌ Get allocations error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// ========== INVENTORY/STOCK MANAGEMENT ENDPOINTS ==========
 
-// Create Driver Allocation
-app.post('/createAllocation', async (req, res) => {
-  try {
-    const { unitName, unitId, bodyColor, variation, assignedDriver, status, allocatedBy } = req.body;
-    
-    const newAllocation = new DriverAllocation({
-      unitName,
-      unitId,
-      bodyColor,
-      variation,
-      assignedDriver,
-      status: status || 'Pending',
-      allocatedBy: allocatedBy || 'Admin',
-      date: new Date()
-    });
+// Inventory Schema
+const InventorySchema = new mongoose.Schema({
+  unitName: String,
+  unitId: String,
+  bodyColor: String,
+  variation: String,
+  conductionNumber: String,
+  quantity: { type: Number, default: 1 },
+  status: { type: String, default: 'Available' }
+}, { timestamps: true });
+const Inventory = mongoose.model('Inventory', InventorySchema);
 
-    await newAllocation.save();
-    console.log('✅ Created allocation:', newAllocation.unitName);
-    res.json({ success: true, message: 'Allocation created successfully', data: newAllocation });
-  } catch (error) {
-    console.error('❌ Create allocation error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Get Stock/Inventory
+// Get all stock/inventory
 app.get('/getStock', async (req, res) => {
   try {
     const inventory = await Inventory.find({}).sort({ createdAt: -1 });
@@ -379,19 +675,20 @@ app.get('/getStock', async (req, res) => {
   }
 });
 
-// Create Stock
+// Create new stock item
 app.post('/createStock', async (req, res) => {
   try {
-    const { unitName, unitId, bodyColor, variation, quantity } = req.body;
+    const { unitName, unitId, bodyColor, variation, conductionNumber, quantity } = req.body;
     
     const newStock = new Inventory({
       unitName,
-      unitId,
+      unitId: unitId || unitName,
       bodyColor,
       variation,
+      conductionNumber: conductionNumber || unitId,
       quantity: quantity || 1
     });
-
+    
     await newStock.save();
     console.log('✅ Created stock:', newStock.unitName);
     res.json({ success: true, message: 'Stock created successfully', data: newStock });
@@ -401,240 +698,134 @@ app.post('/createStock', async (req, res) => {
   }
 });
 
-// Get Service Requests
-app.get('/getRequest', async (req, res) => {
+// Update stock item
+app.put('/updateStock/:id', async (req, res) => {
   try {
-    const requests = await ServiceRequest.find({}).sort({ createdAt: -1 });
-    console.log(`📊 Found ${requests.length} service requests`);
-    res.json({ success: true, data: requests });
-  } catch (error) {
-    console.error('❌ Get requests error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Get Completed Requests
-app.get('/getCompletedRequests', async (req, res) => {
-  try {
-    const completed = await CompletedRequest.find({}).sort({ completedAt: -1 });
-    console.log(`📊 Found ${completed.length} completed requests`);
-    res.json({ success: true, data: completed });
-  } catch (error) {
-    console.error('❌ Get completed requests error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Dashboard Stats (for reports)
-app.get('/dashboard/stats', async (req, res) => {
-  try {
-    const totalUsers = await User.countDocuments();
-    const totalAllocations = await DriverAllocation.countDocuments();
-    const activeAllocations = await DriverAllocation.countDocuments({ status: 'In Transit' });
-    const totalStock = await Inventory.countDocuments();
+    const { id } = req.params;
+    const updateData = req.body;
     
-    console.log(`📊 Dashboard stats - Users: ${totalUsers}, Allocations: ${totalAllocations}, Stock: ${totalStock}`);
+    const updatedStock = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
     
-    res.json({
-      success: true,
-      data: {
-        totalUsers,
-        totalAllocations,
-        activeAllocations,
-        totalStock,
-        totalVehicles: totalStock,
-        totalDrivers: await User.countDocuments({ role: 'Driver' }),
-        totalAgents: await User.countDocuments({ role: 'Sales Agent' })
-      }
-    });
+    if (!updatedStock) {
+      return res.status(404).json({ success: false, message: 'Stock item not found' });
+    }
+    
+    console.log('✅ Updated stock:', updatedStock.unitName);
+    res.json({ success: true, message: 'Stock updated successfully', data: updatedStock });
   } catch (error) {
-    console.error('❌ Dashboard stats error:', error);
+    console.error('❌ Update stock error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Test endpoint
-app.get('/test', (req, res) => {
-  res.json({ success: true, message: 'Mobile backend server is running!' });
+// Delete stock item
+app.delete('/deleteStock/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deletedStock = await Inventory.findByIdAndDelete(id);
+    
+    if (!deletedStock) {
+      return res.status(404).json({ success: false, message: 'Stock item not found' });
+    }
+    
+    console.log('✅ Deleted stock:', deletedStock.unitName);
+    res.json({ success: true, message: 'Stock deleted successfully' });
+  } catch (error) {
+    console.error('❌ Delete stock error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// Root endpoint to identify the service
-app.get('/', (req, res) => {
-  res.json({ 
-    service: 'I-Track Mobile Backend API',
-    version: '2.0.0',
-    status: 'active',
-    deployment: 'render-nodejs',
-    endpoints: {
-      health: '/health',
-      config: '/api/config',
-      mobile_config: '/api/mobile-config',
-      test: '/test'
-    },
-    timestamp: new Date().toISOString()
-  });
+// ========== DRIVER ALLOCATION ENDPOINTS ==========
+
+// Get all allocations
+app.get('/getAllocation', async (req, res) => {
+  try {
+    const allocations = await DriverAllocation.find({}).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} allocations`);
+    res.json({ success: true, data: allocations });
+  } catch (error) {
+    console.error('❌ Get allocations error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// Health check  
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'itrack-backend-nodejs',
-    version: '2.0.0',
-    deployment: 'render-fixed',
-    timestamp: new Date().toISOString() 
-  });
+// Create new allocation
+app.post('/createAllocation', async (req, res) => {
+  try {
+    const allocationData = req.body;
+    console.log('📋 Creating allocation:', allocationData);
+    
+    const newAllocation = new DriverAllocation(allocationData);
+    await newAllocation.save();
+    
+    console.log('✅ Created allocation:', newAllocation.unitName);
+    res.json({ success: true, message: 'Allocation created successfully', data: newAllocation });
+  } catch (error) {
+    console.error('❌ Create allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// API Configuration endpoint - provides dynamic server URLs for mobile app
-app.get('/api/config', (req, res) => {
-  const localIPs = getLocalIPAddresses();
-  const primaryIP = getPrimaryIPAddress();
-  const port = process.env.PORT || 5000;
-  
-  // Determine if we're in production (Render) or development
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-  
-  const config = {
-    success: true,
-    environment: isProduction ? 'production' : 'development',
-    serverInfo: {
-      primaryIP,
-      allIPs: localIPs,
-      port: port,
-      hostname: os.hostname(),
-      platform: os.platform()
-    },
-    apiUrls: {
-      production: 'https://itrack-backend-1.onrender.com',
-      development: localIPs.map(ip => `http://${ip}:${port}`).concat([
-        `http://localhost:${port}`,
-        `http://127.0.0.1:${port}`
-      ]),
-      // ALWAYS prioritize Render for mobile app universal access
-      recommended: 'https://itrack-backend-1.onrender.com',
-      // Priority order for mobile app discovery
-      priority: [
-        'https://itrack-backend-1.onrender.com',  // 🥇 Always try Render first
-        `http://${primaryIP}:${port}`,            // 🥈 Local network fallback
-        `http://localhost:${port}`,               // 🥉 Local development fallback
-        ...localIPs.map(ip => `http://${ip}:${port}`)
-      ]
-    },
-    mobileAppConfig: {
-      alwaysUseRender: true,
-      renderUrl: 'https://itrack-backend-1.onrender.com',
-      fallbackUrls: localIPs.map(ip => `http://${ip}:${port}`).concat([
-        `http://localhost:${port}`,
-        `http://127.0.0.1:${port}`,
-        'http://10.97.63.190:5000',    // User's phone network
-        'http://192.168.254.147:5000', // User's computer network
-      ]),
-      connectionStrategy: 'render-first',
-      maxRetries: 3,
-      timeoutMs: 5000
-    },
-    networkRanges: [
-      'http://192.168.254.{IP}:5000',  // Current network range
-      'http://192.168.1.{IP}:5000',   // Common home network
-      'http://192.168.0.{IP}:5000',   // Another common range
-      'http://192.168.43.{IP}:5000',  // Mobile hotspot
-      'http://192.168.100.{IP}:5000', // Corporate range
-      'http://10.0.0.{IP}:5000',      // Another common range
-      'http://172.16.0.{IP}:5000',    // Corporate network
-    ],
-    endpoints: {
-      // Authentication & Users
-      login: '/login',
-      getUsers: '/getUsers',
-      
-      // Vehicle Management
-      getAllocation: '/getAllocation',
-      createAllocation: '/createAllocation',
-      
-      // Inventory & Stock
-      getStock: '/getStock',
-      createStock: '/createStock',
-      
-      // Service Requests
-      getRequest: '/getRequest',
-      getCompletedRequests: '/getCompletedRequests',
-      
-      // Dashboard
-      dashboardStats: '/dashboard/stats',
-      
-      // Health & Config
-      health: '/health',
-      config: '/api/config',
-      
-      // Maps & Geocoding (NEW)
-      geocode: '/api/maps/geocode',
-      reverseGeocode: '/api/maps/reverse-geocode',
-      directions: '/api/maps/directions',
-      nearby: '/api/maps/nearby'
-    },
-    features: {
-      mapsSupported: true,
-      geocodingProvider: 'Google Maps API',
-      directionsProvider: 'Google Directions API',
-      nearbyPlacesProvider: 'Google Places API'
-    },
-    timestamp: new Date().toISOString()
-  };
-  
-  res.json(config);
-});
+// ========== DISPATCH ASSIGNMENT ENDPOINTS ==========
 
-// Simple mobile-friendly endpoint that always prioritizes Render
-app.get('/api/mobile-config', (req, res) => {
-  res.json({
-    success: true,
-    serverUrl: 'https://itrack-backend-1.onrender.com',
-    environment: 'production',
-    message: 'Always use Render for universal network access',
-    fallbacks: [
-      'https://itrack-backend-1.onrender.com',  // Primary - CORRECT URL
-      'http://192.168.254.147:5000',            // Local fallback 1
-      'http://10.97.63.190:5000',               // Local fallback 2
-      'http://localhost:5000'                   // Local development
-    ],
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ================== DISPATCH ASSIGNMENT ENDPOINTS ==================
-
-// Dispatch Assignment Schema
-const dispatchAssignmentSchema = new mongoose.Schema({
-  vehicleId: { type: String, required: true },
-  unitName: { type: String, required: true },
-  unitId: { type: String, required: true },
-  bodyColor: { type: String, required: true },
-  variation: { type: String, required: true },
-  processes: [{ type: String, required: true }],
-  status: { type: String, default: 'Assigned to Dispatch' },
-  assignedBy: { type: String, required: true },
-  assignedAt: { type: Date, default: Date.now },
-  completedProcesses: [{ type: String, default: [] }],
-  completedAt: { type: Date },
-  completedBy: { type: String }
-}, { timestamps: true });
-
-const DispatchAssignment = mongoose.model('DispatchAssignment', dispatchAssignmentSchema);
-
-// GET /api/dispatch/assignments - Fetch all dispatch assignments
+// Get dispatch assignments
 app.get('/api/dispatch/assignments', async (req, res) => {
   try {
     console.log('📋 Fetching dispatch assignments...');
     
-    const assignments = await DispatchAssignment.find().sort({ createdAt: -1 });
+    // Use DriverAllocation model for dispatch assignments
+    const assignments = await DriverAllocation.find({
+      status: { $in: ['Assigned to Dispatch', 'In Progress', 'Ready for Release'] }
+    }).sort({ createdAt: -1 });
     
-    console.log(`✅ Found ${assignments.length} dispatch assignments`);
+    // Format the data for dispatch view
+    const dispatchData = assignments.map(allocation => ({
+      _id: allocation._id,
+      unitName: allocation.unitName,
+      unitId: allocation.unitId,
+      bodyColor: allocation.bodyColor,
+      variation: allocation.variation,
+      assignedDriver: allocation.assignedDriver,
+      assignedAgent: allocation.assignedAgent,
+      status: allocation.status,
+      allocatedBy: allocation.allocatedBy,
+      
+      // Process management for dispatch checklist
+      requestedProcesses: allocation.requestedProcesses || [],
+      processStatus: allocation.processStatus || {
+        tinting: false,
+        carwash: false,
+        ceramic_coating: false,
+        accessories: false,
+        rust_proof: false
+      },
+      
+      processes: allocation.requestedProcesses || [],
+      processCompletedBy: allocation.processCompletedBy || {},
+      processCompletedAt: allocation.processCompletedAt || {},
+      
+      overallProgress: allocation.overallProgress || {
+        completed: 0,
+        total: 0,
+        isComplete: false
+      },
+      
+      readyForRelease: allocation.readyForRelease || false,
+      releasedAt: allocation.releasedAt,
+      releasedBy: allocation.releasedBy,
+      
+      createdAt: allocation.createdAt,
+      updatedAt: allocation.updatedAt
+    }));
+    
+    console.log(`✅ Found ${dispatchData.length} dispatch assignments`);
     
     res.json({
       success: true,
-      data: assignments,
-      count: assignments.length
+      data: dispatchData,
+      count: dispatchData.length
     });
   } catch (error) {
     console.error('❌ Error fetching dispatch assignments:', error);
@@ -646,108 +837,117 @@ app.get('/api/dispatch/assignments', async (req, res) => {
   }
 });
 
-// POST /api/dispatch/assignments - Create new dispatch assignment
+// Create new dispatch assignment
 app.post('/api/dispatch/assignments', async (req, res) => {
   try {
     console.log('📋 Creating dispatch assignment:', req.body);
     
-    const { vehicleId, unitName, unitId, bodyColor, variation, processes, assignedBy } = req.body;
+    const assignmentData = req.body;
     
-    // Validate required fields
-    if (!vehicleId || !unitName || !unitId || !processes || !assignedBy) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: vehicleId, unitName, unitId, processes, assignedBy'
-      });
-    }
-
-    // Check if assignment already exists for this vehicle
-    const existingAssignment = await DispatchAssignment.findOne({ vehicleId });
-    if (existingAssignment) {
-      return res.status(400).json({
-        success: false,
-        error: 'Vehicle already assigned to dispatch'
-      });
-    }
-
-    // Create new dispatch assignment
-    const newAssignment = new DispatchAssignment({
-      vehicleId,
-      unitName,
-      unitId,
-      bodyColor,
-      variation,
-      processes: Array.isArray(processes) ? processes : [processes],
-      assignedBy,
-      status: 'Assigned to Dispatch'
+    // Create new allocation with dispatch status
+    const newAssignment = new DriverAllocation({
+      ...assignmentData,
+      status: 'Assigned to Dispatch',
+      requestedProcesses: assignmentData.processes || [],
+      processStatus: {},
+      date: new Date()
     });
-
+    
+    // Initialize process status
+    if (assignmentData.processes && Array.isArray(assignmentData.processes)) {
+      const processStatus = {};
+      assignmentData.processes.forEach(processId => {
+        processStatus[processId] = false;
+      });
+      newAssignment.processStatus = processStatus;
+    }
+    
     const savedAssignment = await newAssignment.save();
     
-    console.log('✅ Dispatch assignment created:', savedAssignment);
-    
-    res.status(201).json({
-      success: true,
-      data: savedAssignment,
-      message: 'Vehicle successfully assigned to dispatch'
+    console.log('✅ Dispatch assignment created:', savedAssignment._id);
+    res.json({ 
+      success: true, 
+      message: 'Dispatch assignment created successfully',
+      data: savedAssignment 
     });
     
   } catch (error) {
-    console.error('❌ Error creating dispatch assignment:', error);
-    res.status(500).json({
-      success: false,
+    console.error('❌ Create dispatch assignment error:', error);
+    res.status(500).json({ 
+      success: false, 
       error: 'Failed to create dispatch assignment',
-      details: error.message
+      details: error.message 
     });
   }
 });
 
-// PUT /api/dispatch/assignments/:id/process - Update process completion
+// Update dispatch assignment process
 app.put('/api/dispatch/assignments/:id/process', async (req, res) => {
   try {
     const { id } = req.params;
-    const { processName, completedBy } = req.body;
+    const { processId, completed, completedBy } = req.body;
     
-    console.log(`📋 Updating process ${processName} for assignment ${id}`);
+    console.log(`📋 Updating process ${processId} for assignment ${id}:`, { completed, completedBy });
     
-    const assignment = await DispatchAssignment.findById(id);
+    const assignment = await DriverAllocation.findById(id);
     if (!assignment) {
       return res.status(404).json({
         success: false,
         error: 'Dispatch assignment not found'
       });
     }
-
-    // Add process to completed list if not already there
-    if (!assignment.completedProcesses.includes(processName)) {
-      assignment.completedProcesses.push(processName);
+    
+    // Update process status
+    if (!assignment.processStatus) {
+      assignment.processStatus = {};
     }
-
-    // Check if all processes are completed
-    const allProcessesCompleted = assignment.processes.every(process => 
-      assignment.completedProcesses.includes(process)
-    );
-
-    if (allProcessesCompleted) {
-      assignment.status = 'Ready for Release';
-      assignment.completedAt = new Date();
-      assignment.completedBy = completedBy;
+    assignment.processStatus[processId] = completed;
+    
+    // Update completion tracking
+    if (!assignment.processCompletedBy) {
+      assignment.processCompletedBy = {};
+    }
+    if (!assignment.processCompletedAt) {
+      assignment.processCompletedAt = {};
+    }
+    
+    if (completed) {
+      assignment.processCompletedBy[processId] = completedBy;
+      assignment.processCompletedAt[processId] = new Date();
     } else {
+      delete assignment.processCompletedBy[processId];
+      delete assignment.processCompletedAt[processId];
+    }
+    
+    // Calculate overall progress
+    const totalProcesses = assignment.requestedProcesses?.length || 0;
+    const completedProcesses = Object.values(assignment.processStatus || {}).filter(status => status === true).length;
+    
+    assignment.overallProgress = {
+      completed: completedProcesses,
+      total: totalProcesses,
+      isComplete: completedProcesses === totalProcesses && totalProcesses > 0
+    };
+    
+    // Update status based on progress
+    if (assignment.overallProgress.isComplete) {
+      assignment.status = 'Ready for Release';
+      assignment.readyForRelease = true;
+    } else if (completedProcesses > 0) {
       assignment.status = 'In Progress';
     }
-
+    
     const updatedAssignment = await assignment.save();
     
-    console.log('✅ Process updated:', updatedAssignment);
-    
+    console.log('✅ Process updated successfully');
     res.json({
       success: true,
       data: updatedAssignment,
-      message: `Process ${processName} completed successfully`
+      message: 'Process status updated successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error updating process:', error);
+    console.error('❌ Error updating dispatch process:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update process',
@@ -756,56 +956,53 @@ app.put('/api/dispatch/assignments/:id/process', async (req, res) => {
   }
 });
 
-// PUT /api/dispatch/assignments/:id - Update dispatch assignment status
+// Update dispatch assignment
 app.put('/api/dispatch/assignments/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, completedBy } = req.body;
+    const updateData = req.body;
     
-    console.log(`📋 Updating assignment ${id} status to ${status}`);
+    console.log(`📋 Updating dispatch assignment ${id}:`, updateData);
     
-    const assignment = await DispatchAssignment.findById(id);
-    if (!assignment) {
+    const updatedAssignment = await DriverAllocation.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    );
+    
+    if (!updatedAssignment) {
       return res.status(404).json({
         success: false,
         error: 'Dispatch assignment not found'
       });
     }
-
-    assignment.status = status;
-    if (status === 'Released' || status === 'Completed') {
-      assignment.completedAt = new Date();
-      assignment.completedBy = completedBy;
-    }
-
-    const updatedAssignment = await assignment.save();
     
-    console.log('✅ Assignment status updated:', updatedAssignment);
+    console.log('✅ Dispatch assignment updated:', updatedAssignment);
     
     res.json({
       success: true,
       data: updatedAssignment,
-      message: `Assignment status updated to ${status}`
+      message: 'Dispatch assignment updated successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error updating assignment status:', error);
+    console.error('❌ Error updating dispatch assignment:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update assignment status',
+      error: 'Failed to update dispatch assignment',
       details: error.message
     });
   }
 });
 
-// DELETE /api/dispatch/assignments/:id - Delete dispatch assignment
+// Delete dispatch assignment
 app.delete('/api/dispatch/assignments/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
     console.log(`📋 Deleting dispatch assignment ${id}`);
     
-    const deletedAssignment = await DispatchAssignment.findByIdAndDelete(id);
+    const deletedAssignment = await DriverAllocation.findByIdAndDelete(id);
     if (!deletedAssignment) {
       return res.status(404).json({
         success: false,
@@ -831,345 +1028,529 @@ app.delete('/api/dispatch/assignments/:id', async (req, res) => {
   }
 });
 
-// ================== MAPS & GEOCODING ENDPOINTS (Google Maps API) ==================
+// ========== VEHICLE ROUTES FOR DRIVER DASHBOARD ==========
 
-// Geocoding: Convert address to coordinates using Google Maps Geocoding API
-app.get('/api/maps/geocode', async (req, res) => {
+// Get vehicle by unitId (for driver dashboard)
+app.get('/vehicles/unit/:unitId', async (req, res) => {
   try {
-    const { address } = req.query;
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    console.log(`Looking for vehicle with unitId: ${req.params.unitId}`);
     
-    if (!address) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Address parameter is required' 
-      });
+    // Try to find by unitId first, then fallback to vin
+    let vehicle = await Vehicle.findOne({ unitId: req.params.unitId });
+    if (!vehicle) {
+      vehicle = await Vehicle.findOne({ vin: req.params.unitId });
     }
     
-    if (!apiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'Google Maps API key not configured'
-      });
+    if (!vehicle) {
+      console.log(`Vehicle not found for unitId: ${req.params.unitId}`);
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
     }
     
-    // Using Google Maps Geocoding API
-    const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
-    
-    const response = await fetch(googleUrl);
-    const data = await response.json();
-    
-    if (data.status !== 'OK') {
-      return res.status(400).json({
-        success: false,
-        error: `Geocoding failed: ${data.status}`,
-        details: data.error_message
-      });
-    }
-    
-    const results = data.results.map(result => ({
-      address: result.formatted_address,
-      latitude: result.geometry.location.lat,
-      longitude: result.geometry.location.lng,
-      placeId: result.place_id,
-      types: result.types,
-      components: result.address_components
-    }));
-    
-    res.json({
-      success: true,
-      results,
-      count: results.length
-    });
-    
-  } catch (error) {
-    console.error('Google Maps Geocoding error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Geocoding service temporarily unavailable'
-    });
+    console.log(`Found vehicle:`, vehicle);
+    res.json(vehicle);
+  } catch (err) {
+    console.error('Error fetching vehicle by unitId:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Reverse Geocoding: Convert coordinates to address using Google Maps
-app.get('/api/maps/reverse-geocode', async (req, res) => {
+// Update vehicle location by unitId (for driver dashboard)
+app.patch('/vehicles/:unitId', async (req, res) => {
   try {
-    const { lat, lon } = req.query;
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const { location } = req.body;
+    console.log(`Updating location for unitId: ${req.params.unitId}`, location);
     
-    if (!lat || !lon) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Latitude and longitude parameters are required' 
-      });
+    // Try to update by unitId first, then fallback to vin
+    let vehicle = await Vehicle.findOneAndUpdate(
+      { unitId: req.params.unitId },
+      { $set: { location } },
+      { new: true }
+    );
+    
+    if (!vehicle) {
+      vehicle = await Vehicle.findOneAndUpdate(
+        { vin: req.params.unitId },
+        { $set: { location } },
+        { new: true, upsert: true }
+      );
     }
     
-    if (!apiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'Google Maps API key not configured'
-      });
+    console.log('Updated vehicle location:', vehicle);
+    res.json({ success: true, vehicle });
+  } catch (err) {
+    console.error('Error updating vehicle location:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get all vehicles (for general use)
+app.get('/vehicles', async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find();
+    res.json({ success: true, vehicles });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create or update vehicle (for agent dashboard)
+app.post('/vehicles', async (req, res) => {
+  try {
+    console.log('Creating/updating vehicle:', req.body);
+    
+    const existing = await Vehicle.findOne({ vin: req.body.vin });
+    if (existing) {
+      Object.assign(existing, req.body);
+      await existing.save();
+      return res.json({ success: true, vehicle: existing });
+    }
+
+    const vehicle = new Vehicle(req.body);
+    await vehicle.save();
+    res.json({ success: true, vehicle });
+  } catch (err) {
+    console.error('Error creating vehicle:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ========== DRIVER ALLOCATION ROUTES ==========
+
+// Get driver allocations (with filtering for specific driver)
+app.get('/driver-allocations', async (req, res) => {
+  try {
+    const { assignedDriver } = req.query;
+    let query = {};
+    
+    // Filter by assigned driver if provided
+    if (assignedDriver) {
+      query.assignedDriver = assignedDriver;
     }
     
-    // Using Google Maps Reverse Geocoding API
-    const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}`;
+    console.log('Driver allocations query:', query);
+    const allocations = await DriverAllocation.find(query);
+    console.log('Found allocations:', allocations.length);
     
-    const response = await fetch(googleUrl);
-    const data = await response.json();
+    res.json({ success: true, data: allocations });
+  } catch (err) {
+    console.error('Error fetching driver allocations:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create driver allocation
+app.post('/driver-allocations', async (req, res) => {
+  try {
+    console.log('Creating driver allocation:', req.body);
+    const newAllocation = new DriverAllocation(req.body);
+    await newAllocation.save();
+    res.json({ success: true, allocation: newAllocation });
+  } catch (err) {
+    console.error('Error creating driver allocation:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update driver allocation status
+app.patch('/driver-allocations/:id', async (req, res) => {
+  try {
+    console.log(`Updating allocation ${req.params.id} with:`, req.body);
+    const updated = await DriverAllocation.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+    if (!updated) return res.status(404).json({ success: false, message: 'Allocation not found' });
+    res.json({ success: true, allocation: updated });
+  } catch (err) {
+    console.error('Error updating driver allocation:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ========== SERVICE REQUEST ENDPOINTS ==========
+
+// Service Request Schema
+const ServiceRequestSchema = new mongoose.Schema({
+  vehicleId: String,
+  unitName: String,
+  unitId: String,
+  requestType: String,
+  description: String,
+  requestedBy: String,
+  status: { type: String, default: 'Pending' },
+  priority: { type: String, default: 'Normal' },
+  completedAt: Date,
+  completedBy: String
+}, { timestamps: true });
+const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema);
+
+// Get service requests
+app.get('/getRequest', async (req, res) => {
+  try {
+    const requests = await Servicerequest.find({}).sort({ createdAt: -1 });
+    console.log(`📊 Found ${requests.length} service requests`);
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    console.error('❌ Get requests error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get completed requests
+app.get('/getCompletedRequests', async (req, res) => {
+  try {
+    const completedRequests = await Servicerequest.find({ status: 'Completed' }).sort({ completedAt: -1 });
+    console.log(`📊 Found ${completedRequests.length} completed requests`);
+    res.json({ success: true, data: completedRequests });
+  } catch (error) {
+    console.error('❌ Get completed requests error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== DASHBOARD STATISTICS ==========
+
+// Dashboard stats endpoint
+app.get('/dashboard/stats', async (req, res) => {
+  try {
+    const totalStocks = await Inventory.countDocuments();
+    const totalUsers = await User.countDocuments();
+    const totalAllocations = await DriverAllocation.countDocuments();
+    const completedRequests = await Servicerequest.countDocuments({ status: 'Completed' });
+    const pendingRequests = await Servicerequest.countDocuments({ status: 'Pending' });
+    const inTransitVehicles = await DriverAllocation.countDocuments({ status: 'In Transit' });
+    const readyForRelease = await DriverAllocation.countDocuments({ readyForRelease: true });
     
-    if (data.status !== 'OK') {
-      return res.status(400).json({
-        success: false,
-        error: `Reverse geocoding failed: ${data.status}`,
-        details: data.error_message
-      });
-    }
+    const stats = {
+      totalStocks,
+      totalUsers,
+      totalAllocations,
+      finishedVehiclePreps: completedRequests,
+      ongoingVehiclePreps: pendingRequests,
+      ongoingShipments: inTransitVehicles,
+      readyForRelease,
+      recentVehiclePreps: await Servicerequest.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+      })
+    };
     
-    const result = data.results[0];
-    if (!result) {
+    console.log('📊 Dashboard stats:', stats);
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ Dashboard stats error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== INVENTORY API ENDPOINT ==========
+
+// Update inventory item (for status changes)
+app.put('/api/inventory/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    console.log(`📋 Updating inventory ${id}:`, updateData);
+    
+    const updatedItem = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
+    
+    if (!updatedItem) {
       return res.status(404).json({
         success: false,
-        error: 'No address found for these coordinates'
+        error: 'Inventory item not found'
       });
     }
     
-    res.json({
-      success: true,
-      address: result.formatted_address,
-      placeId: result.place_id,
-      types: result.types,
-      components: result.address_components,
-      coordinates: {
-        latitude: parseFloat(lat),
-        longitude: parseFloat(lon)
-      }
+    console.log('✅ Inventory updated:', updatedItem);
+    res.json({ 
+      success: true, 
+      data: updatedItem,
+      message: 'Inventory updated successfully' 
     });
-    
   } catch (error) {
-    console.error('Google Maps Reverse geocoding error:', error);
+    console.error('❌ Error updating inventory:', error);
     res.status(500).json({
       success: false,
-      error: 'Reverse geocoding service temporarily unavailable'
+      error: 'Failed to update inventory',
+      details: error.message
     });
   }
 });
 
-// Get route directions between two points using Google Directions API
-app.get('/api/maps/directions', async (req, res) => {
+// ========== RELEASE MANAGEMENT ==========
+
+// Get releases
+app.get('/api/releases', async (req, res) => {
   try {
-    const { start_lat, start_lon, end_lat, end_lon, mode = 'driving' } = req.query;
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const releases = await DriverAllocation.find({ 
+      status: 'Released',
+      releasedAt: { $exists: true }
+    }).sort({ releasedAt: -1 });
     
-    if (!start_lat || !start_lon || !end_lat || !end_lon) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Start and end coordinates are required (start_lat, start_lon, end_lat, end_lon)' 
-      });
-    }
-    
-    if (!apiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'Google Maps API key not configured'
-      });
-    }
-    
-    // Using Google Directions API
-    const origin = `${start_lat},${start_lon}`;
-    const destination = `${end_lat},${end_lon}`;
-    const googleUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode}&key=${apiKey}`;
-    
-    const response = await fetch(googleUrl);
-    const data = await response.json();
-    
-    if (data.status !== 'OK') {
-      return res.status(400).json({
-        success: false,
-        error: `Directions failed: ${data.status}`,
-        details: data.error_message
-      });
-    }
-    
-    const route = data.routes[0];
-    const leg = route.legs[0];
-    
-    res.json({
-      success: true,
-      route: {
-        distance: leg.distance.value, // in meters
-        duration: leg.duration.value, // in seconds
-        distance_text: leg.distance.text,
-        duration_text: leg.duration.text,
-        start_address: leg.start_address,
-        end_address: leg.end_address,
-        steps: leg.steps.map(step => ({
-          distance: step.distance.value,
-          duration: step.duration.value,
-          instruction: step.html_instructions.replace(/<[^>]*>/g, ''), // Remove HTML tags
-          maneuver: step.maneuver
-        })),
-        polyline: route.overview_polyline.points
-      },
-      summary: {
-        distance_km: (leg.distance.value / 1000).toFixed(2),
-        duration_minutes: Math.round(leg.duration.value / 60),
-        start_coordinates: [parseFloat(start_lat), parseFloat(start_lon)],
-        end_coordinates: [parseFloat(end_lat), parseFloat(end_lon)]
-      }
-    });
-    
+    console.log(`📊 Found ${releases.length} releases`);
+    res.json({ success: true, data: releases });
   } catch (error) {
-    console.error('Google Maps Directions error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Directions service temporarily unavailable'
-    });
+    console.error('❌ Get releases error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get nearby places using Google Places API (Nearby Search)
-app.get('/api/maps/nearby', async (req, res) => {
+// Confirm release
+app.post('/api/releases', async (req, res) => {
   try {
-    const { lat, lon, radius = 1000, type = 'restaurant' } = req.query;
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const releaseData = req.body;
+    console.log('📋 Confirming vehicle release:', releaseData);
     
-    if (!lat || !lon) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Latitude and longitude parameters are required' 
-      });
-    }
-    
-    if (!apiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'Google Maps API key not configured'
-      });
-    }
-    
-    // Using Google Places API - Nearby Search
-    const location = `${lat},${lon}`;
-    const googleUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location}&radius=${radius}&type=${type}&key=${apiKey}`;
-    
-    const response = await fetch(googleUrl);
-    const data = await response.json();
-    
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      return res.status(400).json({
-        success: false,
-        error: `Places search failed: ${data.status}`,
-        details: data.error_message
-      });
-    }
-    
-    const places = data.results.map(place => ({
-      id: place.place_id,
-      name: place.name,
-      rating: place.rating,
-      price_level: place.price_level,
-      types: place.types,
-      vicinity: place.vicinity,
-      coordinates: {
-        latitude: place.geometry.location.lat,
-        longitude: place.geometry.location.lng
+    // Update the allocation to released status
+    const updatedAllocation = await DriverAllocation.findByIdAndUpdate(
+      releaseData.vehicleId,
+      {
+        status: 'Released',
+        releasedAt: releaseData.releasedAt,
+        releasedBy: releaseData.releasedBy
       },
-      photos: place.photos ? place.photos.map(photo => ({
-        reference: photo.photo_reference,
-        width: photo.width,
-        height: photo.height
-      })) : [],
-      open_now: place.opening_hours?.open_now
-    }));
+      { new: true }
+    );
     
-    res.json({
-      success: true,
-      places,
-      count: places.length,
-      search_area: {
-        center: { latitude: parseFloat(lat), longitude: parseFloat(lon) },
-        radius_meters: parseInt(radius),
-        type: type
-      }
+    if (!updatedAllocation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Vehicle allocation not found'
+      });
+    }
+    
+    console.log('✅ Vehicle released successfully:', updatedAllocation);
+    res.json({ 
+      success: true, 
+      data: updatedAllocation,
+      message: 'Vehicle released successfully' 
     });
-    
   } catch (error) {
-    console.error('Google Maps Places error:', error);
+    console.error('❌ Release confirmation error:', error);
     res.status(500).json({
       success: false,
-      error: 'Places search service temporarily unavailable'
+      error: 'Failed to confirm release',
+      details: error.message
     });
   }
 });
 
-// ================== START SERVER ==================
-const PORT = process.env.PORT || 5000;
-const localIPs = getLocalIPAddresses();
-const primaryIP = getPrimaryIPAddress();
+// ========== TEST DATA CREATION ==========
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Mobile Backend Server running on port ${PORT}`);
-  console.log(`🌐 Network Information:`);
-  console.log(`   - Primary IP: ${primaryIP}`);
-  console.log(`   - All Network IPs: ${localIPs.join(', ')}`);
-  console.log(`   - Hostname: ${os.hostname()}`);
-  console.log(`   - Platform: ${os.platform()}`);
-  console.log('');
-  console.log('📱 Mobile App Connection URLs:');
-  localIPs.forEach((ip, index) => {
-    const label = index === 0 ? 'Primary' : `Alternative ${index}`;
-    console.log(`   - ${label}: http://${ip}:${PORT}`);
+// Create sample data for testing
+app.post('/test/create-sample-data', async (req, res) => {
+  try {
+    console.log('Creating sample data for testing...');
+    
+    // Create sample driver allocation
+    const sampleAllocation = new DriverAllocation({
+      unitName: 'Isuzu D-Max',
+      unitId: 'TEST001',
+      bodyColor: 'Red',
+      variation: 'LS-A 4x2',
+      assignedDriver: 'Driver A',
+      status: 'Pending'
+    });
+    await sampleAllocation.save();
+    
+    // Create sample vehicle with location
+    const sampleVehicle = new Vehicle({
+      vin: 'TEST001',
+      unitId: 'TEST001',
+      model: 'D-Max',
+      driver: 'Driver A',
+      current_status: 'Ready',
+      location: { lat: 14.5791, lng: 121.0655 }, // Isuzu Pasig location
+      customer_name: 'Test Customer',
+      customer_number: '09123456789'
+    });
+    await sampleVehicle.save();
+    
+    console.log('Sample data created successfully');
+    res.json({ 
+      success: true, 
+      message: 'Sample data created',
+      allocation: sampleAllocation,
+      vehicle: sampleVehicle
+    });
+  } catch (err) {
+    console.error('Error creating sample data:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API Configuration endpoint
+app.get('/api/config', (req, res) => {
+  const baseUrl = `http://${req.get('host')}`;
+  
+  res.json({
+    success: true,
+    config: {
+      baseUrl,
+      version: '2.0.0',
+      name: 'I-Track Mobile Backend',
+      endpoints: {
+        // Authentication
+        login: '/login',
+        forgotPassword: '/forgot-password',
+        changePassword: '/change-password',
+        logout: '/logout',
+        profile: '/profile',
+        
+        // User Management
+        getUsers: '/getUsers',
+        createUser: '/createUser',
+        updateUser: '/updateUser/:id',
+        deleteUser: '/deleteUser/:id',
+        
+        // Vehicle Management
+        getAllocation: '/getAllocation',
+        createAllocation: '/createAllocation',
+        
+        // Inventory & Stock
+        getStock: '/getStock',
+        createStock: '/createStock',
+        updateStock: '/updateStock/:id',
+        deleteStock: '/deleteStock/:id',
+        updateInventory: '/api/inventory/:id',
+        
+        // Service Requests
+        getRequest: '/getRequest',
+        getCompletedRequests: '/getCompletedRequests',
+        
+        // Dispatch Management
+        getDispatchAssignments: '/api/dispatch/assignments',
+        createDispatchAssignment: '/api/dispatch/assignments',
+        updateDispatchProcess: '/api/dispatch/assignments/:id/process',
+        updateDispatchAssignment: '/api/dispatch/assignments/:id',
+        deleteDispatchAssignment: '/api/dispatch/assignments/:id',
+        
+        // Release Management
+        getReleases: '/api/releases',
+        confirmRelease: '/api/releases',
+        
+        // Dashboard
+        dashboardStats: '/dashboard/stats',
+        
+        // Vehicle Routes
+        getVehicleByUnit: '/vehicles/unit/:unitId',
+        updateVehicleLocation: '/vehicles/:unitId',
+        getAllVehicles: '/vehicles',
+        createVehicle: '/vehicles',
+        
+        // Driver Allocations
+        getDriverAllocations: '/driver-allocations',
+        createDriverAllocation: '/driver-allocations',
+        updateDriverAllocation: '/driver-allocations/:id',
+        
+        // Health & Config
+        health: '/test',
+        config: '/api/config'
+      },
+      features: {
+        userManagement: true,
+        inventoryManagement: true,
+        dispatchManagement: true,
+        releaseManagement: true,
+        dashboardStats: true,
+        realTimeTracking: true,
+        passwordReset: true
+      }
+    }
   });
-  console.log(`   - Localhost: http://localhost:${PORT}`);
+});
+
+// Test endpoint
+app.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'I-Track Backend Server is running successfully!',
+    timestamp: new Date().toISOString(),
+    version: '2.0.0',
+    database: 'Connected to MongoDB Atlas',
+    endpoints: {
+      total: 25,
+      categories: [
+        'Authentication (5)',
+        'User Management (4)', 
+        'Inventory Management (5)',
+        'Dispatch Management (5)',
+        'Vehicle Management (4)',
+        'Dashboard & Reports (2)'
+      ]
+    }
+  });
+});
+
+// Server listening on localhost
+const PORT = 5000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('');
+  console.log('🚀====================================🚀');
+  console.log('    I-TRACK MOBILE BACKEND SERVER    ');
+  console.log('🚀====================================🚀');
+  console.log('');
+  console.log(`🔗 Server running on:`);
+  console.log(`   - Local: http://localhost:${PORT}`);
+  console.log(`   - Network: http://0.0.0.0:${PORT}`);
   console.log(`   - Loopback: http://127.0.0.1:${PORT}`);
   console.log('');
   console.log('📋 Available endpoints:');
-  console.log('  === MAPS API (NEW - FIXES CRASHES) ===');
-  console.log('  - GET  /api/maps/vehicles (Admin Maps)');
-  console.log('  - GET  /api/maps/driver/:driverId/route (Driver Maps)');
-  console.log('  - GET  /api/maps/agent/:agentId/vehicles (Agent Maps)');
-  console.log('  - PUT  /api/maps/vehicle/:vehicleId/location (GPS Update)');
-  console.log('  === VEHICLE API ===');
-  console.log('  - GET  /api/vehicles & /api/vehicles/locations');
-  console.log('  - POST /api/vehicles');
-  console.log('  - GET  /api/vehicles/:id');
-  console.log('  - PUT  /api/vehicles/:id');
-  console.log('  - DELETE /api/vehicles/:id');
-  console.log('  === USER API ===');
-  console.log('  - GET  /api/users & /api/users/:id');
-  console.log('  - POST /api/users');
-  console.log('  - PUT  /api/users/:id');
-  console.log('  - DELETE /api/users/:id');
-  console.log('  - GET  /api/users/role/:role');
-  console.log('  - GET  /api/manager/:managerId/agents');
-  console.log('  - GET  /api/managers');
-  console.log('  - GET  /api/dashboard/stats/:userId');
-  console.log('  === LEGACY MOBILE ROUTES ===');
-  console.log('  - POST /login');
-  console.log('  - GET  /getUsers');
-  console.log('  - GET  /getAllocation');
-  console.log('  - POST /createAllocation');
-  console.log('  - GET  /getStock');
-  console.log('  - POST /createStock');
-  console.log('  - GET  /getRequest');
-  console.log('  - GET  /getCompletedRequests');
-  console.log('  - GET  /dashboard/stats');
-  console.log('  - GET  /api/dispatch/assignments');
-  console.log('  - POST /api/dispatch/assignments');
-  console.log('  - PUT  /api/dispatch/assignments/:id/process');
-  console.log('  - PUT  /api/dispatch/assignments/:id');
-  console.log('  - DELETE /api/dispatch/assignments/:id');
-  console.log('  - GET  /test');
-  console.log('  - GET  /health');
+  console.log('  🔐 AUTHENTICATION:');
+  console.log('    - POST /login');
+  console.log('    - POST /forgot-password');
+  console.log('    - POST /change-password');
+  console.log('    - POST /logout');
+  console.log('    - GET  /profile');
   console.log('');
-  console.log('✅ Ready for mobile app connections!');
-  console.log('💡 Use the Primary IP for connecting from other devices on the same network');
-});
-
-// Error handling
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Promise Rejection:', err.message);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err.message);
+  console.log('  👥 USER MANAGEMENT:');
+  console.log('    - GET    /getUsers');
+  console.log('    - POST   /createUser');
+  console.log('    - PUT    /updateUser/:id');
+  console.log('    - DELETE /deleteUser/:id');
+  console.log('');
+  console.log('  📦 INVENTORY MANAGEMENT:');
+  console.log('    - GET    /getStock');
+  console.log('    - POST   /createStock');
+  console.log('    - PUT    /updateStock/:id');
+  console.log('    - DELETE /deleteStock/:id');
+  console.log('    - PUT    /api/inventory/:id');
+  console.log('');
+  console.log('  🚚 VEHICLE & ALLOCATION:');
+  console.log('    - GET  /getAllocation');
+  console.log('    - POST /createAllocation');
+  console.log('    - GET  /vehicles');
+  console.log('    - POST /vehicles');
+  console.log('    - GET  /vehicles/unit/:unitId');
+  console.log('    - PATCH /vehicles/:unitId');
+  console.log('');
+  console.log('  📋 DISPATCH MANAGEMENT:');
+  console.log('    - GET    /api/dispatch/assignments');
+  console.log('    - POST   /api/dispatch/assignments');
+  console.log('    - PUT    /api/dispatch/assignments/:id/process');
+  console.log('    - PUT    /api/dispatch/assignments/:id');
+  console.log('    - DELETE /api/dispatch/assignments/:id');
+  console.log('');
+  console.log('  📤 SERVICE REQUESTS:');
+  console.log('    - GET /getRequest');
+  console.log('    - GET /getCompletedRequests');
+  console.log('');
+  console.log('  📦 RELEASE MANAGEMENT:');
+  console.log('    - GET  /api/releases');
+  console.log('    - POST /api/releases');
+  console.log('');
+  console.log('  📊 DASHBOARD & STATS:');
+  console.log('    - GET /dashboard/stats');
+  console.log('    - GET /api/config');
+  console.log('');
+  console.log('  🩹 DRIVER ALLOCATIONS:');
+  console.log('    - GET   /driver-allocations');
+  console.log('    - POST  /driver-allocations');
+  console.log('    - PATCH /driver-allocations/:id');
+  console.log('');
+  console.log('  ✅ HEALTH CHECK:');
+  console.log('    - GET /test');
+  console.log('');
+  console.log('✨ All endpoints are now connected to MongoDB Atlas!');
+  console.log('📊 Database collections: Users, Inventory, DriverAllocation, Servicerequest, Vehicle');
+  console.log('');
+  console.log('🔄 Server ready to handle requests...');
+  console.log('');
 });

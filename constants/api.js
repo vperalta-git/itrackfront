@@ -1,14 +1,14 @@
 // Enhanced API configuration with dynamic server URL fetching
-let cachedServerUrl = 'https://itrack-backend-1.onrender.com'; // Default to working URL
+let cachedServerUrl = 'https://itrack-backend-1.onrender.com'; // Default to Render deployment
 let isInitialized = false;
 
 // Function to fetch server configuration from backend
 const fetchServerConfig = async () => {
   const fallbackUrls = [
-    'https://itrack-backend-1.onrender.com',  // Primary - Render deployment
+    'https://itrack-backend-1.onrender.com',  // Primary - Render deployment (WORKING)
     'http://192.168.254.147:5000',            // Local network fallback 1
-    'http://10.97.63.190:5000',               // Local network fallback 2  
-    'http://localhost:5000'                   // Local development fallback
+    'http://localhost:5000',                  // Local development fallback
+    'http://10.97.63.190:5000'                // Local network fallback 2
   ];
 
   // Try each URL until one works

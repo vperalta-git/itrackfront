@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   TouchableOpacity,
   TextInput,
   ScrollView,
@@ -18,6 +17,7 @@ import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
 import AgentMapsView from '../components/AgentMapsView';
 import ImprovedMapsView from '../components/ImprovedMapsView';
+import UniformLoading from '../components/UniformLoading';
 
 import styles from "../styles/AgentDashboardStyles";
 
@@ -329,7 +329,7 @@ export default function AgentDashboard() {
   };
 
   const renderTabContent = () => {
-    if (loading) return <ActivityIndicator size="large" color="#CB1E2A" />;
+    if (loading) return <UniformLoading message="Loading agent dashboard..." size="large" />;
 
     switch (activeTab) {
       case TAB_DASHBOARD:

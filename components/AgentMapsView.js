@@ -144,9 +144,18 @@ const AgentMapsView = ({ style }) => {
         
         {/* Agent's Assigned Vehicles */}
         {agentAllocations.map((allocation, index) => {
-          // Generate mock coordinates around dealership for demo
-          const lat = defaultRegion.latitude + (Math.random() - 0.5) * 0.03;
-          const lng = defaultRegion.longitude + (Math.random() - 0.5) * 0.03;
+          // Use real coordinates from backend or fallback to demo coordinates
+          let lat, lng;
+          
+          if (allocation.location?.latitude && allocation.location?.longitude) {
+            // Use real coordinates from database
+            lat = allocation.location.latitude;
+            lng = allocation.location.longitude;
+          } else {
+            // Fallback: Generate mock coordinates around dealership for demo
+            lat = defaultRegion.latitude + (Math.random() - 0.5) * 0.03;
+            lng = defaultRegion.longitude + (Math.random() - 0.5) * 0.03;
+          }
           
           return (
             <Marker
@@ -163,9 +172,18 @@ const AgentMapsView = ({ style }) => {
         {allocations.filter(allocation => 
           allocation.assignedAgent !== agentName && allocation.agent !== agentName
         ).slice(0, 5).map((allocation, index) => {
-          // Generate mock coordinates around dealership for demo
-          const lat = defaultRegion.latitude + (Math.random() - 0.5) * 0.04;
-          const lng = defaultRegion.longitude + (Math.random() - 0.5) * 0.04;
+          // Use real coordinates from backend or fallback to demo coordinates
+          let lat, lng;
+          
+          if (allocation.location?.latitude && allocation.location?.longitude) {
+            // Use real coordinates from database
+            lat = allocation.location.latitude;
+            lng = allocation.location.longitude;
+          } else {
+            // Fallback: Generate mock coordinates around dealership for demo
+            lat = defaultRegion.latitude + (Math.random() - 0.5) * 0.04;
+            lng = defaultRegion.longitude + (Math.random() - 0.5) * 0.04;
+          }
           
           return (
             <Marker

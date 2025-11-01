@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Modal
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -20,6 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import AdminMapsView from '../components/AdminMapsView';
 import ImprovedMapsView from '../components/ImprovedMapsView';
+import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
+import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
+import UniformLoading from '../components/UniformLoading';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -76,6 +78,10 @@ export default function AdminDashboard() {
   const [releaseHistory, setReleaseHistory] = useState([]);
   const [showReleaseConfirmModal, setShowReleaseConfirmModal] = useState(false);
   const [selectedReleaseVehicle, setSelectedReleaseVehicle] = useState(null);
+  
+  // Enhanced modal states
+  const [showDriverCreationModal, setShowDriverCreationModal] = useState(false);
+  const [showVehicleAssignmentModal, setShowVehicleAssignmentModal] = useState(false);
   
   // Available processes
   const availableProcesses = [
@@ -729,6 +735,45 @@ export default function AdminDashboard() {
             onPress={mode === 'stock' ? assignToAgent : assignToDriver}
           >
             <Text style={styles.createAssignmentButtonText}>Create Assignment</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Enhanced Quick Actions */}
+      <View style={styles.quickActionsCard}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        
+        <View style={styles.actionButtonsGrid}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryActionButton]}
+            onPress={() => setShowDriverCreationModal(true)}
+          >
+            <Text style={styles.actionButtonIcon}>👤</Text>
+            <Text style={styles.actionButtonText}>Create Driver Account</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryActionButton]}
+            onPress={() => setShowVehicleAssignmentModal(true)}
+          >
+            <Text style={styles.actionButtonIcon}>🚗</Text>
+            <Text style={styles.actionButtonText}>Assign Vehicle</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.tertiaryActionButton]}
+            onPress={() => navigation.navigate('UserManagement')}
+          >
+            <Text style={styles.actionButtonIcon}>👥</Text>
+            <Text style={styles.actionButtonText}>User Management</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.quaternaryActionButton]}
+            onPress={() => navigation.navigate('AdminVehicleTracking')}
+          >
+            <Text style={styles.actionButtonIcon}>📍</Text>
+            <Text style={styles.actionButtonText}>Vehicle Tracking</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1558,10 +1603,11 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
-        <Text style={styles.loadingText}>Loading Admin Dashboard...</Text>
-      </View>
+      <UniformLoading 
+        message="Loading Admin Dashboard..." 
+        size="large" 
+        backgroundColor="#F5F5F5"
+      />
     );
   }
 
@@ -1643,6 +1689,26 @@ export default function AdminDashboard() {
            renderReportsContent()}
         </View>
       </ScrollView>
+      
+      {/* Enhanced Driver Creation Modal */}
+      <EnhancedDriverCreation
+        visible={showDriverCreationModal}
+        onClose={() => setShowDriverCreationModal(false)}
+        onDriverCreated={(driverData) => {
+          console.log('✅ Driver created:', driverData);
+          fetchDrivers(); // Refresh driver list
+        }}
+      />
+
+      {/* Enhanced Vehicle Assignment Modal */}
+      <EnhancedVehicleAssignment
+        visible={showVehicleAssignmentModal}
+        onClose={() => setShowVehicleAssignmentModal(false)}
+        onVehicleAssigned={(assignmentData) => {
+          console.log('✅ Vehicle assigned:', assignmentData);
+          fetchAllocations(); // Refresh allocations list
+        }}
+      />
       
       {/* Add Stock Modal */}
       <Modal visible={showAddStockModal} animationType="slide" transparent={true}>
@@ -3103,6 +3169,65 @@ const styles = StyleSheet.create({
   // Release Modal Styles
   releaseConfirmContent: {
     marginVertical: 20,
+  },
+
+  // Enhanced Quick Actions Styles
+  quickActionsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  actionButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  actionButton: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+    marginBottom: 8,
+  },
+
+  primaryActionButton: {
+    backgroundColor: '#2563eb',
+  },
+
+  secondaryActionButton: {
+    backgroundColor: '#dc2626',
+  },
+
+  tertiaryActionButton: {
+    backgroundColor: '#10b981',
+  },
+
+  quaternaryActionButton: {
+    backgroundColor: '#f59e0b',
+  },
+
+  actionButtonIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+
+  actionButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
   releaseVehicleDetails: {

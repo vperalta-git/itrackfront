@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import UniformLoading from '../components/UniformLoading';
 
 const API_URL = 'https://itrack-backend-1.onrender.com';
 
@@ -121,7 +121,11 @@ export default function AdminVehicleTracking() {
       <Text style={styles.header}>Vehicle Tracking</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <UniformLoading 
+          message="Loading vehicle tracking..." 
+          size="large"
+          style={{ flex: 1 }}
+        />
       ) : (
         <>
           <MapView

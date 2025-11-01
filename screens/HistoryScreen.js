@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   RefreshControl,
   Image,
   FlatList,
@@ -14,6 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
+import UniformLoading from '../components/UniformLoading';
 
 export default function HistoryScreen() {
   const navigation = useNavigation();
@@ -395,10 +395,10 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
-        <Text style={styles.loadingText}>Loading history...</Text>
-      </View>
+      <UniformLoading 
+        message="Loading history..." 
+        size="large"
+      />
     );
   }
 

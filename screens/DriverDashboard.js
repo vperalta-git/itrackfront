@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { buildApiUrl } from '../constants/api';
 import DriverMapsView from '../components/DriverMapsView';
+import UniformLoading from '../components/UniformLoading';
 
 const { width, height } = Dimensions.get('window');
 
@@ -246,10 +246,11 @@ export default function DriverDashboard() {
       </View>
 
       {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#CB1E2A" />
-          <Text style={styles.loadingText}>Loading assignments...</Text>
-        </View>
+        <UniformLoading 
+          message="Loading assignments..." 
+          size="large"
+          style={{ position: 'relative' }}
+        />
       )}
       
       {error && <Text style={styles.errorText}>{error}</Text>}

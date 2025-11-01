@@ -3,13 +3,14 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, FlatList,
   TouchableOpacity, StyleSheet, Alert,
-  TextInput, RefreshControl, ActivityIndicator,
+  TextInput, RefreshControl,
   Modal
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
+import UniformLoading from '../components/UniformLoading';
 
 // Available processes that dispatch can manage
 const AVAILABLE_PROCESSES = [
@@ -345,10 +346,11 @@ export default function DispatchDashboard() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
-        <Text style={styles.loadingText}>Loading vehicles...</Text>
-      </View>
+      <UniformLoading 
+        message="Loading vehicles..." 
+        size="large"
+        backgroundColor="#f5f5f5"
+      />
     );
   }
 

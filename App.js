@@ -1,4 +1,17 @@
-//App.js
+//App.js - I-Track v44.5.1 Crash-Proof Version
+
+// 🚨 IMMEDIATE StyleSheet crash protection - MUST be first
+if (typeof StyleSheet === 'undefined') {
+    global.StyleSheet = {
+        create: (styles) => styles,
+        flatten: (style) => style,
+        compose: (...styles) => Object.assign({}, ...styles)
+    };
+}
+
+// ⚠️ CRITICAL: Import StyleSheet fix FIRST to ensure compatibility
+import './utils/StyleSheetFix';
+
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -9,6 +22,7 @@ import Toast from 'react-native-toast-message';
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import DriverDashboard from './screens/DriverDashboard';
+import NewDriverDashboard from './components/NewDriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
 import AdminDashboard from './screens/AdminDashboard';
 import ManagerDashboard from './screens/ManagerDashboard';
@@ -29,6 +43,7 @@ import TestDriveBookingScreen from './screens/TestDriveBookingScreen';
 import TestDriveManagementScreen from './screens/TestDriveManagementScreen';
 import BookingDetailsScreen from './screens/BookingDetailsScreen';
 import ThemeProvider from './context/ThemeContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -225,9 +240,19 @@ export default function App() {
   useEffect(() => {
     async function checkLogin() {
       try {
-        const userToken = await AsyncStorage.getItem('userToken');
-        const userRole = await AsyncStorage.getItem('userRole');
-        const userName = await AsyncStorage.getItem('userName');
+        // Add timeout to AsyncStorage calls to prevent hanging
+        const asyncStorageWithTimeout = async (key, timeout = 5000) => {
+          return Promise.race([
+            AsyncStorage.getItem(key),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`AsyncStorage timeout for ${key}`)), timeout)
+            )
+          ]);
+        };
+
+        const userToken = await asyncStorageWithTimeout('userToken');
+        const userRole = await asyncStorageWithTimeout('role');
+        const userName = await asyncStorageWithTimeout('userName');
 
         console.log('🔍 App startup check:', { userToken, userRole, userName });
 
@@ -251,8 +276,11 @@ export default function App() {
         }
       } catch (err) {
         console.error('❌ Error checking login state:', err);
+        console.error('❌ Error details:', err.message);
+        // Always fallback to LoginScreen on error
         setInitialRoute('LoginScreen');
       } finally {
+        console.log('🔍 App initialization complete');
         setIsReady(true);
       }
     }
@@ -265,8 +293,9 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <NavigationContainer>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <NavigationContainer>
         <Stack.Navigator 
           initialRouteName={initialRoute}
           screenOptions={{
@@ -315,8 +344,8 @@ export default function App() {
           />
           <Stack.Screen 
             name="DriverDashboard" 
-            component={DriverDashboard} 
-            options={{ headerShown: false }} 
+            component={NewDriverDashboard} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen 
             name="DispatchDashboard" 
@@ -416,5 +445,6 @@ export default function App() {
 
       <Toast />
     </ThemeProvider>
+  </ErrorBoundary>
   );
 }

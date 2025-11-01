@@ -8,7 +8,6 @@ import {
   Alert,
   Image,
   ImageBackground,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -17,6 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
+import UniformLoading from '../components/UniformLoading';
 // import { useGoogleAuth } from '../utils/googleAuth'; // Commented out Google Auth
 
 export default function LoginScreen() {
@@ -93,70 +93,71 @@ export default function LoginScreen() {
     const { username, password } = form;
 
     if (!username || !password) {
-      return Alert.alert('Error', 'Please enter both username and password');
-    }
-
-    // ✅ TEMPORARY HARDCODED ADMIN LOGIN
-    if (username === 'admin123' && password === 'admin123') {
-      await AsyncStorage.setItem('userToken', 'authenticated');
-      await AsyncStorage.setItem('userName', 'Admin');
-      await AsyncStorage.setItem('accountName', 'Admin');
-      await AsyncStorage.setItem('userRole', 'Admin'); // Changed from 'admin' to 'Admin' to match roleRouteMap
-      navigation.replace('AdminDrawer');
-      return;
+      return Alert.alert('Error', 'Please enter both email and password');
     }
 
     setIsLoading(true);
     try {
-      const res = await fetch(buildApiUrl('/login'), {
+      console.log('🔐 Attempting login with email:', username);
+      
+      const apiUrl = buildApiUrl('/login');
+      console.log('🔗 API URL:', apiUrl);
+
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ 
+          username: username.toLowerCase().trim(), 
+          password 
+        })
       });
+
+      console.log('📡 Response status:', res.status);
+      console.log('📡 Response headers:', Object.fromEntries(res.headers.entries()));
 
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
-        throw new Error('Unexpected server response: ' + text);
+        console.error('❌ Non-JSON response:', text);
+        throw new Error('Server returned unexpected response format');
       }
 
       const data = await res.json();
+      console.log('📥 Login response data:', JSON.stringify(data, null, 2));
 
       if (!res.ok || !data.success) {
-        Alert.alert('Error', data.message || 'Login failed');
+        const errorMessage = data.message || `Server error (${res.status})`;
+        console.error('❌ Login failed:', errorMessage);
+        Alert.alert('Login Failed', errorMessage);
         return;
       }
 
-      // Handle temporary password case
-      if (data.requirePasswordChange) {
-        Alert.alert(
-          'Password Change Required', 
-          data.message || 'You must change your password immediately.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate to password change screen or show modal
-                // For now, we'll continue with login but show a warning
-                console.log('⚠️ User needs to change password');
-              }
-            }
-          ]
-        );
+      // Extract user data from response
+      const user = data.user;
+      const userRole = user?.role;
+      const userName = user?.accountName || user?.name || '';
+      const userEmail = user?.email || '';
+      
+      console.log('✅ Login successful for user:', userName);
+      console.log('🔍 User role:', userRole);
+      console.log('📧 User email:', userEmail);
+
+      if (!userRole) {
+        console.error('❌ No role information in response');
+        Alert.alert('Error', 'No role information received from server');
+        return;
       }
 
-      // Support both old format (for backwards compatibility) and new format
-      const user = data.user || { 
-        role: data.role, 
-        accountName: data.accountName || data.name,
-        username: username 
-      };
-
-      // Set all required AsyncStorage keys for consistent session management
-      await AsyncStorage.setItem('userToken', 'authenticated');
-      await AsyncStorage.setItem('userName', user.accountName || user.username || '');
-      await AsyncStorage.setItem('accountName', user.accountName || '');
-      await AsyncStorage.setItem('userRole', user.role || '');
+      // Store user data
+      await AsyncStorage.multiSet([
+        ['userToken', 'authenticated'],
+        ['accountName', userName],
+        ['role', userRole],
+        ['email', userEmail],
+        ['userName', userName],
+        ['userRole', userRole]
+      ]);
+      console.log('💾 User data saved to storage');
 
       if (rememberMe) {
         await AsyncStorage.setItem('rememberedUsername', username);
@@ -164,33 +165,57 @@ export default function LoginScreen() {
         await AsyncStorage.removeItem('rememberedUsername');
       }
 
-      switch ((user.role || '').toLowerCase()) {
-        case 'admin':
+      // ✅ Navigate based on detected role (handle case-insensitive)
+      const role = userRole;
+      console.log('🧭 Navigating based on role:', role);
+      
+      switch (role) {
+        case 'Admin':
+          console.log('➡️ Navigating to AdminDrawer');
           navigation.replace('AdminDrawer');
           break;
-        case 'manager':
-          navigation.replace('ManagerDrawer');
-          break;
-        case 'sales agent':
-        case 'agent':
+        case 'Sales Agent':
+          console.log('➡️ Navigating to AgentDrawer');
           navigation.replace('AgentDrawer');
           break;
-        case 'dispatch':
+        case 'Dispatch':
+          console.log('➡️ Navigating to DispatchDashboard');
           navigation.replace('DispatchDashboard');
           break;
-        case 'driver':
+        case 'Driver':
+          console.log('➡️ Navigating to DriverDashboard');
           navigation.replace('DriverDashboard');
           break;
-        case 'supervisor':
-          navigation.replace('SupervisorDrawer');
+        case 'Supervisor':
+        case 'Manager':
+          console.log('➡️ Navigating to AdminDrawer (supervisor/manager)');
+          navigation.replace('AdminDrawer');
           break;
         default:
-          Alert.alert('Error', `Unknown role: ${data.user.role}`);
+          console.error('❌ Unknown role received:', userRole);
+          Alert.alert('Error', `Unknown role: ${userRole}. Please contact support.`);
       }
 
     } catch (err) {
-      Alert.alert('Error', 'Unable to login. Check your connection or credentials.');
-      console.error('Login error:', err.message);
+      console.error('❌ Login error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      
+      let userMessage = 'Unable to login. ';
+      
+      if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+        userMessage += 'Please check your internet connection.';
+      } else if (err.message.includes('timeout')) {
+        userMessage += 'Request timed out. Please try again.';
+      } else if (err.message.includes('JSON')) {
+        userMessage += 'Server response error. Please try again later.';
+      } else {
+        userMessage += 'Please check your credentials and try again.';
+      }
+      
+      Alert.alert('Connection Error', userMessage);
     } finally {
       setIsLoading(false);
     }
@@ -282,10 +307,10 @@ export default function LoginScreen() {
 
   return (
     <ImageBackground
-      source={require('../assets/isuzufront.png')}
+      source={require('../assets/isuzupasig.png')}
       style={styles.bg}
       resizeMode="cover"
-      imageStyle={{ opacity: 0.8 }}
+      imageStyle={{ opacity: 0.3 }}
     >
       <View style={styles.overlay} />
       <SafeAreaView style={{ flex: 1 }}>
@@ -296,7 +321,7 @@ export default function LoginScreen() {
           <View style={styles.card}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('../assets/isuzufront.png')}
+                source={require('../assets/logoitrack.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -304,11 +329,13 @@ export default function LoginScreen() {
             <Text style={styles.title}>I-Track Login</Text>
 
             <TextInput
-              placeholder="Username"
+              placeholder="Email"
               value={form.username}
               onChangeText={text => handleInputChange('username', text)}
               style={styles.input}
               autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
               placeholderTextColor="#888"
             />
 
@@ -345,7 +372,14 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <View style={styles.loadingContainer}>
+                  <Image 
+                    source={require('../assets/loading.gif')} 
+                    style={styles.loadingGif}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.loginText}>Logging in...</Text>
+                </View>
               ) : (
                 <Text style={styles.loginText}>Login</Text>
               )}
@@ -448,17 +482,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)', // Reduced opacity from 0.95 to 0.75 for more transparency
-    borderRadius: 16,
-    padding: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', // High opacity for better readability
+    borderRadius: 20,
+    padding: 30,
     shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 10,
+    alignItems: 'center',
+    width: '90%',
+    maxWidth: 400,
   },
   logoContainer: {
     alignItems: 'center',
@@ -522,6 +563,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingGif: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
   },
   googleSignInBtn: {
     backgroundColor: '#4285f4',
