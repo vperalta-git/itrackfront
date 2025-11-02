@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   button: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 25,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#CB1E2A',
+    borderColor: '#ff1e1e',
   },
   buttonText: {
     color: '#ffffff',
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   secondaryButtonText: {
-    color: '#CB1E2A',
+    color: '#ff1e1e',
   },
 });
 

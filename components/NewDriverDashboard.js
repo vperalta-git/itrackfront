@@ -116,6 +116,11 @@ export default function NewDriverDashboard() {
     fetchDriverAssignments();
   }, [fetchDriverAssignments]);
 
+  // Profile handler
+  const handleProfile = () => {
+    navigation.navigate('Profile');
+  };
+
   // Logout handler
   const handleLogout = async () => {
     Alert.alert(
@@ -128,7 +133,7 @@ export default function NewDriverDashboard() {
           onPress: async () => {
             await AsyncStorage.removeItem('currentUsername');
             await AsyncStorage.removeItem('currentRole');
-            navigation.navigate('Login');
+            navigation.navigate('LoginScreen');
           },
         },
       ]
@@ -203,7 +208,7 @@ export default function NewDriverDashboard() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#CB1E2A" />
+          <ActivityIndicator size="large" color="#ff1e1e" />
           <Text style={styles.loadingText}>Loading assignments...</Text>
         </View>
       ) : driverAllocations.length === 0 ? (
@@ -276,7 +281,7 @@ export default function NewDriverDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#CB1E2A" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff1e1e" />
       
       {/* Header */}
       <View style={styles.header}>
@@ -284,9 +289,14 @@ export default function NewDriverDashboard() {
           <Text style={styles.headerTitle}>Driver Dashboard</Text>
           <Text style={styles.headerSubtitle}>Welcome, {driverName}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfile}>
+            <Text style={styles.profileText}>👤 Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tab Navigation */}
@@ -333,7 +343,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FA',
   },
   header: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingHorizontal: 20,
     paddingVertical: 15,
     flexDirection: 'row',
@@ -357,6 +367,22 @@ const styles = StyleSheet.create({
     color: '#FFE5E5',
     fontSize: 14,
     marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  profileText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   logoutButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -386,7 +412,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#CB1E2A',
+    borderBottomColor: '#ff1e1e',
   },
   tabText: {
     fontSize: 14,
@@ -394,7 +420,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     fontWeight: '600',
   },
   tabContent: {
@@ -422,7 +448,7 @@ const styles = StyleSheet.create({
   summaryCount: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     marginBottom: 5,
   },
   summarySubtext: {
@@ -459,7 +485,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   refreshButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 25,
@@ -550,7 +576,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
   },
   actionButtonText: {
     fontSize: 14,
@@ -582,7 +608,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#ff1e1e',
   },
   locationTitle: {
     fontSize: 16,
@@ -616,7 +642,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -641,7 +667,7 @@ const styles = StyleSheet.create({
   },
   destinationArrow: {
     fontSize: 18,
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     fontWeight: 'bold',
   },
   fullMap: {

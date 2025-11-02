@@ -14,16 +14,27 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { buildApiUrl } from '../constants/api';
+import { useTheme } from '../context/ThemeContext';
 
 export default function UserManagementScreen() {
+  const { theme, isDarkMode } = useTheme();
+  const styles = createStyles(theme);
   const [users, setUsers] = useState([]);
   const [managers, setManagers] = useState([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [currentTab, setCurrentTab] = useState('all'); // 'all', 'agents', 'others'
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
+    role: 'Sales Agent',
+    assignedTo: '',
+    accountName: '',
+  });
+  const [editUser, setEditUser] = useState({
+    _id: '',
+    username: '',
     role: 'Sales Agent',
     assignedTo: '',
     accountName: '',
@@ -121,6 +132,50 @@ export default function UserManagementScreen() {
     }
   };
 
+  const handleEditUser = (user) => {
+    setEditUser({
+      _id: user._id,
+      username: user.username,
+      role: user.role || 'Sales Agent',
+      assignedTo: user.assignedTo || '',
+      accountName: user.accountName || '',
+    });
+    setShowEditUserModal(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editUser.username || !editUser.accountName) {
+      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      return;
+    }
+    
+    try {
+      const updateData = {
+        username: editUser.username,
+        role: editUser.role,
+        assignedTo: editUser.assignedTo,
+        accountName: editUser.accountName,
+      };
+
+      const res = await fetch(buildApiUrl(`/admin/users/${editUser._id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to update user');
+      
+      Alert.alert('Success', 'User updated successfully!');
+      setEditUser({ _id: '', username: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+      setShowEditUserModal(false);
+      fetchUsers();
+      fetchManagers();
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
   const handleDeleteUser = async (id, username) => {
     Alert.alert(
       'Delete User',
@@ -174,19 +229,19 @@ export default function UserManagementScreen() {
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin':
-        return { backgroundColor: '#CB1E2A', color: '#fff' };
+        return { backgroundColor: theme.primary, color: theme.buttonText };
       case 'manager':
-        return { backgroundColor: '#8B0000', color: '#fff' };
+        return { backgroundColor: theme.error, color: theme.buttonText };
       case 'sales agent':
-        return { backgroundColor: '#2D2D2D', color: '#fff' };
+        return { backgroundColor: theme.textSecondary, color: theme.buttonText };
       case 'driver':
-        return { backgroundColor: '#000000', color: '#fff' };
+        return { backgroundColor: theme.text, color: theme.background };
       case 'supervisor':
-        return { backgroundColor: '#CB1E2A', color: '#fff' };
+        return { backgroundColor: theme.primary, color: theme.buttonText };
       case 'dispatch':
-        return { backgroundColor: '#8B0000', color: '#fff' };
+        return { backgroundColor: theme.error, color: theme.buttonText };
       default:
-        return { backgroundColor: '#6B7280', color: '#fff' };
+        return { backgroundColor: theme.textTertiary, color: theme.buttonText };
     }
   };
 
@@ -229,9 +284,7 @@ export default function UserManagementScreen() {
         <View style={styles.userCardActions}>
           <TouchableOpacity 
             style={styles.editUserBtn}
-            onPress={() => {
-              Alert.alert('Info', 'Edit functionality coming soon');
-            }}
+            onPress={() => handleEditUser(item)}
           >
             <Text style={styles.userActionBtnText}>Edit</Text>
           </TouchableOpacity>
@@ -268,10 +321,10 @@ export default function UserManagementScreen() {
         <View style={styles.searchSection}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search users by name, username, or role..."
+            placeholder="Search by name, username, or role..."
             value={userSearch}
             onChangeText={setUserSearch}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.textTertiary}
           />
         </View>
 
@@ -305,26 +358,26 @@ export default function UserManagementScreen() {
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: '#CB1E2A' }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
             <Text style={styles.statNumber}>{users.length}</Text>
             <Text style={styles.statLabel}>Total Users</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: '#8B0000' }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.success }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase().includes('agent')).length}
             </Text>
             <Text style={styles.statLabel}>Sales Agents</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: '#2D2D2D' }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.warning }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'manager').length}
             </Text>
             <Text style={styles.statLabel}>Managers</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: '#000000' }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.secondary }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'driver').length}
             </Text>
@@ -367,7 +420,7 @@ export default function UserManagementScreen() {
                 placeholder="Account Name"
                 value={newUser.accountName}
                 onChangeText={(text) => setNewUser({ ...newUser, accountName: text })}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textTertiary}
               />
 
               <TextInput
@@ -375,7 +428,7 @@ export default function UserManagementScreen() {
                 placeholder="Username"
                 value={newUser.username}
                 onChangeText={(text) => setNewUser({ ...newUser, username: text })}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textTertiary}
                 autoCapitalize="none"
               />
 
@@ -448,14 +501,105 @@ export default function UserManagementScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        visible={showEditUserModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditUserModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalKeyboardView}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit User</Text>
+
+              <Text style={styles.modalLabel}>Account Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter account name"
+                value={editUser.accountName}
+                onChangeText={(text) => setEditUser({ ...editUser, accountName: text })}
+              />
+
+              <Text style={styles.modalLabel}>Username</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter username"
+                value={editUser.username}
+                onChangeText={(text) => setEditUser({ ...editUser, username: text })}
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.modalLabel}>Role</Text>
+              <View style={styles.modalPickerContainer}>
+                <Picker
+                  selectedValue={editUser.role}
+                  style={styles.modalPicker}
+                  onValueChange={(itemValue) => setEditUser({ ...editUser, role: itemValue })}
+                >
+                  <Picker.Item label="Sales Agent" value="Sales Agent" />
+                  <Picker.Item label="Manager" value="Manager" />
+                  <Picker.Item label="Admin" value="Admin" />
+                  <Picker.Item label="Driver" value="Driver" />
+                </Picker>
+              </View>
+
+              {editUser.role === 'Sales Agent' && (
+                <>
+                  <Text style={styles.modalLabel}>Assign to Manager</Text>
+                  <View style={styles.modalPickerContainer}>
+                    <Picker
+                      selectedValue={editUser.assignedTo}
+                      style={styles.modalPicker}
+                      onValueChange={(itemValue) => setEditUser({ ...editUser, assignedTo: itemValue })}
+                    >
+                      <Picker.Item label="Select Manager" value="" />
+                      {managers.map((manager) => (
+                        <Picker.Item
+                          key={manager._id}
+                          label={manager.accountName || manager.username}
+                          value={manager._id}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => {
+                    setShowEditUserModal(false);
+                    setEditUser({ _id: '', username: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonPrimary]}
+                  onPress={handleUpdateUser}
+                >
+                  <Text style={styles.modalButtonText}>Update User</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.surface,
   },
   
   scrollView: {
@@ -471,25 +615,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 2,
-    borderBottomColor: '#CB1E2A',
+    borderBottomColor: theme.primary,
   },
 
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: theme.primary,
     flex: 1,
   },
 
   addUserButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: theme.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
 
   addUserButtonText: {
-    color: '#fff',
+    color: theme.buttonText,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -501,14 +645,14 @@ const styles = StyleSheet.create({
   },
 
   searchInput: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.inputBackground,
     borderWidth: 1,
-    borderColor: '#6B7280',
+    borderColor: theme.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#2D2D2D',
+    color: theme.text,
   },
 
   // Tab Styles
@@ -516,10 +660,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 4,
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -535,18 +679,18 @@ const styles = StyleSheet.create({
   },
 
   activeTab: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: theme.primary,
   },
 
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
 
   activeTabText: {
-    color: '#FFFFFF',
+    color: theme.buttonText,
   },
 
   // Stats Styles
@@ -559,11 +703,11 @@ const styles = StyleSheet.create({
 
   statCard: {
     flex: 1,
-    backgroundColor: '#3b82f6',
+    backgroundColor: theme.secondary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -586,18 +730,18 @@ const styles = StyleSheet.create({
 
   // User Card Styles
   userCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#F5F5F5',
+    borderColor: theme.border,
   },
 
   userCardHeader: {
@@ -614,13 +758,13 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: theme.text,
     marginBottom: 4,
   },
 
   userUsername: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
 
   roleBadge: {
@@ -665,7 +809,7 @@ const styles = StyleSheet.create({
   },
 
   editUserBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -709,7 +853,7 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.modalOverlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -722,12 +866,12 @@ const styles = StyleSheet.create({
   },
 
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.background,
     borderRadius: 16,
     padding: 24,
     width: '100%',
     maxWidth: 400,
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -737,34 +881,34 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#000000',
+    color: theme.text,
     marginBottom: 24,
     textAlign: 'center',
   },
 
   modalInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.inputBackground,
     borderWidth: 1,
-    borderColor: '#6B7280',
+    borderColor: theme.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#2D2D2D',
+    color: theme.text,
     marginBottom: 16,
   },
 
   modalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2D2D2D',
+    color: theme.text,
     marginBottom: 8,
   },
 
   modalPickerContainer: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.inputBackground,
     borderWidth: 1,
-    borderColor: '#6B7280',
+    borderColor: theme.border,
     borderRadius: 12,
     marginBottom: 16,
   },
@@ -789,15 +933,15 @@ const styles = StyleSheet.create({
   },
 
   modalButtonCancel: {
-    backgroundColor: '#6B7280',
+    backgroundColor: theme.buttonSecondary,
   },
 
   modalButtonPrimary: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: theme.primary,
   },
 
   modalButtonText: {
-    color: '#fff',
+    color: theme.buttonText,
     fontWeight: '700',
     fontSize: 16,
   },

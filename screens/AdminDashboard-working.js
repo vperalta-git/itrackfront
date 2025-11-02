@@ -280,7 +280,7 @@ export default function AdminDashboard() {
         >
           <Text style={styles.historyButtonText}>📚 History</Text>
         </TouchableOpacity>
-        <Button title="Logout" color="#CB1E2A" onPress={handleLogout} />
+        <Button title="Logout" color="#e50914" onPress={handleLogout} />
       </View>
 
       <Text style={styles.header}>Admin Dashboard</Text>
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     borderColor: '#6B7280',
   },
   profileButtonText: {
-    color: '#CB1E2A',
+    color: '#e50914',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  header: { fontSize: 32, fontWeight: 'bold', color: '#CB1E2A', marginBottom: 20 },
+  header: { fontSize: 32, fontWeight: 'bold', color: '#e50914', marginBottom: 20 },
   subHeader: { fontSize: 20, marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 6 },
   input: {
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     justifyContent: 'center',
     alignItems: 'center',
   },

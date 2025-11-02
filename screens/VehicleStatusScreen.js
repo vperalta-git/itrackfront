@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   incomplete: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
   buttonText: {
     color: '#fff',

@@ -291,7 +291,7 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
   if (loading) {
     return (
       <View style={[styles.container, style, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Real-Time GPS Tracking...</Text>
       </View>
     );
@@ -331,7 +331,7 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
         showsScale={true}
         showsTraffic={true}
         loadingEnabled={true}
-        loadingIndicatorColor="#CB1E2A"
+        loadingIndicatorColor="#ff1e1e"
       >
         {/* User's Real Location */}
         {currentLocation && (
@@ -378,7 +378,7 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
         {routeCoordinates.length > 0 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#CB1E2A"
+            strokeColor="#ff1e1e"
             strokeWidth={4}
             lineDashPattern={[5, 10]}
           />
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     fontSize: 12,
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     textAlign: 'center',
     fontWeight: '600',
     marginTop: 2,

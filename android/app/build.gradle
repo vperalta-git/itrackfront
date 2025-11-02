@@ -114,8 +114,8 @@ android {
         applicationId 'com.acmobility.itrack'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
-        versionName "6.0.0"
+        versionCode 46
+        versionName "46.3.1"
     }
     signingConfigs {
         debug {

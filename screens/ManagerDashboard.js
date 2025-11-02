@@ -28,13 +28,13 @@ const TAB_VEHICLE_TRACKING = "Vehicle Tracking";
 const TAB_HISTORY = "History";
 
 const STATUS_COLORS = {
-  "In Progress": "#CB1E2A", // Red
+  "In Progress": "#e50914", // Red
   Completed: "#2D2D2D", // Dark Gray
   Pending: "#8B0000", // Dark Red
-  "In Transit": "#CB1E2A", // Red
+  "In Transit": "#e50914", // Red
   Available: "#2D2D2D", // Dark Gray
-  "In Use": "#CB1E2A", // Red
-  "In Dispatch": "#CB1E2A", // Red
+  "In Use": "#e50914", // Red
+  "In Dispatch": "#e50914", // Red
 };
 
 export default function ManagerDashboard() {
@@ -412,7 +412,7 @@ export default function ManagerDashboard() {
   };
 
   const renderTabContent = () => {
-    if (loading) return <ActivityIndicator size="large" color="#CB1E2A" />;
+    if (loading) return <ActivityIndicator size="large" color="#e50914" />;
 
     switch (activeTab) {
       case TAB_DASHBOARD:
@@ -440,7 +440,7 @@ export default function ManagerDashboard() {
                 title="My Team Size"
                 value={myAgents.length}
                 icon="👥"
-                color="#CB1E2A"
+                color="#e50914"
                 subtitle="Assigned agents"
               />
               
@@ -464,7 +464,7 @@ export default function ManagerDashboard() {
                 title="Team Allocations"
                 value={managerAllocations.length}
                 icon="🚛"
-                color="#CB1E2A"
+                color="#e50914"
                 subtitle="Active"
               />
             </View>
@@ -599,7 +599,7 @@ export default function ManagerDashboard() {
                 return { container: { backgroundColor: '#2D2D2D' }, text: { color: '#FFFFFF' } };
               case 'in use':
               case 'allocated':
-                return { container: { backgroundColor: '#CB1E2A' }, text: { color: '#FFFFFF' } };
+                return { container: { backgroundColor: '#e50914' }, text: { color: '#FFFFFF' } };
               case 'in dispatch':
                 return statusColors["In Dispatch"];
               case 'maintenance':
@@ -701,7 +701,7 @@ export default function ManagerDashboard() {
 
             {/* Stats Cards */}
             <View style={styles.stocksStatsContainer}>
-              <View style={[styles.stocksStatCard, { backgroundColor: '#CB1E2A' }]}>
+              <View style={[styles.stocksStatCard, { backgroundColor: '#e50914' }]}>
                 <Text style={styles.stocksStatNumber}>{filteredStocks.length}</Text>
                 <Text style={styles.stocksStatLabel}>
                   {selectedAgent === 'all' ? 'Total Stock' : 'Agent Stock'}
@@ -756,7 +756,7 @@ export default function ManagerDashboard() {
             
             {/* Team Summary Cards */}
             <View style={styles.statsContainer}>
-              <View style={[styles.statCard, { backgroundColor: '#CB1E2A' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#e50914' }]}>
                 <Text style={styles.statNumber}>{myAgents.length}</Text>
                 <Text style={styles.statLabel}>My Team Size</Text>
               </View>
@@ -842,7 +842,7 @@ export default function ManagerDashboard() {
             {/* Vehicle Preparation Cards */}
             <View style={styles.section}>
               {loading ? (
-                <ActivityIndicator size="large" color="#CB1E2A" />
+                <ActivityIndicator size="large" color="#e50914" />
               ) : (
                 filterBySearch(vehicles, ["unitId", "unitName", "assignedDriver", "assignedAgent"])
                   .filter(vehicle => {
@@ -876,7 +876,7 @@ export default function ManagerDashboard() {
                           </View>
                           <View style={[
                             styles.completionBadge,
-                            { backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#CB1E2A' }
+                            { backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#e50914' }
                           ]}>
                             <Text style={styles.completionText}>
                               {completionPercentage}%
@@ -913,7 +913,7 @@ export default function ManagerDashboard() {
                                 styles.progressFill,
                                 { 
                                   width: `${completionPercentage}%`,
-                                  backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#CB1E2A'
+                                  backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#e50914'
                                 }
                               ]}
                             />

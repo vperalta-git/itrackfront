@@ -5,8 +5,11 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, Modal, StyleSheet, A
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
+import { useTheme } from '../context/ThemeContext';
 
 const DriverAllocation = () => {
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
   const [allocations, setAllocations] = useState([]);
   const [newAllocation, setNewAllocation] = useState({
     unitName: '',
@@ -15,20 +18,35 @@ const DriverAllocation = () => {
     variation: '',
     assignedDriver: '',
     status: 'Pending',
-    date: ''
+    date: '',
+    customerName: '',
+    customerEmail: '',
+    customerPhone: ''
   });
   const [editAllocation, setEditAllocation] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [drivers, setDrivers] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('stock'); // 'stock' or 'manual'
+  const [selectedVin, setSelectedVin] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState('');
+  const [manualModel, setManualModel] = useState('');
+  const [manualVin, setManualVin] = useState('');
+  const [selectedDriver, setSelectedDriver] = useState('');
+  const [pickupPoint, setPickupPoint] = useState('');
+  const [dropoffPoint, setDropoffPoint] = useState('');
 
   useEffect(() => {
     fetchAllocations();
     fetchDrivers();
+    fetchInventory();
+    fetchAgents();
   }, []);
 
   const fetchAllocations = () => {
@@ -66,30 +84,156 @@ const DriverAllocation = () => {
       });
   };
 
-  const handleCreate = () => {
-    const { unitName, unitId, bodyColor, variation, assignedDriver } = newAllocation;
-    if (!unitName || !unitId || !bodyColor || !variation || !assignedDriver) {
-      Alert.alert('All fields are required.');
-      return;
-    }
-    axios.post(buildApiUrl('/createAllocation'), newAllocation)
+  const fetchInventory = () => {
+    axios.get(buildApiUrl('/getStock'))
       .then((res) => {
-        console.log('Create allocation response:', res.data);
-        if (res.data.success) {
-          fetchAllocations();
-          setNewAllocation({
-            unitName: '', unitId: '', bodyColor: '', variation: '', assignedDriver: '', status: 'Pending', date: ''
-          });
-          setIsCreateModalOpen(false);
-          Alert.alert('Success', 'Allocation created successfully');
+        console.log('Inventory response:', res.data);
+        if (res.data.success && Array.isArray(res.data.data)) {
+          setInventory(res.data.data);
         } else {
-          Alert.alert('Error', res.data.message || 'Failed to create allocation');
+          setInventory([]);
         }
       })
       .catch((err) => {
-        console.error('Error creating allocation:', err);
-        Alert.alert('Error', 'Failed to create allocation');
+        console.error('Error fetching inventory:', err);
+        setInventory([]);
       });
+  };
+
+  const fetchAgents = () => {
+    axios.get(buildApiUrl('/getUsers'))
+      .then((res) => {
+        console.log('Agents response:', res.data);
+        if (res.data.success && Array.isArray(res.data.data)) {
+          const agentList = res.data.data.filter(user => user.role === 'Sales Agent');
+          setAgents(agentList);
+        } else {
+          setAgents([]);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching agents:', err);
+        setAgents([]);
+      });
+  };
+
+  const assignFromStock = async () => {
+    if (!selectedVin || !selectedAgent || !selectedDriver) {
+      Alert.alert('Missing Info', 'Please select vehicle, agent, and driver.');
+      return;
+    }
+
+    if (!newAllocation.customerName || !newAllocation.customerEmail) {
+      Alert.alert('Missing Customer Info', 'Please provide customer name and email address.');
+      return;
+    }
+
+    try {
+      const selectedVehicle = inventory.find(v => (v.unitId || v._id) === selectedVin);
+      if (!selectedVehicle) {
+        Alert.alert('Error', 'Selected vehicle not found in inventory.');
+        return;
+      }
+
+      const allocationPayload = {
+        unitName: selectedVehicle.unitName,
+        unitId: selectedVehicle.unitId || selectedVehicle._id,
+        bodyColor: selectedVehicle.bodyColor,
+        variation: selectedVehicle.variation,
+        assignedDriver: selectedDriver,
+        assignedAgent: selectedAgent,
+        status: 'Assigned',
+        allocatedBy: 'Admin',
+        pickupPoint: pickupPoint,
+        dropoffPoint: dropoffPoint,
+        date: new Date().toISOString(),
+        customerName: newAllocation.customerName,
+        customerEmail: newAllocation.customerEmail,
+        customerPhone: newAllocation.customerPhone
+      };
+
+      const res = await axios.post(buildApiUrl('/createAllocation'), allocationPayload);
+
+      if (res.data.success) {
+        // Update inventory status
+        await axios.put(buildApiUrl(`/updateStock/${selectedVehicle._id}`), {
+          ...selectedVehicle,
+          status: 'Allocated'
+        });
+
+        Alert.alert('Success', 'Vehicle assigned successfully from stock!');
+        setSelectedVin('');
+        setSelectedAgent('');
+        setSelectedDriver('');
+        setPickupPoint('');
+        setDropoffPoint('');
+        setIsCreateModalOpen(false);
+        await Promise.all([fetchAllocations(), fetchInventory()]);
+      } else {
+        throw new Error(res.data.message || 'Failed to assign vehicle');
+      }
+    } catch (err) {
+      console.error('Assign from stock error:', err);
+      Alert.alert('Error', err.message || 'Failed to assign vehicle');
+    }
+  };
+
+  const assignManualEntry = async () => {
+    if (!manualModel || !manualVin || !selectedDriver || !selectedAgent) {
+      Alert.alert('Missing Info', 'Please fill in all fields for manual entry.');
+      return;
+    }
+
+    if (!newAllocation.customerName || !newAllocation.customerEmail) {
+      Alert.alert('Missing Customer Info', 'Please provide customer name and email address.');
+      return;
+    }
+
+    try {
+      const allocationPayload = {
+        unitName: manualModel,
+        unitId: manualVin,
+        bodyColor: 'Manual Entry',
+        variation: 'Manual Entry',
+        assignedDriver: selectedDriver,
+        assignedAgent: selectedAgent,
+        status: 'Assigned',
+        allocatedBy: 'Admin',
+        pickupPoint: pickupPoint,
+        dropoffPoint: dropoffPoint,
+        date: new Date().toISOString(),
+        customerName: newAllocation.customerName,
+        customerEmail: newAllocation.customerEmail,
+        customerPhone: newAllocation.customerPhone
+      };
+
+      const res = await axios.post(buildApiUrl('/createAllocation'), allocationPayload);
+
+      if (res.data.success) {
+        Alert.alert('Success', 'Vehicle assigned successfully via manual entry!');
+        setManualModel('');
+        setManualVin('');
+        setSelectedDriver('');
+        setSelectedAgent('');
+        setPickupPoint('');
+        setDropoffPoint('');
+        setIsCreateModalOpen(false);
+        fetchAllocations();
+      } else {
+        throw new Error(res.data.message || 'Failed to assign');
+      }
+    } catch (err) {
+      console.error('Manual assign error:', err);
+      Alert.alert('Error', err.message || 'Failed to assign vehicle');
+    }
+  };
+
+  const handleCreate = () => {
+    if (mode === 'stock') {
+      assignFromStock();
+    } else {
+      assignManualEntry();
+    }
   };
 
   const handleUpdate = (id) => {
@@ -180,6 +324,20 @@ const DriverAllocation = () => {
             <Text style={styles.infoLabel}>Assigned Driver</Text>
             <Text style={styles.infoValue}>{item.assignedDriver || 'Unassigned'}</Text>
           </View>
+
+          {item.pickupPoint && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Pickup Point</Text>
+              <Text style={styles.infoValue}>{item.pickupPoint}</Text>
+            </View>
+          )}
+
+          {item.dropoffPoint && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Drop-off Point</Text>
+              <Text style={styles.infoValue}>{item.dropoffPoint}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.cardActions}>
@@ -299,68 +457,235 @@ const DriverAllocation = () => {
       <Modal visible={isCreateModalOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Allocate Driver</Text>
-            <View style={styles.modalForm}>
-              <TextInput
-                style={styles.input}
-                placeholder="Unit Name"
-                value={newAllocation.unitName}
-                onChangeText={text => setNewAllocation({ ...newAllocation, unitName: text })}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Conduction Number"
-                value={newAllocation.unitId}
-                onChangeText={text => setNewAllocation({ ...newAllocation, unitId: text })}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Body Color"
-                value={newAllocation.bodyColor}
-                onChangeText={text => setNewAllocation({ ...newAllocation, bodyColor: text })}
-              />
-              <Picker
-                selectedValue={newAllocation.variation}
-                style={styles.input}
-                onValueChange={itemValue => setNewAllocation({ ...newAllocation, variation: itemValue })}
+            <Text style={styles.modalTitle}>Vehicle Assignment</Text>
+            
+            {/* Mode Selection */}
+            <View style={styles.modeSelector}>
+              <TouchableOpacity
+                style={[styles.modeButton, mode === 'stock' && styles.modeButtonActive]}
+                onPress={() => setMode('stock')}
               >
-                <Picker.Item label="Select Variation" value="" />
-                <Picker.Item label="4x2 LSA" value="4x2 LSA" />
-                <Picker.Item label="4x4" value="4x4" />
-                <Picker.Item label="LS-E" value="LS-E" />
-                <Picker.Item label="LS" value="LS" />
-              </Picker>
-              <Picker
-                selectedValue={newAllocation.assignedDriver}
-                style={styles.input}
-                onValueChange={itemValue => setNewAllocation({ ...newAllocation, assignedDriver: itemValue })}
-              >
-                <Picker.Item label="Select Driver" value="" />
-                {drivers.map(driver => (
-                  <Picker.Item key={driver._id} label={driver.accountName || driver.username} value={driver.accountName || driver.username} />
-                ))}
-              </Picker>
-              <Picker
-                selectedValue={newAllocation.status}
-                style={styles.input}
-                onValueChange={itemValue => setNewAllocation({ ...newAllocation, status: itemValue })}
-              >
-                <Picker.Item label="Pending" value="Pending" />
-                <Picker.Item label="In Transit" value="In Transit" />
-                <Picker.Item label="Completed" value="Completed" />
-              </Picker>
-              <TextInput
-                style={styles.input}
-                placeholder="Date (YYYY-MM-DD)"
-                value={newAllocation.date}
-                onChangeText={text => setNewAllocation({ ...newAllocation, date: text })}
-              />
-            </View>
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.createBtn} onPress={handleCreate}>
-                <Text style={styles.createBtnText}>Confirm</Text>
+                <Text style={[styles.modeButtonText, mode === 'stock' && styles.modeButtonTextActive]}>
+                  From Stock
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsCreateModalOpen(false)}>
+              <TouchableOpacity
+                style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
+                onPress={() => setMode('manual')}
+              >
+                <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
+                  Manual Entry
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalForm}>
+              {mode === 'stock' ? (
+                <>
+                  {/* Stock Selection Form */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>Select Vehicle from Stock</Text>
+                    <Picker
+                      selectedValue={selectedVin}
+                      style={styles.picker}
+                      onValueChange={val => setSelectedVin(val)}
+                    >
+                      <Picker.Item label="Choose Vehicle..." value="" />
+                      {inventory.filter(item => (item.status || 'Available') === 'Available').map(v => (
+                        <Picker.Item 
+                          key={v._id} 
+                          label={`${v.unitName} - ${v.variation} (${v.bodyColor})`} 
+                          value={v.unitId || v._id} 
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>Assign to Agent</Text>
+                    <Picker
+                      selectedValue={selectedAgent}
+                      style={styles.picker}
+                      onValueChange={val => setSelectedAgent(val)}
+                    >
+                      <Picker.Item label="Select Agent..." value="" />
+                      {agents.map(a => (
+                        <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Manual Entry Form */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>Vehicle Model</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Vehicle Model (e.g., Isuzu D-Max)"
+                      value={manualModel}
+                      onChangeText={setManualModel}
+                      placeholderTextColor="#94a3b8"
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>VIN Number</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="VIN Number"
+                      value={manualVin}
+                      onChangeText={setManualVin}
+                      placeholderTextColor="#94a3b8"
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>Assign to Agent</Text>
+                    <Picker
+                      selectedValue={selectedAgent}
+                      style={styles.picker}
+                      onValueChange={val => setSelectedAgent(val)}
+                    >
+                      <Picker.Item label="Select Agent..." value="" />
+                      {agents.map(a => (
+                        <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
+              {/* Driver Selection (Common for both modes) */}
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Assign Driver</Text>
+                <Picker
+                  selectedValue={selectedDriver}
+                  style={styles.picker}
+                  onValueChange={val => setSelectedDriver(val)}
+                >
+                  <Picker.Item label="Select Driver..." value="" />
+                  {drivers.map(d => (
+                    <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
+                  ))}
+                </Picker>
+              </View>
+
+              {/* Customer Information Section */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Customer Information</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Customer Full Name"
+                  value={newAllocation.customerName}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerName: text })}
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Email *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="customer@email.com"
+                  value={newAllocation.customerEmail}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerEmail: text })}
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+63 900 000 0000"
+                  value={newAllocation.customerPhone}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerPhone: text })}
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {/* Pickup Point Selection */}
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Pickup Point</Text>
+                <View style={styles.locationButtonsContainer}>
+                  <TouchableOpacity 
+                    style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
+                    onPress={() => setPickupPoint('Isuzu Stockyard')}
+                  >
+                    <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
+                      Isuzu Stockyard
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                    onPress={() => setPickupPoint('Isuzu Pasig')}
+                  >
+                    <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                      Isuzu Pasig
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Or enter custom pickup location"
+                  value={pickupPoint}
+                  onChangeText={setPickupPoint}
+                />
+              </View>
+
+              {/* Dropoff Point Selection */}
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Drop-off Destination</Text>
+                <View style={styles.locationButtonsContainer}>
+                  <TouchableOpacity 
+                    style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
+                    onPress={() => setDropoffPoint('Isuzu Stockyard')}
+                  >
+                    <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
+                      Isuzu Stockyard
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                    onPress={() => setDropoffPoint('Isuzu Pasig')}
+                  >
+                    <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                      Isuzu Pasig
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Or enter custom drop-off location"
+                  value={dropoffPoint}
+                  onChangeText={setDropoffPoint}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity style={styles.submitBtn} onPress={handleCreate}>
+                <Text style={styles.submitBtnText}>Create Assignment</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+                setIsCreateModalOpen(false);
+                setMode('stock');
+                setSelectedVin('');
+                setSelectedAgent('');
+                setSelectedDriver('');
+                setManualModel('');
+                setManualVin('');
+                setPickupPoint('');
+                setDropoffPoint('');
+              }}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -439,16 +764,16 @@ const DriverAllocation = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f8fafc', 
+    backgroundColor: theme.surface, 
     paddingTop: 20 
   },
   header: { 
     fontSize: 28, 
     fontWeight: '700', 
-    color: '#1e293b', 
+    color: theme.text, 
     marginBottom: 24, 
     textAlign: 'center',
     letterSpacing: 0.5
@@ -456,12 +781,12 @@ const styles = StyleSheet.create({
   
   // Search and Actions Section
   topSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -699,9 +1024,48 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   
+  // Mode Selector
+  modeSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    backgroundColor: '#dc2626',
+  },
+  modeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  modeButtonTextActive: {
+    color: '#ffffff',
+  },
+
   // Form Styles
   formGroup: {
     marginBottom: 16
+  },
+  sectionHeader: {
+    marginTop: 20,
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
   },
   inputLabel: {
     fontSize: 14,
@@ -723,6 +1087,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 10
+  },
+
+  // Location Selection Styles
+  locationButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  quickLocationBtn: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  selectedLocationBtn: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  quickLocationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  selectedLocationText: {
+    color: '#ffffff',
   },
   
   modalBtnRow: { 

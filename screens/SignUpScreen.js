@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   title: {
-    fontSize: 28, fontWeight: 'bold', color: '#CB1E2A',
+    fontSize: 28, fontWeight: 'bold', color: '#e50914',
     alignSelf: 'center', marginBottom: 30,
   },
   roleSwitchContainer: {
@@ -114,10 +114,10 @@ const styles = StyleSheet.create({
   },
   roleOption: {
     flex: 1, marginHorizontal: 5, paddingVertical: 10,
-    borderRadius: 8, borderWidth: 1, borderColor: '#CB1E2A',
+    borderRadius: 8, borderWidth: 1, borderColor: '#e50914',
     alignItems: 'center',
   },
-  selectedRole: { backgroundColor: '#CB1E2A' },
+  selectedRole: { backgroundColor: '#e50914' },
   roleText: { color: '#000', fontWeight: 'bold' },
   input: {
     borderWidth: 1, borderColor: '#ccc', backgroundColor: '#f9f9f9',
@@ -125,11 +125,11 @@ const styles = StyleSheet.create({
     fontSize: 16, marginBottom: 15,
   },
   button: {
-    backgroundColor: '#CB1E2A', paddingVertical: 14,
+    backgroundColor: '#e50914', paddingVertical: 14,
     borderRadius: 8, alignItems: 'center', marginTop: 10,
   },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   link: {
-    marginTop: 20, textAlign: 'center', color: '#CB1E2A', fontWeight: 'bold',
+    marginTop: 20, textAlign: 'center', color: '#e50914', fontWeight: 'bold',
   },
 });

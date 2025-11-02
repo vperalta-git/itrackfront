@@ -50,12 +50,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 16,
     borderBottomWidth: 2,
-    borderBottomColor: '#CB1E2A'
+    borderBottomColor: '#e50914'
   },
   header: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#CB1E2A',
+    color: '#e50914',
     flex: 1
   },
   logoutButton: {
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4
   },
   statLabel: {
@@ -154,11 +154,11 @@ const styles = StyleSheet.create({
     color: '#495057'
   },
   primaryButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     padding: 16,
     borderRadius: 12,
     marginTop: 8,
-    shadowColor: '#CB1E2A',
+    shadowColor: '#e50914',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#e50914',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#e50914" />
         <Text style={styles.loadingText}>Loading Admin Dashboard...</Text>
       </View>
     );

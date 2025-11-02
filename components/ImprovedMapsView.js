@@ -218,7 +218,7 @@ const ImprovedMapsView = ({ style, userRole = 'agent', agentFilter = null }) => 
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Map...</Text>
       </View>
     );
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   refreshButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -428,10 +428,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 15,
     fontWeight: '600',
-    color: '#CB1E2A',
+    color: '#ff1e1e',
   },
   modalCloseButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,

@@ -28,7 +28,8 @@ app.use(cors({
   credentials: true,
   origin: true // Configure properly for production
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Support larger payloads for profile pictures
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // API Configuration for I-Track Mobile App
 const API_CONFIG = {
@@ -206,6 +207,7 @@ const UserSchema = new mongoose.Schema({
   profilePicture: { type: String, default: null },
   phoneNumber: { type: String, required: false },
   phoneno: { type: String, required: false }, // Alternative phone field for compatibility
+  personalDetails: { type: String, default: '' }, // Personal/work details field
   createdBy: { type: String, default: 'System' },
   updatedBy: { type: String, default: 'System' },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -214,6 +216,17 @@ const UserSchema = new mongoose.Schema({
   temporaryPassword: { type: String },
   temporaryPasswordExpires: { type: Date },
   lastLogin: { type: Date, default: Date.now },
+  
+  // GPS tracking fields for drivers
+  currentLocation: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+    timestamp: { type: Number },
+    speed: { type: Number, default: 0 },
+    heading: { type: Number, default: 0 },
+    lastUpdate: { type: Date }
+  },
+  
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -318,16 +331,13 @@ app.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in database by email or username
+    // Find user in database by email only
     const user = await User.findOne({
-      $or: [
-        { email: username.toLowerCase().trim() },
-        { username: username.toLowerCase().trim() }
-      ]
+      email: username.toLowerCase().trim()
     });
     
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or username' });
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
     let isValidLogin = false;
@@ -406,32 +416,125 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// API Login route (for web compatibility)
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body; // Web version sends 'email' field
+    console.log('📥 API Login attempt:', email);
+
+    // Check admin credentials first
+    if (email === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
+      req.session.user = {
+        username: 'isuzupasigadmin',
+        role: 'Admin',
+        accountName: 'Isuzu Pasig Admin'
+      };
+      return res.json({ 
+        success: true, 
+        user: {
+          id: 'admin',
+          role: 'Admin', 
+          name: 'Isuzu Pasig Admin',
+          email: 'admin@isuzupasig.com'
+        }
+      });
+    }
+
+    // Find user in database by email only
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    let isValidLogin = false;
+    let isTemporaryPassword = false;
+
+    // Check if using temporary password
+    if (user.temporaryPassword && 
+        user.temporaryPasswordExpires && 
+        user.temporaryPasswordExpires > Date.now()) {
+      
+      if (password === user.temporaryPassword) {
+        isValidLogin = true;
+        isTemporaryPassword = true;
+        
+        console.log('🔑 User logged in with temporary password:', email);
+        
+        // Clear temporary password after successful use
+        user.temporaryPassword = undefined;
+        user.temporaryPasswordExpires = undefined;
+        await user.save();
+      }
+    }
+
+    // Check regular password if temp password didn't work
+    if (!isValidLogin && user.password) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        isValidLogin = true;
+        console.log('✅ User logged in with regular password:', email);
+      }
+    }
+
+    if (!isValidLogin) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    // Set session
+    req.session.user = {
+      id: user._id,
+      username: user.username || user.email,
+      email: user.email,
+      role: user.role || 'User',
+      accountName: user.name || user.accountName
+    };
+
+    const response = {
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name || user.accountName,
+        email: user.email,
+        role: user.role || 'User'
+      }
+    };
+
+    // If temporary password was used, notify frontend to prompt password change
+    if (isTemporaryPassword) {
+      response.requirePasswordChange = true;
+      response.message = 'Login successful with temporary password. Please change your password immediately.';
+      console.log('⚠️  User should change password immediately:', email);
+    }
+
+    res.json(response);
+  } catch (err) {
+    console.error('❌ API Login error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
 // ==================== PASSWORD MANAGEMENT ROUTES ====================
 
 // Forgot Password - Send temporary password via email
 app.post('/forgot-password', async (req, res) => {
   try {
-    const { username } = req.body;
-    console.log('🔑 Forgot password request for:', username);
+    const { username } = req.body; // This will actually be an email now
+    console.log('🔑 Forgot password request for email:', username);
 
     if (!username) {
-      return res.status(400).json({ success: false, message: 'Username is required' });
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    // Find user by username
-    const user = await User.findOne({ username: username.toLowerCase() });
+    // Find user by email only
+    const user = await User.findOne({ email: username.toLowerCase().trim() });
     if (!user) {
       // Don't reveal if user exists or not for security
       return res.json({ 
         success: true, 
-        message: 'If the username exists and has an email, a temporary password has been sent.' 
-      });
-    }
-
-    if (!user.email) {
-      return res.json({ 
-        success: true, 
-        message: 'If the username exists and has an email, a temporary password has been sent.' 
+        message: 'If the email exists, a temporary password has been sent.' 
       });
     }
 
@@ -464,6 +567,58 @@ app.post('/forgot-password', async (req, res) => {
   } catch (error) {
     console.error('❌ Forgot password error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// API Forgot Password route (for web compatibility)
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body; // Web version sends 'email' field
+    console.log('🔑 API Forgot password request for email:', email);
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Find user by email only
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ 
+        success: true, 
+        message: 'If this email is registered, a reset link has been sent.' 
+      });
+    }
+
+    // Generate temporary password (8 characters, alphanumeric)
+    const temporaryPassword = Math.random().toString(36).slice(-8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Save temporary password to user
+    user.temporaryPassword = temporaryPassword;
+    user.temporaryPasswordExpires = expiresAt;
+    await user.save();
+
+    // Send email with temporary password
+    const emailResult = await sendPasswordResetEmail(user.email, user.username, temporaryPassword);
+    
+    if (emailResult.success) {
+      console.log('✅ Temporary password sent to:', user.email);
+      res.json({ 
+        success: true, 
+        message: 'If this email is registered, a reset link has been sent.' 
+      });
+    } else {
+      console.error('❌ Failed to send email:', emailResult.message);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to process request. Please try again.' 
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ API Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process request. Please try again.' });
   }
 });
 
@@ -568,6 +723,18 @@ app.get('/getUsers', async (req, res) => {
   }
 });
 
+// API Get Users route (for web compatibility)
+app.get('/api/getUsers', async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password -temporaryPassword');
+    console.log(`📊 API Found ${users.length} users`);
+    res.json(users); // Web version expects direct array, not wrapped in success object
+  } catch (error) {
+    console.error('❌ API Get users error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create new user
 app.post('/createUser', async (req, res) => {
   try {
@@ -646,6 +813,113 @@ app.delete('/deleteUser/:id', async (req, res) => {
   } catch (error) {
     console.error('❌ Delete user error:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== PROFILE MANAGEMENT ENDPOINTS ==========
+
+// Get individual user profile
+app.get('/api/getUser/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('📱 Getting user profile for ID:', id);
+    
+    const user = await User.findById(id).select('-password -temporaryPassword');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    res.json({ success: true, data: user });
+  } catch (error) {
+    console.error('❌ Get user profile error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update user profile
+app.put('/updateProfile/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phoneNumber, personalDetails, profilePicture } = req.body;
+    
+    console.log('📱 Updating profile for user ID:', id);
+    
+    const updateData = {
+      updatedAt: new Date()
+    };
+    
+    // Only update provided fields
+    if (name !== undefined) updateData.name = name;
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    if (personalDetails !== undefined) updateData.personalDetails = personalDetails;
+    if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    ).select('-password -temporaryPassword');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('✅ Profile updated successfully for:', updatedUser.username);
+    res.json({ success: true, message: 'Profile updated successfully', data: updatedUser });
+  } catch (error) {
+    console.error('❌ Update profile error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Enhanced change password with userId support
+app.post('/change-password', async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+    
+    if (!userId && !req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+    
+    const targetUserId = userId || req.session.user.id;
+    console.log('🔐 Change password request for user ID:', targetUserId);
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    }
+
+    // Find user
+    const user = await User.findById(targetUserId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
+    await user.save();
+
+    console.log('✅ Password changed successfully for user:', user.username);
+    res.json({ success: true, message: 'Password changed successfully' });
+
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -919,8 +1193,8 @@ app.put('/api/dispatch/assignments/:id/process', async (req, res) => {
       delete assignment.processCompletedAt[processId];
     }
     
-    // Calculate overall progress
-    const totalProcesses = assignment.requestedProcesses?.length || 0;
+    // Calculate overall progress  
+    const totalProcesses = (assignment.requestedProcesses || assignment.processes)?.length || 0;
     const completedProcesses = Object.values(assignment.processStatus || {}).filter(status => status === true).length;
     
     assignment.overallProgress = {
@@ -1026,6 +1300,171 @@ app.delete('/api/dispatch/assignments/:id', async (req, res) => {
       details: error.message
     });
   }
+});
+
+// ========== DRIVER LOCATION TRACKING ENDPOINTS ==========
+
+// Update driver location (real-time GPS tracking)
+app.post('/updateDriverLocation', async (req, res) => {
+  try {
+    const { driverId, driverEmail, driverName, location } = req.body;
+    console.log('📍 Updating driver location:', { driverName, location });
+
+    if (!location || !location.latitude || !location.longitude) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Location coordinates are required' 
+      });
+    }
+
+    // Find the driver by ID or email
+    let driver = null;
+    if (driverId) {
+      driver = await User.findById(driverId);
+    } else if (driverEmail) {
+      driver = await User.findOne({ email: driverEmail });
+    }
+
+    if (!driver) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Driver not found' 
+      });
+    }
+
+    // Update driver's current location
+    await User.updateOne(
+      { _id: driver._id },
+      { 
+        $set: { 
+          currentLocation: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: location.timestamp || Date.now(),
+            speed: location.speed || 0,
+            heading: location.heading || 0,
+            lastUpdate: new Date()
+          }
+        }
+      }
+    );
+
+    // Update any active allocations for this driver
+    await DriverAllocation.updateMany(
+      { 
+        $or: [
+          { assignedDriverName: driver.name },
+          { assignedDriverName: driver.username },
+          { assignedDriverName: driverName }
+        ]
+      },
+      { 
+        $set: { 
+          'location.latitude': location.latitude,
+          'location.longitude': location.longitude,
+          'location.lastUpdate': new Date(),
+          'location.speed': location.speed || 0,
+          'location.heading': location.heading || 0
+        }
+      }
+    );
+
+    console.log('✅ Driver location updated successfully');
+    res.json({ 
+      success: true, 
+      message: 'Location updated successfully',
+      location: location 
+    });
+
+  } catch (error) {
+    console.error('❌ Update driver location error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update location',
+      error: error.message 
+    });
+  }
+});
+
+// Get driver's current location
+app.get('/getDriverLocation/:driverId', async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    console.log('📍 Getting location for driver:', driverId);
+
+    const driver = await User.findById(driverId).select('currentLocation name email');
+    
+    if (!driver) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Driver not found' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: {
+        driverName: driver.name,
+        driverEmail: driver.email,
+        location: driver.currentLocation || null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get driver location error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get location',
+      error: error.message 
+    });
+  }
+});
+
+// Get all active drivers with their locations
+app.get('/getAllDriverLocations', async (req, res) => {
+  try {
+    console.log('📍 Getting all driver locations...');
+
+    const drivers = await User.find({ 
+      role: 'Driver',
+      isActive: true,
+      currentLocation: { $exists: true }
+    }).select('name email currentLocation');
+
+    const driverLocations = drivers.map(driver => ({
+      id: driver._id,
+      name: driver.name,
+      email: driver.email,
+      location: driver.currentLocation
+    }));
+
+    console.log(`✅ Found ${driverLocations.length} drivers with location data`);
+    res.json({ 
+      success: true, 
+      data: driverLocations
+    });
+
+  } catch (error) {
+    console.error('❌ Get all driver locations error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get driver locations',
+      error: error.message 
+    });
+  }
+});
+
+// API versions for web compatibility
+app.post('/api/updateDriverLocation', async (req, res) => {
+  // Redirect to main endpoint
+  req.url = '/updateDriverLocation';
+  return app._router.handle(req, res);
+});
+
+app.get('/api/getAllDriverLocations', async (req, res) => {
+  // Redirect to main endpoint  
+  req.url = '/getAllDriverLocations';
+  return app._router.handle(req, res);
 });
 
 // ========== VEHICLE ROUTES FOR DRIVER DASHBOARD ==========
@@ -1376,6 +1815,229 @@ app.post('/test/create-sample-data', async (req, res) => {
   }
 });
 
+// ========== TEST DRIVE VEHICLES ==========
+
+// Create TestDriveVehicle model
+const testDriveVehicleSchema = new mongoose.Schema({
+  unitName: { type: String, required: true },
+  unitId: { type: String, required: true, unique: true },
+  bodyColor: { type: String, required: true },
+  variation: { type: String, required: true },
+  status: { type: String, enum: ['Available', 'In Use', 'Maintenance', 'Unavailable'], default: 'Available' },
+  mileage: { type: Number, default: 0 },
+  fuelLevel: { type: String, default: 'Full' },
+  location: { type: String, default: 'Isuzu Stockyard' },
+  addedBy: { type: String, required: true },
+  notes: String,
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const TestDriveVehicle = mongoose.model('TestDriveVehicle', testDriveVehicleSchema);
+
+// Get all test drive vehicles
+app.get('/api/testdrive-vehicles', async (req, res) => {
+  try {
+    console.log('📋 Fetching test drive vehicles...');
+    
+    const vehicles = await TestDriveVehicle.find({}).sort({ createdAt: -1 });
+    
+    console.log(`✅ Found ${vehicles.length} test drive vehicles`);
+    res.json({
+      success: true,
+      data: vehicles,
+      count: vehicles.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching test drive vehicles:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch test drive vehicles',
+      details: error.message
+    });
+  }
+});
+
+// Add new test drive vehicle
+app.post('/api/testdrive-vehicles', async (req, res) => {
+  try {
+    const vehicleData = req.body;
+    console.log('📋 Adding test drive vehicle:', vehicleData);
+    
+    // Check if unitId already exists
+    const existingVehicle = await TestDriveVehicle.findOne({ unitId: vehicleData.unitId });
+    if (existingVehicle) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unit ID already exists'
+      });
+    }
+    
+    const newVehicle = new TestDriveVehicle({
+      ...vehicleData,
+      updatedAt: new Date()
+    });
+    
+    await newVehicle.save();
+    
+    console.log('✅ Test drive vehicle added:', newVehicle.unitName);
+    res.json({
+      success: true,
+      data: newVehicle,
+      message: 'Test drive vehicle added successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error adding test drive vehicle:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add test drive vehicle',
+      details: error.message
+    });
+  }
+});
+
+// Update test drive vehicle
+app.put('/api/testdrive-vehicles/:id', async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+    const updates = req.body;
+    console.log('📋 Updating test drive vehicle:', vehicleId);
+    
+    const updatedVehicle = await TestDriveVehicle.findByIdAndUpdate(
+      vehicleId,
+      { ...updates, updatedAt: new Date() },
+      { new: true }
+    );
+    
+    if (!updatedVehicle) {
+      return res.status(404).json({
+        success: false,
+        error: 'Test drive vehicle not found'
+      });
+    }
+    
+    console.log('✅ Test drive vehicle updated:', updatedVehicle.unitName);
+    res.json({
+      success: true,
+      data: updatedVehicle,
+      message: 'Test drive vehicle updated successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error updating test drive vehicle:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update test drive vehicle',
+      details: error.message
+    });
+  }
+});
+
+// Delete test drive vehicle
+app.delete('/api/testdrive-vehicles/:id', async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+    console.log('📋 Deleting test drive vehicle:', vehicleId);
+    
+    const deletedVehicle = await TestDriveVehicle.findByIdAndDelete(vehicleId);
+    
+    if (!deletedVehicle) {
+      return res.status(404).json({
+        success: false,
+        error: 'Test drive vehicle not found'
+      });
+    }
+    
+    console.log('✅ Test drive vehicle deleted:', deletedVehicle.unitName);
+    res.json({
+      success: true,
+      message: 'Test drive vehicle deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting test drive vehicle:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete test drive vehicle',
+      details: error.message
+    });
+  }
+});
+
+// ========== AUDIT TRAIL & HISTORY ==========
+
+// Get system audit trail
+app.get('/api/audit-trail', async (req, res) => {
+  try {
+    console.log('📊 Fetching audit trail...');
+    
+    // Get recent activities from various collections
+    const activities = [];
+    
+    // Recent allocations
+    const recentAllocations = await DriverAllocation.find({})
+      .sort({ createdAt: -1 })
+      .limit(10);
+    
+    recentAllocations.forEach(allocation => {
+      activities.push({
+        _id: allocation._id,
+        type: 'allocation',
+        action: 'Vehicle Assigned',
+        description: `${allocation.unitName} assigned to ${allocation.assignedDriver}`,
+        user: allocation.allocatedBy || 'System',
+        timestamp: allocation.createdAt,
+        details: {
+          unitName: allocation.unitName,
+          unitId: allocation.unitId,
+          driver: allocation.assignedDriver,
+          status: allocation.status
+        }
+      });
+    });
+    
+    // Recent user creations (if createdAt field exists)
+    try {
+      const recentUsers = await User.find({ createdAt: { $exists: true } })
+        .sort({ createdAt: -1 })
+        .limit(5);
+      
+      recentUsers.forEach(user => {
+        activities.push({
+          _id: user._id,
+          type: 'user',
+          action: 'User Created',
+          description: `New ${user.role} account created: ${user.accountName}`,
+          user: 'Admin',
+          timestamp: user.createdAt,
+          details: {
+            role: user.role,
+            email: user.email,
+            accountName: user.accountName
+          }
+        });
+      });
+    } catch (userError) {
+      console.log('Note: User createdAt field not available');
+    }
+    
+    // Sort all activities by timestamp (newest first)
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    console.log(`✅ Found ${activities.length} audit trail entries`);
+    res.json({
+      success: true,
+      data: activities.slice(0, 20), // Return top 20 most recent
+      count: activities.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching audit trail:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch audit trail',
+      details: error.message
+    });
+  }
+});
+
 // API Configuration endpoint
 app.get('/api/config', (req, res) => {
   const baseUrl = `http://${req.get('host')}`;
@@ -1399,6 +2061,10 @@ app.get('/api/config', (req, res) => {
         createUser: '/createUser',
         updateUser: '/updateUser/:id',
         deleteUser: '/deleteUser/:id',
+        
+        // Profile Management
+        getUser: '/api/getUser/:id',
+        updateProfile: '/updateProfile/:id',
         
         // Vehicle Management
         getAllocation: '/getAllocation',
@@ -1466,10 +2132,11 @@ app.get('/test', (req, res) => {
     version: '2.0.0',
     database: 'Connected to MongoDB Atlas',
     endpoints: {
-      total: 25,
+      total: 27,
       categories: [
         'Authentication (5)',
-        'User Management (4)', 
+        'User Management (4)',
+        'Profile Management (2)', 
         'Inventory Management (5)',
         'Dispatch Management (5)',
         'Vehicle Management (4)',
@@ -1477,6 +2144,281 @@ app.get('/test', (req, res) => {
       ]
     }
   });
+});
+
+// Email Notification System
+// POST /api/send-notification - Send email notification to customer
+app.post('/api/send-notification', async (req, res) => {
+  try {
+    const { customerEmail, customerName, vehicleModel, vin, status, processDetails } = req.body;
+    
+    console.log('📧 Sending notification:', { customerEmail, customerName, vehicleModel, status });
+    
+    if (!customerEmail || !customerName || !vehicleModel || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: customerEmail, customerName, vehicleModel, status'
+      });
+    }
+
+    // Define notification templates based on the official Isuzu Pasig templates
+    const getNotificationTemplate = (status, processDetails = '') => {
+      switch (status.toLowerCase()) {
+        case 'vehicle preparation':
+        case 'in preparation':
+        case 'tinting':
+        case 'car wash':
+        case 'rust proof':
+        case 'accessories':
+        case 'ceramic coating':
+          return {
+            subject: `Vehicle Preparation Update - ${vehicleModel}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #ff1e1e; text-align: center;">Isuzu Pasig - Vehicle Update</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p><strong>Dear ${customerName},</strong></p>
+                  <p>Hi ${customerName}, this is Isuzu Pasig. Your vehicle <strong>${vehicleModel}</strong> is now undergoing: <strong>${processDetails || status}</strong>.</p>
+                  <p>Thank you for choosing Isuzu Pasig.</p>
+                </div>
+                <div style="margin-top: 30px; padding: 15px; background-color: #e8f4f8; border-radius: 5px;">
+                  <p style="margin: 0;"><strong>Vehicle Details:</strong></p>
+                  <p style="margin: 5px 0;">Model: ${vehicleModel}</p>
+                  ${vin ? `<p style="margin: 5px 0;">VIN: ${vin}</p>` : ''}
+                  <p style="margin: 5px 0;">Status: ${status}</p>
+                </div>
+                <p style="text-align: center; margin-top: 30px; color: #666;">
+                  <em>Thank you for choosing Isuzu Pasig</em><br>
+                  I-Track Vehicle Management System
+                </p>
+              </div>
+            `
+          };
+          
+        case 'dispatch & arrival':
+        case 'in transit':
+        case 'arriving':
+          return {
+            subject: `Vehicle Dispatch Update - ${vehicleModel}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #ff1e1e; text-align: center;">Isuzu Pasig - Dispatch Alert</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p><strong>Dear ${customerName},</strong></p>
+                  <p>The vehicle <strong>${vehicleModel}</strong>, driven by [Driver] is arriving shortly at Isuzu Pasig.</p>
+                </div>
+                <div style="margin-top: 30px; padding: 15px; background-color: #e8f4f8; border-radius: 5px;">
+                  <p style="margin: 0;"><strong>Vehicle Details:</strong></p>
+                  <p style="margin: 5px 0;">Model: ${vehicleModel}</p>
+                  ${vin ? `<p style="margin: 5px 0;">VIN: ${vin}</p>` : ''}
+                  <p style="margin: 5px 0;">Status: ${status}</p>
+                </div>
+                <p style="text-align: center; margin-top: 30px; color: #666;">
+                  <em>Thank you for choosing Isuzu Pasig</em><br>
+                  I-Track Vehicle Management System
+                </p>
+              </div>
+            `
+          };
+          
+        case 'ready for release':
+        case 'done':
+        case 'completed':
+        case 'ready':
+          return {
+            subject: `Vehicle Ready for Release - ${vehicleModel}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #ff1e1e; text-align: center;">Isuzu Pasig - Vehicle Release</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p><strong>Dear ${customerName},</strong></p>
+                  <p>Good news! Your vehicle is now ready for release. Please proceed to Isuzu Pasig or contact your sales agent for pickup details.</p>
+                  <p>Thank you for choosing Isuzu Pasig.</p>
+                </div>
+                <div style="margin-top: 30px; padding: 15px; background-color: #e8f4f8; border-radius: 5px;">
+                  <p style="margin: 0;"><strong>Vehicle Details:</strong></p>
+                  <p style="margin: 5px 0;">Model: ${vehicleModel}</p>
+                  ${vin ? `<p style="margin: 5px 0;">VIN: ${vin}</p>` : ''}
+                  <p style="margin: 5px 0;">Status: Ready for Release</p>
+                </div>
+                <p style="text-align: center; margin-top: 30px; color: #666;">
+                  <em>Thank you for choosing Isuzu Pasig</em><br>
+                  I-Track Vehicle Management System
+                </p>
+              </div>
+            `
+          };
+          
+        default:
+          return {
+            subject: `Vehicle Status Update - ${vehicleModel}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #ff1e1e; text-align: center;">Isuzu Pasig - Status Update</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p><strong>Dear ${customerName},</strong></p>
+                  <p>Your vehicle <strong>${vehicleModel}</strong> status has been updated to: <strong>${status}</strong></p>
+                  <p>Thank you for choosing Isuzu Pasig.</p>
+                </div>
+                <div style="margin-top: 30px; padding: 15px; background-color: #e8f4f8; border-radius: 5px;">
+                  <p style="margin: 0;"><strong>Vehicle Details:</strong></p>
+                  <p style="margin: 5px 0;">Model: ${vehicleModel}</p>
+                  ${vin ? `<p style="margin: 5px 0;">VIN: ${vin}</p>` : ''}
+                  <p style="margin: 5px 0;">Status: ${status}</p>
+                </div>
+                <p style="text-align: center; margin-top: 30px; color: #666;">
+                  <em>Thank you for choosing Isuzu Pasig</em><br>
+                  I-Track Vehicle Management System
+                </p>
+              </div>
+            `
+          };
+      }
+    };
+
+    const template = getNotificationTemplate(status, processDetails);
+    
+    // Configure email
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'itrack@isuzupasig.com',
+      to: customerEmail,
+      subject: template.subject,
+      html: template.html
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+    
+    console.log('✅ Email notification sent successfully to:', customerEmail);
+    
+    res.json({
+      success: true,
+      message: 'Notification sent successfully',
+      emailSent: true,
+      smsSent: false // Will be true when iTexMo integration is ready
+    });
+    
+  } catch (error) {
+    console.error('❌ Email notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send notification',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/servicerequests - Get service requests for dispatch
+app.get('/api/servicerequests', async (req, res) => {
+  try {
+    console.log('📋 Fetching service requests...');
+    
+    // For now, return allocations from DriverAllocation collection
+    // In the future, this can be moved to a dedicated ServiceRequest collection
+    const serviceRequests = await DriverAllocation.find({});
+    
+    console.log(`📊 Found ${serviceRequests.length} service requests`);
+    
+    res.json({
+      success: true,
+      data: serviceRequests,
+      message: `Found ${serviceRequests.length} service requests`
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching service requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch service requests',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/servicerequests/:id - Update service request status
+app.put('/api/servicerequests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    console.log(`🔄 Updating service request ${id}:`, updateData);
+    
+    const updatedRequest = await DriverAllocation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service request not found'
+      });
+    }
+    
+    console.log('✅ Service request updated successfully');
+    
+    res.json({
+      success: true,
+      data: updatedRequest,
+      message: 'Service request updated successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error updating service request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update service request',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/servicerequests/:id/process - Update process status
+app.put('/api/servicerequests/:id/process', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { processId, completed, completedBy, completedAt } = req.body;
+    
+    console.log(`🔄 Updating process ${processId} for service request ${id}`);
+    
+    const serviceRequest = await DriverAllocation.findById(id);
+    if (!serviceRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service request not found'
+      });
+    }
+    
+    // Update the process status (this would be enhanced with actual process tracking)
+    const updateData = {
+      status: completed ? 'Process Completed' : 'In Progress',
+      lastUpdatedBy: completedBy,
+      lastUpdatedAt: completedAt || new Date().toISOString()
+    };
+    
+    const updatedRequest = await DriverAllocation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+    
+    console.log('✅ Process status updated successfully');
+    
+    res.json({
+      success: true,
+      data: updatedRequest,
+      message: 'Process status updated successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error updating process:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update process',
+      error: error.message
+    });
+  }
 });
 
 // Server listening on localhost
@@ -1505,6 +2447,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('    - POST   /createUser');
   console.log('    - PUT    /updateUser/:id');
   console.log('    - DELETE /deleteUser/:id');
+  console.log('');
+  console.log('  👤 PROFILE MANAGEMENT:');
+  console.log('    - GET    /api/getUser/:id');
+  console.log('    - PUT    /updateProfile/:id');
   console.log('');
   console.log('  📦 INVENTORY MANAGEMENT:');
   console.log('    - GET    /getStock');

@@ -190,7 +190,7 @@ const BookingDetailsScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#e50914" />
         <Text style={styles.loadingText}>Loading booking details...</Text>
       </View>
     );
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 5,
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',

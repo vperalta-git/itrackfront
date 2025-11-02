@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "I-Track Paldo na",
+    "name": "I-Track",
     "slug": "itrack",
-    "version": "20.0.0",
+    "version": "47.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logoitrack.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logoitrack.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -20,9 +20,9 @@
     },
     "android": {
       "package": "com.acmobility.itrack",
-      "versionCode": 20,
+      "versionCode": 47,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logoitrack.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -32,7 +32,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logoitrack.png"
     },
     "extra": {
       "eas": {

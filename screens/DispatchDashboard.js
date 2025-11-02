@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import { useTheme } from '../context/ThemeContext';
+import NotificationService from '../utils/notificationService';
 
 // Available processes that dispatch can manage
 const AVAILABLE_PROCESSES = [
@@ -30,6 +32,8 @@ const VEHICLE_STATUSES = [
 ];
 
 export default function DispatchDashboard() {
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
   const navigation = useNavigation();                                                         
   const [vehicles, setVehicles] = useState([]);
   const [filteredVehicles, setFilteredVehicles] = useState([]);
@@ -51,37 +55,39 @@ export default function DispatchDashboard() {
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      console.log('Fetching dispatch assignments from:', buildApiUrl('/api/dispatch/assignments'));
+      console.log('Fetching service requests from:', buildApiUrl('/api/servicerequests'));
       
-      const res = await fetch(buildApiUrl('/api/dispatch/assignments'));
+      const res = await fetch(buildApiUrl('/api/servicerequests'));
       console.log('Response status:', res.status);
       
       const data = await res.json();
       console.log('Full API Response:', JSON.stringify(data, null, 2));
       
       if (data.success) {
-        // Backend returns dispatch assignments in data.data property
-        const assignments = data.data || [];
+        // Backend returns service requests from itrackDB.servicerequests collection
+        const serviceRequests = data.data || [];
         
-        console.log('Total dispatch assignments found:', assignments.length);
+        console.log('Total service requests found:', serviceRequests.length);
         
-        if (assignments.length > 0) {
-          console.log('Sample assignment:', JSON.stringify(assignments[0], null, 2));
+        if (serviceRequests.length > 0) {
+          console.log('Sample service request:', JSON.stringify(serviceRequests[0], null, 2));
         }
         
-        // Filter for assignments that have processes and are assigned to dispatch
-        const dispatchVehicles = assignments.filter(assignment => {
-          const hasProcesses = assignment.processes && assignment.processes.length > 0;
-          const isAssignedToDispatch = assignment.status === 'Assigned to Dispatch' || assignment.status === 'In Progress';
-          console.log(`Vehicle ${assignment.unitName || assignment.unitId}: status=${assignment.status}, hasProcesses=${hasProcesses}, processes=${assignment.processes?.length || 0}`);
-          return hasProcesses && isAssignedToDispatch;
+        // Filter for service requests that are assigned to dispatch or in progress
+        const dispatchVehicles = serviceRequests.filter(request => {
+          const isDispatchReady = request.status === 'Assigned to Dispatch' || 
+                                 request.status === 'In Progress' ||
+                                 request.status === 'Ready for Dispatch' ||
+                                 request.type === 'dispatch';
+          console.log(`Service Request ${request.vehicleId || request.unitId}: status=${request.status}, type=${request.type}`);
+          return isDispatchReady;
         });
         
-        console.log('Filtered dispatch vehicles:', dispatchVehicles.length);
+        console.log('Filtered dispatch service requests:', dispatchVehicles.length);
         setVehicles(dispatchVehicles);
       } else {
         console.error('API Error:', data.message);
-        Alert.alert('Error', data.message || 'Failed to fetch dispatch assignments from server');
+        Alert.alert('Error', data.message || 'Failed to fetch service requests from server');
         setVehicles([]);
       }
     } catch (err) {
@@ -111,8 +117,8 @@ export default function DispatchDashboard() {
         const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
           key => vehicle.processStatus[key] === true
         ).length;
-        // Dispatch assignments use 'processes' instead of 'requestedProcesses'
-        const totalProcesses = vehicle.processes?.length || vehicle.requestedProcesses?.length || 0;
+        // Use requestedProcesses as the primary field, fallback to processes
+        const totalProcesses = vehicle.requestedProcesses?.length || vehicle.processes?.length || 0;
         
         if (statusFilter === 'pending') return completedProcesses === 0;
         if (statusFilter === 'in_progress') return completedProcesses > 0 && completedProcesses < totalProcesses;
@@ -132,7 +138,9 @@ export default function DispatchDashboard() {
 
   const updateProcessStatus = async (vehicleId, processId, isCompleted) => {
     try {
-      const res = await fetch(buildApiUrl(`/api/dispatch/assignments/${vehicleId}/process`), {
+      console.log(`🔄 Updating process ${processId} for vehicle ${vehicleId} to ${isCompleted ? 'completed' : 'pending'}`);
+      
+      const res = await fetch(buildApiUrl(`/api/servicerequests/${vehicleId}/process`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -143,21 +151,168 @@ export default function DispatchDashboard() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
-        await fetchVehicles();
+      console.log('📋 Process update response status:', res.status);
+      const responseText = await res.text();
+      console.log('📋 Process update response:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('❌ JSON parse error:', jsonError);
+        throw new Error(`Invalid server response: ${responseText}`);
+      }
+
+      if (res.ok && data.success) {
+        console.log('✅ Process status updated successfully');
+        
+        // Update the local state immediately for better UX
+        setVehicles(prevVehicles => 
+          prevVehicles.map(vehicle => 
+            vehicle._id === vehicleId 
+              ? {
+                  ...vehicle,
+                  processStatus: {
+                    ...vehicle.processStatus,
+                    [processId]: isCompleted
+                  }
+                }
+              : vehicle
+          )
+        );
         
         // Update selected vehicle for modal
+        setSelectedVehicle(prevSelected => 
+          prevSelected?._id === vehicleId 
+            ? {
+                ...prevSelected,
+                processStatus: {
+                  ...prevSelected.processStatus,
+                  [processId]: isCompleted
+                }
+              }
+            : prevSelected
+        );
+        
+        // Check if all processes are completed and send notification
         const updatedVehicle = vehicles.find(v => v._id === vehicleId);
-        if (updatedVehicle) {
-          setSelectedVehicle(updatedVehicle);
+        if (updatedVehicle && isCompleted) {
+          const processStatus = {
+            ...updatedVehicle.processStatus,
+            [processId]: true
+          };
+          
+          const totalProcesses = updatedVehicle.processes?.length || 0;
+          const completedProcesses = Object.keys(processStatus).filter(key => processStatus[key] === true).length;
+          
+          // If a process is completed, send specific process notification
+          if (isCompleted && updatedVehicle.customerEmail && updatedVehicle.customerName) {
+            // Send notification based on specific process type
+            const processName = processId.toLowerCase();
+            let notificationResult;
+            
+            if (processName.includes('tinting')) {
+              notificationResult = await NotificationService.notifyTinting(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                }
+              );
+            } else if (processName.includes('carwash') || processName.includes('car_wash')) {
+              notificationResult = await NotificationService.notifyCarWash(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                }
+              );
+            } else if (processName.includes('rustproof') || processName.includes('rust_proof')) {
+              notificationResult = await NotificationService.notifyRustProof(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                }
+              );
+            } else if (processName.includes('accessories')) {
+              notificationResult = await NotificationService.notifyAccessories(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                }
+              );
+            } else if (processName.includes('ceramic') || processName.includes('coating')) {
+              notificationResult = await NotificationService.notifyCeramicCoating(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                }
+              );
+            } else {
+              // Generic vehicle preparation notification
+              notificationResult = await NotificationService.notifyVehiclePreparation(
+                {
+                  name: updatedVehicle.customerName,
+                  email: updatedVehicle.customerEmail,
+                  phone: updatedVehicle.customerPhone
+                },
+                {
+                  unitName: updatedVehicle.unitName,
+                  unitId: updatedVehicle.unitId,
+                  model: updatedVehicle.unitName
+                },
+                processId
+              );
+            }
+            
+            if (notificationResult) {
+              if (notificationResult.success) {
+                console.log('✅ Process completion notification sent successfully');
+              } else {
+                console.warn('⚠️ Failed to send process notification:', notificationResult.message);
+              }
+            }
+          }
         }
+        
+        // Refresh from server to get any other updates
+        await fetchVehicles();
+        
+        Alert.alert('Success', `Process ${processId} marked as ${isCompleted ? 'completed' : 'pending'}!`);
       } else {
-        throw new Error(data.message || 'Failed to update process');
+        throw new Error(data?.message || `Server error: ${res.status}`);
       }
     } catch (err) {
-      console.error('Error updating process:', err);
-      Alert.alert('Error', 'Failed to update process status');
+      console.error('❌ Error updating process:', err);
+      Alert.alert('Error', `Failed to update process: ${err.message}`);
     }
   };
 
@@ -170,8 +325,8 @@ export default function DispatchDashboard() {
         throw new Error('Assignment not found');
       }
 
-      // Update the assignment status to Ready for Release
-      const res = await fetch(buildApiUrl(`/api/dispatch/assignments/${vehicleId}`), {
+      // Update the service request status to Ready for Release
+      const res = await fetch(buildApiUrl(`/api/servicerequests/${vehicleId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -183,6 +338,28 @@ export default function DispatchDashboard() {
 
       const data = await res.json();
       if (data.success) {
+        // Send email notification to customer if contact info is available
+        if (assignment.customerEmail && assignment.customerName) {
+          const notificationResult = await NotificationService.notifyReadyForRelease(
+            {
+              name: assignment.customerName,
+              email: assignment.customerEmail,
+              phone: assignment.customerPhone
+            },
+            {
+              unitName: assignment.unitName,
+              unitId: assignment.unitId,
+              model: assignment.unitName
+            }
+          );
+          
+          if (notificationResult.success) {
+            console.log('✅ Customer notification sent successfully');
+          } else {
+            console.warn('⚠️ Failed to send customer notification:', notificationResult.message);
+          }
+        }
+
         await fetchVehicles();
         setProcessModalVisible(false);
         Alert.alert('Success', 'Vehicle marked as ready for release!');
@@ -218,8 +395,8 @@ export default function DispatchDashboard() {
     const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
       key => vehicle.processStatus[key] === true
     ).length;
-    // Dispatch assignments use 'processes' instead of 'requestedProcesses'
-    const totalProcesses = vehicle.processes?.length || vehicle.requestedProcesses?.length || 0;
+    // Use requestedProcesses as the primary field, fallback to processes
+    const totalProcesses = vehicle.requestedProcesses?.length || vehicle.processes?.length || 0;
     
     return totalProcesses > 0 ? Math.round((completedProcesses / totalProcesses) * 100) : 0;
   };
@@ -297,7 +474,7 @@ export default function DispatchDashboard() {
                 styles.progressFill, 
                 { 
                   width: `${completionPercentage}%`,
-                  backgroundColor: completionPercentage === 100 ? '#4CAF50' : '#CB1E2A'
+                  backgroundColor: completionPercentage === 100 ? '#4CAF50' : '#e50914'
                 }
               ]} 
             />
@@ -306,7 +483,7 @@ export default function DispatchDashboard() {
 
         {/* Process Chips */}
         <View style={styles.processChipsContainer}>
-          {((vehicle.processes || vehicle.requestedProcesses) || []).slice(0, 3).map(processId => {
+          {((vehicle.requestedProcesses || vehicle.processes) || []).slice(0, 3).map(processId => {
             const process = AVAILABLE_PROCESSES.find(p => p.id === processId);
             const isCompleted = vehicle.processStatus?.[processId] === true;
             
@@ -329,9 +506,9 @@ export default function DispatchDashboard() {
               </View>
             );
           })}
-          {(vehicle.requestedProcesses?.length || 0) > 3 && (
+          {((vehicle.requestedProcesses || vehicle.processes)?.length || 0) > 3 && (
             <View style={styles.moreProcesses}>
-              <Text style={styles.moreProcessesText}>+{(vehicle.requestedProcesses?.length || 0) - 3} more</Text>
+              <Text style={styles.moreProcessesText}>+{((vehicle.requestedProcesses || vehicle.processes)?.length || 0) - 3} more</Text>
             </View>
           )}
         </View>
@@ -357,7 +534,7 @@ export default function DispatchDashboard() {
   const renderProcessModal = () => {
     if (!selectedVehicle) return null;
 
-    const allProcessesCompleted = ((selectedVehicle.processes || selectedVehicle.requestedProcesses) || []).every(
+    const allProcessesCompleted = ((selectedVehicle.requestedProcesses || selectedVehicle.processes) || []).every(
       processId => selectedVehicle.processStatus?.[processId] === true
     );
 
@@ -393,7 +570,7 @@ export default function DispatchDashboard() {
           <ScrollView style={styles.processListContainer}>
             <Text style={styles.processListTitle}>Process Checklist</Text>
             
-            {((selectedVehicle.processes || selectedVehicle.requestedProcesses) || []).map(processId => {
+            {((selectedVehicle.requestedProcesses || selectedVehicle.processes) || []).map(processId => {
               const process = AVAILABLE_PROCESSES.find(p => p.id === processId);
               const isCompleted = selectedVehicle.processStatus?.[processId] === true;
               
@@ -461,7 +638,7 @@ export default function DispatchDashboard() {
                 <Text style={styles.incompleteSubtext}>
                   {Object.keys(selectedVehicle.processStatus || {}).filter(key => 
                     selectedVehicle.processStatus[key] === true
-                  ).length} of {(selectedVehicle.processes || selectedVehicle.requestedProcesses)?.length || 0} completed
+                  ).length} of {(selectedVehicle.requestedProcesses || selectedVehicle.processes)?.length || 0} completed
                 </Text>
               </View>
             )}
@@ -515,7 +692,7 @@ export default function DispatchDashboard() {
         renderItem={renderVehicleCard}
         keyExtractor={(item) => item._id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#CB1E2A']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e50914']} />
         }
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -538,23 +715,23 @@ export default function DispatchDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.surface,
   },
   
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.surface,
   },
   
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: theme.textSecondary,
   },
 
   header: {
@@ -576,7 +753,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4,
   },
 
@@ -653,7 +830,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderLeftWidth: 4,
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#e50914',
   },
 
   cardHeader: {
@@ -670,7 +847,7 @@ const styles = StyleSheet.create({
   vinText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4,
   },
 
@@ -730,7 +907,7 @@ const styles = StyleSheet.create({
   progressPercentage: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
   },
 
   progressBar: {
@@ -768,8 +945,8 @@ const styles = StyleSheet.create({
   },
 
   processChipCompleted: {
-    backgroundColor: '#CB1E2A',
-    borderColor: '#CB1E2A',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
 
   processChipIcon: {
@@ -816,7 +993,7 @@ const styles = StyleSheet.create({
 
   tapPromptText: {
     fontSize: 14,
-    color: '#CB1E2A',
+    color: '#e50914',
     fontWeight: '500',
   },
 
@@ -863,7 +1040,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4,
   },
 

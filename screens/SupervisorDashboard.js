@@ -616,7 +616,7 @@ function SupervisorDashboard() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#e50914" />
         <Text style={styles.loadingText}>Loading Supervisor Dashboard...</Text>
       </View>
     );
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingTop: 50,
   },
   headerLeft: {
@@ -752,8 +752,8 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
   },
   tabButtonActive: {
-    backgroundColor: '#CB1E2A',
-    borderColor: '#CB1E2A',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
   tabIcon: {
     fontSize: 16,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4,
   },
   statLabel: {
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   createButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     justifyContent: 'center',
     alignItems: 'center',
   },

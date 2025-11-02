@@ -11,20 +11,21 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Modal
+  Modal,
+  Dimensions
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
-import AdminMapsView from '../components/AdminMapsView';
-import ImprovedMapsView from '../components/ImprovedMapsView';
+import { useTheme } from '../context/ThemeContext';
 import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
 import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
 import UniformLoading from '../components/UniformLoading';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
+  const { isDarkMode, theme } = useTheme();
 
   // State management
   const [allocations, setAllocations] = useState([]);
@@ -72,6 +73,8 @@ export default function AdminDashboard() {
   const [selectedVehiclesForDispatch, setSelectedVehiclesForDispatch] = useState([]);
   const [selectedDispatchProcesses, setSelectedDispatchProcesses] = useState([]);
   const [showDispatchAssignmentModal, setShowDispatchAssignmentModal] = useState(false);
+  const [showServicesModal, setShowServicesModal] = useState(false);
+  const [selectedVehicleForServices, setSelectedVehicleForServices] = useState(null);
   
   // Release management state
   const [pendingReleases, setPendingReleases] = useState([]);
@@ -85,9 +88,6 @@ export default function AdminDashboard() {
   
   // Available processes
   const availableProcesses = [
-    { id: 'delivery_to_isuzu_pasig', label: 'Delivery to Isuzu Pasig', icon: '🚛' },
-    { id: 'stock_integration', label: 'Stock Integration', icon: '📦' },
-    { id: 'documentation_check', label: 'Documentation Check', icon: '📋' },
     { id: 'tinting', label: 'Tinting', icon: '🪟' },
     { id: 'carwash', label: 'Car Wash', icon: '🚿' },
     { id: 'ceramic_coating', label: 'Ceramic Coating', icon: '✨' },
@@ -244,11 +244,12 @@ export default function AdminDashboard() {
       if (data.success) {
         // Filter for vehicles that are "Ready for Release"
         const readyForRelease = (data.data || []).filter(assignment => {
-          const completedProcesses = Object.keys(assignment.processStatus || {}).filter(
-            key => assignment.processStatus[key] === true
-          ).length;
-          const totalProcesses = assignment.processes?.length || 0;
-          return completedProcesses === totalProcesses && totalProcesses > 0;
+          // Check if status is explicitly "Ready for Release" OR
+          // if readyForRelease flag is true OR
+          // if overallProgress indicates completion
+          return assignment.status === 'Ready for Release' || 
+                 assignment.readyForRelease === true ||
+                 (assignment.overallProgress && assignment.overallProgress.isComplete === true);
         });
         
         setPendingReleases(readyForRelease);
@@ -770,10 +771,10 @@ export default function AdminDashboard() {
 
           <TouchableOpacity
             style={[styles.actionButton, styles.quaternaryActionButton]}
-            onPress={() => navigation.navigate('AdminVehicleTracking')}
+            onPress={() => navigation.navigate('TestDriveManagementScreen')}
           >
-            <Text style={styles.actionButtonIcon}>📍</Text>
-            <Text style={styles.actionButtonText}>Vehicle Tracking</Text>
+            <Text style={styles.actionButtonIcon}>�️</Text>
+            <Text style={styles.actionButtonText}>Test Drive Management</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -784,9 +785,9 @@ export default function AdminDashboard() {
         <View style={styles.navigationButtons}>
           <TouchableOpacity
             style={styles.navButton}
-            onPress={() => navigation.navigate('AdminVehicleTracking')}
+            onPress={() => navigation.navigate('HistoryScreen')}
           >
-            <Text style={styles.navButtonText}>🚗 Vehicle Tracking</Text>
+            <Text style={styles.navButtonText}>�️ Maps & Tracking</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -813,7 +814,7 @@ export default function AdminDashboard() {
               style={styles.allocationNavBtn}
               onPress={() => navigation.navigate('AdminVehicleTracking')}
             >
-              <Text style={styles.allocationNavBtnText}>🚗 Vehicle Tracking</Text>
+              <Text style={styles.allocationNavBtnText}>�️ Maps & Tracking</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -962,92 +963,255 @@ export default function AdminDashboard() {
     </View>
   );
 
-  const renderReportsContent = () => (
-    <View>
-      {/* Reports Summary Cards */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: '#000000' }]}>
-          <Text style={styles.statNumber}>{inventory.length}</Text>
-          <Text style={styles.statLabel}>Total Vehicles</Text>
-        </View>
-        
-        <View style={[styles.statCard, { backgroundColor: '#8B0000' }]}>
-          <Text style={styles.statNumber}>{allocations.length}</Text>
-          <Text style={styles.statLabel}>Active Allocations</Text>
-        </View>
-        
-        <View style={[styles.statCard, { backgroundColor: '#CB1E2A' }]}>
-          <Text style={styles.statNumber}>{drivers.length}</Text>
-          <Text style={styles.statLabel}>Total Drivers</Text>
-        </View>
-        
-        <View style={[styles.statCard, { backgroundColor: '#2D2D2D' }]}>
-          <Text style={styles.statNumber}>{agents.length}</Text>
-          <Text style={styles.statLabel}>Active Agents</Text>
-        </View>
-      </View>
+  const renderReportsContent = () => {
+    // Calculate statistics for dashboard
+    const totalStocks = inventory.length;
+    const finishedVehiclePreparation = allocations.filter(a => a.status === 'Ready for Release').length;
+    const ongoingShipment = allocations.filter(a => a.status === 'In Transit').length;
+    const ongoingVehiclePreparation = allocations.filter(a => a.status === 'In Progress' || a.status === 'Assigned to Dispatch').length;
 
-      {/* Detailed Reports Table */}
-      <View style={styles.tableSection}>
-        <Text style={styles.sectionTitle}>System Activity Report</Text>
-        <ScrollView horizontal={true} showsHorizontalScrollIndicator={true}>
-          <View style={styles.tableContainer}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { width: 55 }]}>TYPE</Text>
-              <Text style={[styles.tableHeaderCell, { width: 80 }]}>DESCRIPTION</Text>
-              <Text style={[styles.tableHeaderCell, { width: 40 }]}>COUNT</Text>
-              <Text style={[styles.tableHeaderCell, { width: 55 }]}>STATUS</Text>
-              <Text style={[styles.tableHeaderCell, { width: 60 }]}>DATE</Text>
+    // Get accurate stock data for pie chart (stock status instead of just model distribution)
+    const stockData = inventory.reduce((acc, vehicle) => {
+      // Determine stock status based on allocation status
+      let stockStatus = 'Available';
+      
+      // Check if this vehicle is allocated
+      const isAllocated = allocations.some(allocation => 
+        allocation.unitId === vehicle.unitId || 
+        allocation.vin === vehicle.vin ||
+        allocation.unitName === vehicle.unitName
+      );
+      
+      if (isAllocated) {
+        const allocation = allocations.find(a => 
+          a.unitId === vehicle.unitId || 
+          a.vin === vehicle.vin ||
+          a.unitName === vehicle.unitName
+        );
+        
+        if (allocation) {
+          switch (allocation.status) {
+            case 'Assigned to Dispatch':
+            case 'In Progress':
+              stockStatus = 'In Preparation';
+              break;
+            case 'Ready for Release':
+              stockStatus = 'Ready for Release';
+              break;
+            case 'Released':
+            case 'Done':
+              stockStatus = 'Released';
+              break;
+            case 'In Transit':
+              stockStatus = 'In Transit';
+              break;
+            default:
+              stockStatus = 'Allocated';
+          }
+        }
+      }
+      
+      acc[stockStatus] = (acc[stockStatus] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Also keep vehicle breakdown for compatibility
+    const vehicleBreakdown = inventory.reduce((acc, vehicle) => {
+      const model = vehicle.unitName || 'Unknown';
+      acc[model] = (acc[model] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Recent in-progress preparation
+    const recentPreparation = allocations
+      .filter(a => a.status === 'Assigned to Dispatch' || a.status === 'In Progress')
+      .slice(0, 3);
+
+    // Recent assigned shipments  
+    const recentShipments = allocations
+      .filter(a => a.status === 'In Transit' || a.status === 'Pending')
+      .slice(0, 3);
+
+    return (
+      <ScrollView style={styles.reportsContainer}>
+        {/* Statistics Cards */}
+        <View style={styles.reportsStatsGrid}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+            <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
+            <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#374151' }]}>
+            <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
+            <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+            <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
+            <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+            <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
+            <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
+          </View>
+        </View>
+
+        {/* Stock Status Section - Accurate Pie Chart */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Stock Status Distribution</Text>
+          
+          {/* Improved Pie Chart with Visual Representation */}
+          <TouchableOpacity style={styles.pieChartContainer} onLongPress={() => {
+            Alert.alert('Stock Status Details', 
+              Object.entries(stockData)
+                .map(([status, count]) => `${status}: ${count} vehicles`)
+                .join('\n') + `\n\nTotal Inventory: ${inventory.length} vehicles`
+            );
+          }}>
+            <View style={[styles.pieChart, { borderColor: theme.primary }]}>
+              <Text style={[styles.pieChartLabel, { color: theme.textSecondary }]}>Stock{'\n'}Status{'\n'}(Tap for Details)</Text>
+              
+              {/* Visual pie chart representation using circles */}
+              <View style={styles.pieChartVisual}>
+                {Object.entries(stockData).map(([status, count], index) => {
+                  const totalStock = inventory.length;
+                  const percentage = totalStock > 0 ? (count / totalStock) * 100 : 0;
+                  const colors = {
+                    'Available': '#059669', // Green
+                    'Allocated': '#F59E0B', // Yellow
+                    'In Preparation': '#3B82F6', // Blue
+                    'Ready for Release': '#8B5CF6', // Purple
+                    'Released': '#6B7280', // Gray
+                    'In Transit': '#EF4444' // Red
+                  };
+                  
+                  return (
+                    <View 
+                      key={index} 
+                      style={[
+                        styles.pieSegment, 
+                        { 
+                          backgroundColor: colors[status] || '#6B7280',
+                          width: Math.max(percentage * 2, 8), // Minimum width of 8
+                          height: Math.max(percentage * 2, 8)
+                        }
+                      ]} 
+                    />
+                  );
+                })}
+              </View>
             </View>
+          </TouchableOpacity>
+
+          {/* Stock Status Breakdown List */}
+          <View style={styles.vehicleBreakdownList}>
+            {Object.entries(stockData).map(([status, count], index) => {
+              const totalStock = inventory.length;
+              const percentage = totalStock > 0 ? ((count / totalStock) * 100).toFixed(1) : '0.0';
+              const colors = {
+                'Available': '#059669',
+                'Allocated': '#F59E0B',
+                'In Preparation': '#3B82F6',
+                'Ready for Release': '#8B5CF6',
+                'Released': '#6B7280',
+                'In Transit': '#EF4444'
+              };
+              
+              return (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.vehicleBreakdownItem}
+                  onPress={() => Alert.alert(status, `Count: ${count} vehicles\nPercentage: ${percentage}% of total stock`)}
+                >
+                  <View style={[styles.colorIndicator, { 
+                    backgroundColor: colors[status] || '#6B7280'
+                  }]} />
+                  <Text style={[styles.vehicleModel, { color: theme.text, flex: 2 }]}>{status}</Text>
+                  <Text style={[styles.vehicleCount, { color: theme.textSecondary }]}>{count}</Text>
+                  <Text style={[styles.vehiclePercentage, { color: theme.textTertiary }]}>({percentage}%)</Text>
+                </TouchableOpacity>
+              );
+            })}
             
-            {/* Sample Report Data */}
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { width: 55 }]}>Vehicles</Text>
-              <Text style={[styles.tableCell, { width: 80 }]}>Total in System</Text>
-              <Text style={[styles.tableCell, { width: 40 }]}>{inventory.length}</Text>
-              <Text style={[styles.tableCell, { width: 55 }]}>Active</Text>
-              <Text style={[styles.tableCell, { width: 60 }]}>{new Date().toLocaleDateString()}</Text>
-            </View>
-            
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { width: 55 }]}>Allocations</Text>
-              <Text style={[styles.tableCell, { width: 80 }]}>Driver Assignments</Text>
-              <Text style={[styles.tableCell, { width: 40 }]}>{allocations.length}</Text>
-              <Text style={[styles.tableCell, { width: 55 }]}>Processing</Text>
-              <Text style={[styles.tableCell, { width: 60 }]}>{new Date().toLocaleDateString()}</Text>
-            </View>
-            
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { width: 55 }]}>Users</Text>
-              <Text style={[styles.tableCell, { width: 80 }]}>Active Drivers</Text>
-              <Text style={[styles.tableCell, { width: 40 }]}>{drivers.length}</Text>
-              <Text style={[styles.tableCell, { width: 55 }]}>Online</Text>
-              <Text style={[styles.tableCell, { width: 60 }]}>{new Date().toLocaleDateString()}</Text>
-            </View>
-            
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { width: 70 }]}>Agents</Text>
-              <Text style={[styles.tableCell, { width: 100 }]}>Field Agents</Text>
-              <Text style={[styles.tableCell, { width: 50 }]}>{agents.length}</Text>
-              <Text style={[styles.tableCell, { width: 70 }]}>Available</Text>
-              <Text style={[styles.tableCell, { width: 70 }]}>{new Date().toLocaleDateString()}</Text>
+            {/* Total Summary */}
+            <View style={[styles.vehicleBreakdownItem, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 8, paddingTop: 8 }]}>
+              <View style={[styles.colorIndicator, { backgroundColor: theme.primary }]} />
+              <Text style={[styles.vehicleModel, { color: theme.text, fontWeight: 'bold', flex: 2 }]}>Total Stock</Text>
+              <Text style={[styles.vehicleCount, { color: theme.text, fontWeight: 'bold' }]}>{inventory.length}</Text>
+              <Text style={[styles.vehiclePercentage, { color: theme.text, fontWeight: 'bold' }]}>(100%)</Text>
             </View>
           </View>
-        </ScrollView>
-      </View>
+        </View>
 
-      {/* Export Options */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Export Reports</Text>
-        <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#6c757d' }]}>
-          <Text style={styles.buttonText}>📊 Export Summary Report</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#333', marginTop: 10 }]}>
-          <Text style={styles.buttonText}>📋 Export Detailed Report</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+        {/* Recent In Progress Vehicle Preparation */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent In Progress Vehicle Preparation</Text>
+          
+          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
+            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>CONDUCTION NUMBER</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>SERVICE</Text>
+            </View>
+            
+            {recentPreparation.length > 0 ? recentPreparation.map((item, index) => (
+              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitId || 'N/A'}</Text>
+                <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]}>
+                  {item.requestedProcesses && item.requestedProcesses.length > 0 
+                    ? item.requestedProcesses[0].name || 'Processing'
+                    : 'Processing'}
+                </Text>
+              </View>
+            )) : (
+              <View style={styles.reportsTableRow}>
+                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No vehicle preparation in progress</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Recent Assigned Shipments */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={[styles.reportsTable, { backgroundColor: theme.surface, minWidth: 400 }]}>
+              <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>UNIT NAME</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>VARIATION</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>ASSIGNED DRIVER</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>STATUS</Text>
+              </View>
+              
+              {recentShipments.length > 0 ? recentShipments.map((item, index) => (
+                <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
+                  <Text style={[styles.reportsTableCell, { width: 80, color: theme.text }]}>{item.variation || 'N/A'}</Text>
+                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
+                  <View style={[styles.reportsTableCell, { width: 80 }]}>
+                    <View style={[
+                      styles.statusBadge, 
+                      item.status === 'In Transit' ? { backgroundColor: '#3B82F6' } : { backgroundColor: '#EF4444' }
+                    ]}>
+                      <Text style={styles.statusBadgeText}>
+                        {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )) : (
+                <View style={styles.reportsTableRow}>
+                  <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </ScrollView>
+    );
+  };
+
 
   const renderInventoryContent = () => {
     const filteredInventory = inventory.filter(item =>
@@ -1066,7 +1230,7 @@ export default function AdminDashboard() {
           case 'allocated':
             return { container: { backgroundColor: '#dbeafe' }, text: { color: '#1e40af' } };
           case 'in dispatch':
-            return '#CB1E2A'; // Red
+            return '#e50914'; // Red
           case 'maintenance':
             return { container: { backgroundColor: '#fef3c7' }, text: { color: '#92400e' } };
           default:
@@ -1166,7 +1330,7 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <View style={styles.inventoryStatsContainer}>
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#CB1E2A' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>{inventory.length}</Text>
             <Text style={styles.inventoryStatLabel}>Total Stock</Text>
           </View>
@@ -1185,7 +1349,7 @@ export default function AdminDashboard() {
             <Text style={styles.inventoryStatLabel}>In Use</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#CB1E2A' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Dispatch').length}
             </Text>
@@ -1491,113 +1655,59 @@ export default function AdminDashboard() {
     };
 
     return (
-      <View style={styles.dispatchContainer}>
-        {/* Header */}
-        <View style={styles.dispatchHeader}>
-          <Text style={styles.dispatchTitle}>Dispatch Vehicle Assignment</Text>
-          <Text style={styles.dispatchSubtitle}>
-            Select vehicles and processes to assign to dispatch team
+      <ScrollView style={[styles.dispatchContainer, { backgroundColor: theme.background }]}>
+        {/* Cleaner Header */}
+        <View style={[styles.cleanDispatchHeader, { backgroundColor: theme.card }]}>
+          <Text style={[styles.cleanDispatchTitle, { color: theme.text }]}>Vehicle Dispatch</Text>
+          <Text style={[styles.cleanDispatchSubtitle, { color: theme.textSecondary }]}>
+            Select vehicles one by one to dispatch
           </Text>
         </View>
 
-        {/* Stats */}
-        <View style={styles.dispatchStatsContainer}>
-          <View style={[styles.dispatchStatCard, { backgroundColor: '#CB1E2A' }]}>
-            <Text style={styles.dispatchStatNumber}>{availableVehicles.length}</Text>
-            <Text style={styles.dispatchStatLabel}>Available Vehicles</Text>
+        {/* Vehicle List - One by One Selection */}
+        <View style={[styles.cleanDispatchSection, { backgroundColor: theme.card }]}>
+          <View style={styles.cleanSectionHeader}>
+            <Text style={[styles.cleanSectionTitle, { color: theme.text }]}>Available Vehicles</Text>
           </View>
-          
-          <View style={[styles.dispatchStatCard, { backgroundColor: '#8B0000' }]}>
-            <Text style={styles.dispatchStatNumber}>{selectedVehiclesForDispatch.length}</Text>
-            <Text style={styles.dispatchStatLabel}>Selected</Text>
-          </View>
-          
-          <View style={[styles.dispatchStatCard, { backgroundColor: '#2D2D2D' }]}>
-            <Text style={styles.dispatchStatNumber}>{selectedDispatchProcesses.length}</Text>
-            <Text style={styles.dispatchStatLabel}>Processes</Text>
-          </View>
-        </View>
-
-        {/* Send to Dispatch Button */}
-        {selectedVehiclesForDispatch.length > 0 && selectedDispatchProcesses.length > 0 && (
-          <View style={styles.dispatchActionSection}>
-            <TouchableOpacity
-              style={styles.dispatchSendButton}
-              onPress={handleSendToDispatch}
-            >
-              <Text style={styles.dispatchSendButtonText}>
-                Send {selectedVehiclesForDispatch.length} Vehicle(s) to Dispatch
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Process Selection */}
-        <View style={styles.dispatchProcessSection}>
-          <Text style={styles.dispatchSectionTitle}>Select Processes</Text>
-          <View style={styles.dispatchProcessGrid}>
-            {availableProcesses.map((process) => {
-              const isSelected = selectedDispatchProcesses.includes(process.id);
-              return (
-                <TouchableOpacity
-                  key={process.id}
-                  style={[
-                    styles.dispatchProcessCard,
-                    isSelected && styles.dispatchProcessCardSelected
-                  ]}
-                  onPress={() => handleProcessSelection(process.id)}
-                >
-                  <View style={styles.dispatchProcessIcon}>
-                    <Text style={styles.dispatchProcessEmoji}>{process.icon}</Text>
-                  </View>
-                  <Text style={[
-                    styles.dispatchProcessLabel,
-                    isSelected && styles.dispatchProcessLabelSelected
-                  ]}>
-                    {process.label}
-                  </Text>
-                  {isSelected && (
-                    <View style={styles.dispatchProcessCheckmark}>
-                      <Text style={styles.dispatchProcessCheck}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Vehicle Selection */}
-        <View style={styles.dispatchVehicleSection}>
-          <Text style={styles.dispatchSectionTitle}>
-            Select Vehicles ({selectedVehiclesForDispatch.length} selected)
-          </Text>
           
           {availableVehicles.length === 0 ? (
-            <View style={styles.dispatchEmptyState}>
-              <Text style={styles.dispatchEmptyText}>No available vehicles</Text>
-              <Text style={styles.dispatchEmptySubtext}>
-                All vehicles are currently assigned or in use
-              </Text>
+            <View style={styles.cleanEmptyState}>
+              <Text style={[styles.cleanEmptyIcon, { color: theme.textSecondary }]}>🚗</Text>
+              <Text style={[styles.cleanEmptyText, { color: theme.textSecondary }]}>No available vehicles</Text>
             </View>
           ) : (
-            <View style={{ paddingBottom: 20 }}>
-              {availableVehicles.map((item, index) => {
-                if (index % 2 === 0) {
-                  const nextItem = availableVehicles[index + 1];
-                  return (
-                    <View key={`row-${index}`} style={styles.dispatchVehicleRow}>
-                      {renderVehicleCard({ item })}
-                      {nextItem && renderVehicleCard({ item: nextItem })}
+            <View style={styles.vehicleListContainer}>
+              {availableVehicles.map((item, index) => (
+                <TouchableOpacity 
+                  key={item._id}
+                  style={[
+                    styles.individualVehicleCard,
+                    { backgroundColor: theme.surface, borderColor: theme.border }
+                  ]}
+                  onPress={() => {
+                    setSelectedVehicleForServices(item);
+                    setShowServicesModal(true);
+                  }}
+                >
+                  <View style={styles.vehicleCardContent}>
+                    <View style={styles.vehicleMainInfo}>
+                      <Text style={[styles.vehicleModelText, { color: theme.text }]}>
+                        {item.unitName || 'Unknown Vehicle'}
+                      </Text>
+                      <Text style={[styles.vehicleDetailsText, { color: theme.textSecondary }]}>
+                        VIN: {item.unitId || 'N/A'} • {item.bodyColor || 'N/A'}
+                      </Text>
                     </View>
-                  );
-                }
-                return null;
-              })}
+                    <View style={[styles.selectButton, { backgroundColor: theme.primary }]}>
+                      <Text style={styles.selectButtonText}>Select</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
     );
   };
 
@@ -1611,18 +1721,21 @@ export default function AdminDashboard() {
     );
   }
 
+  // Create themed styles
+  const styles = createStyles(theme);
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={[{ flex: 1 }, { backgroundColor: theme.background }]}>
       <ScrollView 
-        style={{ flex: 1 }}
+        style={[{ flex: 1 }, { backgroundColor: theme.background }]}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
           {/* Header with Logout */}
           <View style={styles.headerContainer}>
-            <Text style={styles.header}>Admin Dashboard</Text>
+            <Text style={[styles.header, { color: theme.text }]}>Admin Dashboard</Text>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
@@ -1654,14 +1767,7 @@ export default function AdminDashboard() {
                 Dispatch
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'maps' && styles.activeTab]}
-              onPress={() => setCurrentTab('maps')}
-            >
-              <Text style={[styles.tabText, currentTab === 'maps' && styles.activeTabText]}>
-                🗺️ Maps
-              </Text>
-            </TouchableOpacity>
+
             <TouchableOpacity 
               style={[styles.tab, currentTab === 'release' && styles.activeTab]}
               onPress={() => setCurrentTab('release')}
@@ -1684,12 +1790,150 @@ export default function AdminDashboard() {
           {currentTab === 'dashboard' ? renderDashboardContent() : 
            currentTab === 'inventory' ? renderInventoryContent() : 
            currentTab === 'dispatch' ? renderDispatchAssignmentContent() :
-           currentTab === 'maps' ? <ImprovedMapsView style={{ flex: 1, minHeight: 500 }} userRole="admin" /> :
+
            currentTab === 'release' ? renderReleaseContent() :
            renderReportsContent()}
         </View>
       </ScrollView>
       
+      {/* Services Selection Modal */}
+      <Modal
+        visible={showServicesModal}
+        animationType="slide"
+        transparent={false}
+      >
+        <View style={[styles.servicesModalContainer, { backgroundColor: theme.background }]}>
+          {/* Header */}
+          <View style={[styles.servicesModalHeader, { backgroundColor: theme.primary }]}>
+            <TouchableOpacity
+              style={styles.modalBackButton}
+              onPress={() => {
+                setShowServicesModal(false);
+                setSelectedVehicleForServices(null);
+                setSelectedDispatchProcesses([]);
+              }}
+            >
+              <Text style={styles.modalBackText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.servicesModalTitle}>Select Services</Text>
+            <View style={styles.modalBackButton} />
+          </View>
+
+          {/* Vehicle Info */}
+          {selectedVehicleForServices && (
+            <View style={[styles.selectedVehicleInfo, { backgroundColor: theme.card }]}>
+              <Text style={[styles.selectedVehicleTitle, { color: theme.text }]}>
+                {selectedVehicleForServices.unitName}
+              </Text>
+              <Text style={[styles.selectedVehicleDetails, { color: theme.textSecondary }]}>
+                VIN: {selectedVehicleForServices.unitId} • {selectedVehicleForServices.bodyColor}
+              </Text>
+            </View>
+          )}
+
+          {/* Services List */}
+          <ScrollView style={styles.servicesScrollContainer}>
+            <View style={styles.servicesGrid}>
+              {availableProcesses.map((process) => {
+                const isSelected = selectedDispatchProcesses.includes(process.id);
+                return (
+                  <TouchableOpacity
+                    key={process.id}
+                    style={[
+                      styles.serviceModalCard,
+                      { backgroundColor: theme.surface, borderColor: theme.border },
+                      isSelected && { backgroundColor: theme.primary, borderColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedDispatchProcesses(prev => {
+                        const isCurrentlySelected = prev.includes(process.id);
+                        if (isCurrentlySelected) {
+                          return prev.filter(id => id !== process.id);
+                        } else {
+                          return [...prev, process.id];
+                        }
+                      });
+                    }}
+                  >
+                    <Text style={styles.serviceModalIcon}>{process.icon}</Text>
+                    <Text style={[
+                      styles.serviceModalLabel,
+                      { color: isSelected ? '#fff' : theme.text }
+                    ]}>
+                      {process.label}
+                    </Text>
+                    {isSelected && (
+                      <View style={styles.serviceModalCheckmark}>
+                        <Text style={styles.serviceModalCheck}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Dispatch Button */}
+          {selectedDispatchProcesses.length > 0 && (
+            <View style={styles.servicesModalFooter}>
+              <TouchableOpacity
+                style={[styles.dispatchVehicleButton, { backgroundColor: theme.primary }]}
+                onPress={async () => {
+                  try {
+                    if (!selectedVehicleForServices) return;
+
+                    const assignmentData = {
+                      vehicleId: selectedVehicleForServices._id,
+                      unitName: selectedVehicleForServices.unitName,
+                      unitId: selectedVehicleForServices.unitId,
+                      bodyColor: selectedVehicleForServices.bodyColor,
+                      variation: selectedVehicleForServices.variation,
+                      processes: selectedDispatchProcesses,
+                      status: 'Assigned to Dispatch',
+                      assignedAt: new Date().toISOString(),
+                      assignedBy: 'admin'
+                    };
+
+                    const response = await fetch(buildApiUrl('/api/dispatch/assignments'), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(assignmentData),
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                      Alert.alert('Success', `${selectedVehicleForServices.unitName} assigned to dispatch successfully!`);
+                      
+                      // Update inventory status
+                      await fetch(buildApiUrl(`/updateStock/${selectedVehicleForServices._id}`), {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'Assigned to Dispatch' }),
+                      });
+
+                      // Close modal and refresh
+                      setShowServicesModal(false);
+                      setSelectedVehicleForServices(null);
+                      setSelectedDispatchProcesses([]);
+                      fetchInventory();
+                    } else {
+                      Alert.alert('Error', 'Failed to assign vehicle to dispatch');
+                    }
+                  } catch (error) {
+                    console.error('Error dispatching vehicle:', error);
+                    Alert.alert('Error', 'Failed to assign vehicle to dispatch');
+                  }
+                }}
+              >
+                <Text style={styles.dispatchVehicleButtonText}>
+                  🚚 Dispatch {selectedVehicleForServices?.unitName}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
+
       {/* Enhanced Driver Creation Modal */}
       <EnhancedDriverCreation
         visible={showDriverCreationModal}
@@ -1893,11 +2137,11 @@ export default function AdminDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: { 
     flex: 1, // Changed from flexGrow: 1 for better layout control
     padding: 8, // Further reduced from 12 to 8 for tighter mobile fit
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.background,
     width: '100%', // Changed from minWidth to width for better control
   },
   loadingContainer: {
@@ -1918,12 +2162,12 @@ const styles = StyleSheet.create({
     marginBottom: 12, // Reduced from 16
     paddingBottom: 8, // Reduced from 12
     borderBottomWidth: 2,
-    borderBottomColor: '#CB1E2A'
+    borderBottomColor: '#e50914'
   },
   header: { 
     fontSize: 20, // Reduced from 22 for even better mobile fit
     fontWeight: 'bold', 
-    color: '#CB1E2A',
+    color: theme.primary,
     flex: 1
   },
   logoutButton: {
@@ -1957,7 +2201,7 @@ const styles = StyleSheet.create({
     minHeight: 40, // Ensure consistent height
   },
   activeTab: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
   tabText: {
     fontSize: 11, // Reduced from 12 for better fit with 4 tabs
@@ -2012,7 +2256,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 8, // Reduced from 10
     paddingHorizontal: 4, // Reduced from 6
   },
@@ -2113,7 +2357,7 @@ const styles = StyleSheet.create({
     height: 40, // Reduced from 45
   },
   primaryButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     padding: 10, // Reduced from 12
     borderRadius: 6, // Reduced from 8
     marginTop: 5, // Reduced from 6
@@ -2140,7 +2384,7 @@ const styles = StyleSheet.create({
     padding: 10, // Reduced from 12
     marginBottom: 8, // Reduced from 10
     borderLeftWidth: 3, // Reduced from 4
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#e50914',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -2192,11 +2436,11 @@ const styles = StyleSheet.create({
   },
 
   addStockButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 14, // Reduced from 16
     paddingVertical: 10, // Reduced from 12
     borderRadius: 8, // Reduced from 10
-    shadowColor: '#CB1E2A',
+    shadowColor: '#e50914',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -2284,7 +2528,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderLeftWidth: 4,
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#e50914',
   },
 
   stockCardHeader: {
@@ -2356,7 +2600,7 @@ const styles = StyleSheet.create({
   },
 
   stockEditBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -2455,7 +2699,7 @@ const styles = StyleSheet.create({
   },
 
   modalButtonPrimary: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
 
   modalButtonText: {
@@ -2497,7 +2741,7 @@ const styles = StyleSheet.create({
   },
 
   assignmentBadge: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -2537,7 +2781,7 @@ const styles = StyleSheet.create({
   },
 
   modeButtonActive: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
 
   modeButtonText: {
@@ -2588,7 +2832,7 @@ const styles = StyleSheet.create({
   },
 
   createAssignmentButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -2740,7 +2984,7 @@ const styles = StyleSheet.create({
   },
 
   viewAllAllocationsBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -2858,7 +3102,7 @@ const styles = StyleSheet.create({
   },
 
   dispatchProcessCardSelected: {
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
     backgroundColor: '#F5F5F5',
   },
 
@@ -2878,14 +3122,14 @@ const styles = StyleSheet.create({
   },
 
   dispatchProcessLabelSelected: {
-    color: '#CB1E2A',
+    color: '#e50914',
   },
 
   dispatchProcessCheckmark: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -2919,7 +3163,7 @@ const styles = StyleSheet.create({
   },
 
   dispatchVehicleCardSelected: {
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
     backgroundColor: '#F5F5F5',
   },
 
@@ -2934,7 +3178,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -2942,7 +3186,7 @@ const styles = StyleSheet.create({
 
   dispatchCheckmark: {
     fontSize: 14,
-    color: '#CB1E2A',
+    color: '#e50914',
     fontWeight: 'bold',
   },
 
@@ -2984,7 +3228,7 @@ const styles = StyleSheet.create({
   },
 
   dispatchSendButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -2995,6 +3239,384 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+
+  // Clean Dispatch Styles
+  cleanDispatchHeader: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  cleanDispatchTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+
+  cleanDispatchSubtitle: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+
+  cleanDispatchSection: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  cleanSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  cleanSectionNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  cleanSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  cleanSectionBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+
+  cleanVehicleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  cleanVehicleCard: {
+    width: '48%',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    marginBottom: 8,
+  },
+
+  cleanVehicleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  cleanVehicleCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+
+  cleanCheckmark: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+
+  cleanVehicleName: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  cleanVehicleDetail: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+
+  cleanServiceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  cleanServiceCard: {
+    width: '48%',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    position: 'relative',
+  },
+
+  cleanServiceIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+
+  cleanServiceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  cleanServiceCheckmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cleanServiceCheck: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+  },
+
+  cleanSummaryContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+
+  cleanSummaryItem: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  cleanSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  cleanSummaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  cleanDispatchButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  cleanDispatchButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  cleanResetButton: {
+    marginTop: 8,
+    marginBottom: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+
+  cleanResetButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  cleanEmptyState: {
+    alignItems: 'center',
+    padding: 32,
+  },
+
+  cleanEmptyIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+
+  cleanEmptyText: {
+    fontSize: 16,
+  },
+
+  // Individual Vehicle Selection Styles
+  vehicleListContainer: {
+    gap: 12,
+  },
+
+  individualVehicleCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+
+  vehicleCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  vehicleMainInfo: {
+    flex: 1,
+  },
+
+  vehicleModelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+
+  vehicleDetailsText: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+
+  selectButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+
+  selectButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Services Modal Styles
+  servicesModalContainer: {
+    flex: 1,
+  },
+
+  servicesModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+
+  modalBackButton: {
+    width: 60,
+  },
+
+  modalBackText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  servicesModalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  selectedVehicleInfo: {
+    padding: 20,
+    margin: 16,
+    borderRadius: 12,
+  },
+
+  selectedVehicleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+
+  selectedVehicleDetails: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+
+  servicesScrollContainer: {
+    flex: 1,
+    padding: 16,
+  },
+
+  servicesGrid: {
+    gap: 12,
+  },
+
+  serviceModalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    position: 'relative',
+  },
+
+  serviceModalIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+
+  serviceModalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  serviceModalCheckmark: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  serviceModalCheck: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+  },
+
+  servicesModalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+
+  dispatchVehicleButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  dispatchVehicleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   // Release Management Styles
@@ -3154,7 +3776,7 @@ const styles = StyleSheet.create({
   },
 
   releaseConfirmButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -3286,7 +3908,7 @@ const styles = StyleSheet.create({
   },
 
   releaseConfirmModalButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -3299,5 +3921,211 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Reports Dashboard Styles
+  reportsContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    padding: 16,
+  },
+
+  reportsStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+
+  reportsStatCard: {
+    width: '48%',
+    backgroundColor: '#DC2626',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 8,
+  },
+
+  reportsStatNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+
+  reportsStatLabel: {
+    fontSize: 11,
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 14,
+  },
+
+  reportsContentRow: {
+    flexDirection: 'row',
+    gap: 16,
+    flex: 1,
+  },
+
+  reportsLeftColumn: {
+    flex: 1,
+  },
+
+  reportsRightColumn: {
+    flex: 2,
+  },
+
+  reportsSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  reportsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 16,
+  },
+
+  pieChartContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  pieChart: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 8,
+    borderColor: '#DC2626',
+  },
+
+  pieChartLabel: {
+    fontSize: 12,
+    color: theme.textSecondary,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
+  pieChartVisual: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    maxWidth: 30,
+  },
+
+  pieSegment: {
+    borderRadius: 2,
+    minWidth: 4,
+    minHeight: 4,
+  },
+
+  vehicleBreakdownList: {
+    gap: 8,
+  },
+
+  vehicleBreakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 8,
+  },
+
+  colorIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  vehicleModel: {
+    flex: 1,
+    fontSize: 14,
+    color: theme.textPrimary,
+    fontWeight: '500',
+  },
+
+  vehicleCount: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    fontWeight: '600',
+  },
+
+  vehiclePercentage: {
+    fontSize: 12,
+    color: theme.textSecondary,
+    marginLeft: 5,
+  },
+
+  reportsTable: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+
+  reportsTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+
+  reportsTableHeaderCell: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+  },
+
+  reportsTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+
+  reportsTableCell: {
+    fontSize: 14,
+    color: '#374151',
+  },
+
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+
+  emptyTableText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

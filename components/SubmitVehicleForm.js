@@ -60,7 +60,7 @@ export default function SubmitVehicleForm({ onSuccess }) {
             key={proc}
             style={[
               styles.requestTag,
-              processes.includes(proc) && { backgroundColor: "#CB1E2A" }
+              processes.includes(proc) && { backgroundColor: "#ff1e1e" }
             ]}
             onPress={() => toggleProcess(proc)}
           >

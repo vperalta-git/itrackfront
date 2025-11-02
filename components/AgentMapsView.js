@@ -105,7 +105,7 @@ const AgentMapsView = ({ style }) => {
   if (loading) {
     return (
       <View style={[styles.container, style]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Agent Maps...</Text>
       </View>
     );
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,

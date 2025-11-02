@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   
   backButtonText: {
     fontSize: 16,
-    color: '#CB1E2A',
+    color: '#e50914',
     fontWeight: '600',
   },
   
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   },
   
   editButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
   
   editButtonText: {
@@ -890,18 +890,18 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
   },
   
   profileImagePlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
   },
   
   initialsText: {
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
   
   profileRole: {
     fontSize: 16,
-    color: '#CB1E2A',
+    color: '#e50914',
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -1197,7 +1197,7 @@ const styles = StyleSheet.create({
   },
 
   toggleSwitchTrackOn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
 
   toggleSwitchThumb: {
@@ -1302,7 +1302,7 @@ const styles = StyleSheet.create({
   },
 
   modalConfirmButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
 
   modalCancelButtonText: {

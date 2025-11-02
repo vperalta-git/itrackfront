@@ -46,7 +46,7 @@ export default function LoginScreen() {
 
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail.trim()) {
-      Alert.alert('Error', 'Please enter your username (not email)');
+      Alert.alert('Error', 'Please enter your email address');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function LoginScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: forgotPasswordEmail.trim() // Changed from email to username
+          username: forgotPasswordEmail.trim() // Using username field but sending email value
         }),
       });
 
@@ -67,7 +67,7 @@ export default function LoginScreen() {
       if (result.success) {
         Alert.alert(
           'Password Reset Sent',
-          result.message || 'If the username exists and has an email, a temporary password has been sent.',
+          result.message || 'If the email exists, a temporary password has been sent.',
           [
             {
               text: 'OK',
@@ -310,7 +310,7 @@ export default function LoginScreen() {
       source={require('../assets/isuzupasig.png')}
       style={styles.bg}
       resizeMode="cover"
-      imageStyle={{ opacity: 0.3 }}
+      imageStyle={{ opacity: 0.8 }}
     >
       <View style={styles.overlay} />
       <SafeAreaView style={{ flex: 1 }}>
@@ -435,15 +435,17 @@ export default function LoginScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Reset Password</Text>
             <Text style={styles.modalSubtitle}>
-              Enter your email or username to receive password reset instructions.
+              Enter your email address to receive password reset instructions.
             </Text>
             
             <TextInput
-              placeholder="Username"
+              placeholder="Email Address"
               value={forgotPasswordEmail}
               onChangeText={setForgotPasswordEmail}
               style={styles.input}
               autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
               placeholderTextColor="#888"
             />
 
@@ -480,26 +482,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)', // Darker overlay for better contrast
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
+    paddingHorizontal: 30,
+    paddingTop: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', // High opacity for better readability
-    borderRadius: 20,
-    padding: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)', // Reduced opacity from 0.95 to 0.75 for more transparency
+    borderRadius: 16,
+    padding: 28,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
     shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    alignItems: 'center',
-    width: '90%',
-    maxWidth: 400,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
   },
   logoContainer: {
     alignItems: 'center',
@@ -511,21 +507,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#CB1E2A',
-    textAlign: 'center',
-    marginBottom: 20,
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: '#e50914',
+    alignSelf: 'center', 
+    marginBottom: 30,
   },
   input: {
-    backgroundColor: '#fff',
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    marginBottom: 16,
+    borderWidth: 1, 
+    borderColor: '#ccc', 
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8, 
+    paddingHorizontal: 14, 
+    paddingVertical: 12,
+    fontSize: 16, 
+    marginBottom: 15,
     color: '#333',
   },
   passwordContainer: {
@@ -534,7 +530,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   toggleText: {
-    color: '#CB1E2A',
+    color: '#e50914',
     fontWeight: 'bold',
     paddingHorizontal: 10,
   },
@@ -549,15 +545,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   forgotPasswordText: {
-    color: '#CB1E2A',
+    color: '#e50914',
     fontSize: 14,
     fontWeight: '500',
   },
   loginBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914', 
     paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
+    borderRadius: 8, 
+    alignItems: 'center', 
+    marginTop: 10,
   },
   loginText: {
     color: '#fff',
@@ -631,7 +628,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -664,7 +661,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
   resetBtnText: {
     color: '#fff',

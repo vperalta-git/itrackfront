@@ -1,4 +1,4 @@
-//App.js - I-Track v44.5.1 Crash-Proof Version
+//App.js - I-Track v46.3.1 - Updated November 3, 2025
 
 // 🚨 IMMEDIATE StyleSheet crash protection - MUST be first
 if (typeof StyleSheet === 'undefined') {
@@ -39,6 +39,7 @@ import DriverAllocation from './screens/DriverAllocation';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import UserProfile from './screens/UserProfile';
+import ProfileScreen from './screens/ProfileScreen';
 import TestDriveBookingScreen from './screens/TestDriveBookingScreen';
 import TestDriveManagementScreen from './screens/TestDriveManagementScreen';
 import BookingDetailsScreen from './screens/BookingDetailsScreen';
@@ -53,9 +54,9 @@ function AgentDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#fff',
-        drawerActiveTintColor: '#CB1E2A',
+        drawerActiveTintColor: '#e50914',
         drawerLabelStyle: { fontSize: 16 },
       }}
     >
@@ -84,6 +85,11 @@ function AgentDrawer() {
         component={TestDriveBookingScreen} 
         options={{ title: 'Book Test Drive' }} 
       />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'My Profile' }} 
+      />
     </Drawer.Navigator>
   );
 }
@@ -93,9 +99,9 @@ function AdminDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#fff',
-        drawerActiveTintColor: '#CB1E2A',
+        drawerActiveTintColor: '#e50914',
         drawerLabelStyle: { fontSize: 16 },
       }}
     >
@@ -144,6 +150,11 @@ function AdminDrawer() {
         component={TestDriveManagementScreen} 
         options={{ title: 'Approve Test Drives' }} 
       />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'My Profile' }} 
+      />
     </Drawer.Navigator>
   );
 }
@@ -153,9 +164,9 @@ function ManagerDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#fff',
-        drawerActiveTintColor: '#CB1E2A',
+        drawerActiveTintColor: '#e50914',
         drawerLabelStyle: { fontSize: 16 },
       }}
     >
@@ -189,6 +200,11 @@ function ManagerDrawer() {
         component={TestDriveBookingScreen} 
         options={{ title: 'Book Test Drive' }} 
       />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'My Profile' }} 
+      />
     </Drawer.Navigator>
   );
 }
@@ -198,9 +214,9 @@ function SupervisorDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#fff',
-        drawerActiveTintColor: '#CB1E2A',
+        drawerActiveTintColor: '#e50914',
         drawerLabelStyle: { fontSize: 16 },
       }}
     >
@@ -228,6 +244,11 @@ function SupervisorDrawer() {
         name="TestDriveManagement" 
         component={TestDriveManagementScreen} 
         options={{ title: 'Approve Test Drives' }} 
+      />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'My Profile' }} 
       />
     </Drawer.Navigator>
   );
@@ -299,7 +320,7 @@ export default function App() {
         <Stack.Navigator 
           initialRouteName={initialRoute}
           screenOptions={{
-            headerStyle: { backgroundColor: '#CB1E2A' },
+            headerStyle: { backgroundColor: '#e50914' },
             headerTintColor: '#fff',
             headerTitleStyle: { fontWeight: 'bold' },
           }}
@@ -415,6 +436,11 @@ export default function App() {
             name="UserProfile" 
             component={UserProfile} 
             options={{ title: 'User Profile' }} 
+          />
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen} 
+            options={{ title: 'My Profile' }} 
           />
           <Stack.Screen 
             name="TestDriveBookingScreen" 

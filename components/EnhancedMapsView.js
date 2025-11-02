@@ -188,7 +188,7 @@ const EnhancedMapsView = ({ userRole, userName, style }) => {
   if (loading) {
     return (
       <View style={[styles.container, style, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Enhanced Maps...</Text>
       </View>
     );
@@ -218,7 +218,7 @@ const EnhancedMapsView = ({ userRole, userName, style }) => {
         showsIndoors={false}
         showsTraffic={false}
         loadingEnabled={true}
-        loadingIndicatorColor="#CB1E2A"
+        loadingIndicatorColor="#ff1e1e"
         loadingBackgroundColor="#ffffff"
       >
         {/* User Location */}
@@ -275,7 +275,7 @@ const EnhancedMapsView = ({ userRole, userName, style }) => {
         {routeCoordinates.length > 0 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#CB1E2A"
+            strokeColor="#ff1e1e"
             strokeWidth={4}
             lineDashPattern={[5, 10, 15, 10]}
           />

@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     padding: 20,
     alignItems: 'center',
   },
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 15,
-    color: '#CB1E2A',
+    color: '#e50914',
   },
   timeSlotContainer: {
     maxHeight: 300,
@@ -685,8 +685,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedTimeSlot: {
-    backgroundColor: '#CB1E2A',
-    borderColor: '#CB1E2A',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
   timeSlotText: {
     fontSize: 16,
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   bookButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     margin: 15,
     padding: 18,
     borderRadius: 8,

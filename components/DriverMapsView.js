@@ -139,7 +139,7 @@ const DriverMapsView = ({ style }) => {
   if (loading) {
     return (
       <View style={[styles.container, style]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Driver Maps...</Text>
       </View>
     );
@@ -192,7 +192,7 @@ const DriverMapsView = ({ style }) => {
         {currentLocation && (
           <Polyline
             coordinates={[currentLocation, DESTINATION_COORDS]}
-            strokeColor="#CB1E2A"
+            strokeColor="#ff1e1e"
             strokeWidth={3}
             lineDashPattern={[5, 5]}
           />

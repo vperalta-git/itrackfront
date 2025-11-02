@@ -27,7 +27,8 @@ try {
 
   // Copy APK to main folder
   const apkSource = './android/app/build/outputs/apk/release/app-release.apk';
-  const apkDest = './I-Track-v20.0.0-LIVE-GPS-TRACKING.apk';
+  const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(/:/g, '-');
+  const apkDest = `./I-Track-version46.2-${timestamp}.apk`;
   
   if (fs.existsSync(apkSource)) {
     fs.copyFileSync(apkSource, apkDest);
@@ -40,21 +41,24 @@ try {
     console.log(`📦 Size: ${fileSizeInMB} MB`);
     
     console.log('');
-    console.log('🎯 NEW in v20.0.0 - LIVE GPS TRACKING:');
-    console.log('   ✅ REAL GPS TRACKING - No more mock data!');
-    console.log('   ✅ Live route directions to Isuzu Pasig Dealership');
-    console.log('   ✅ Real-time location updates every 10 seconds');
-    console.log('   ✅ Google Maps API integration with satellite view');
-    console.log('   ✅ Driver dashboard with live tracking maps');
-    console.log('   ✅ All vehicles now deliver to Isuzu Pasig (14.5791, 121.0655)');
-    console.log('   ✅ Enhanced dispatch allocation system');
-    console.log('   ✅ Vehicle assignment and GPS coordinate tracking');
+    console.log('🎯 NEW in version 46.2 - ENHANCED AUTHENTICATION:');
+    console.log('   ✅ Email-based login system with dual support');
+    console.log('   ✅ Uniform loading.gif across all screens');
+    console.log('   ✅ Enhanced UI with isuzupasig.png background');
+    console.log('   ✅ Professional logoitrack.png branding');
+    console.log('   ✅ Improved password security with bcrypt');
+    console.log('   ✅ Modern card-based login design');
+    console.log('   ✅ Consistent loading states and UX');
+    console.log('   ✅ Updated user accounts with proper email addresses');
     console.log('');
-    console.log('📍 Real Destinations:');
-    console.log('   🏢 Isuzu Pasig Dealership, C5 Road, Pasig City');
-    console.log('   📞 Contact: Isuzu Pasig Reception (+63 2 8234 5678)');
+    console.log('👤 Login Credentials:');
+    console.log('   📧 Admin: admin@itrack.com / admin123');
+    console.log('   🚗 Driver: driver@itrack.com / driver123');
+    console.log('   👨‍� Agent: agent@itrack.com / agent123');
+    console.log('   👔 Manager: manager@itrack.com / manager123');
+    console.log('   � Dispatch: dispatch@itrack.com / dispatch123');
     console.log('');
-    console.log('📱 Ready for REAL-WORLD deployment and GPS testing!');
+    console.log('📱 Ready for deployment with enhanced authentication system!');
   } else {
     console.log('❌ APK file not found at expected location');
   }

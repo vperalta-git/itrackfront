@@ -9,7 +9,8 @@ import DispatchDashboard from './DispatchDashboard';
 import VehicleProgressScreen from './VehicleProgressScreen';
 import HistoryScreen from './HistoryScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
-import AdminVehicleTracking from './AdminVehicleTracking';
+import VehicleListView from '../components/VehicleListView';
+import ProfileScreen from './ProfileScreen';
 // ❌ Removed UserManagementScreen import
 
 const Drawer = createDrawerNavigator();
@@ -30,9 +31,9 @@ export default function AdminDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#CB1E2A' },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#fff',
-        drawerActiveTintColor: '#CB1E2A',
+        drawerActiveTintColor: '#e50914',
       }}
     >
       <Drawer.Screen
@@ -87,11 +88,21 @@ export default function AdminDrawer() {
       />
       <Drawer.Screen
         name="AdminVehicleTracking"
-        component={AdminVehicleTracking}
+        component={VehicleListView}
         options={{
           title: 'Vehicle Tracking',
           drawerIcon: ({ color, size }) => (
             <MaterialIcons name="map" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'My Profile',
+          drawerIcon: ({ color, size }) => (
+            <MaterialIcons name="account-circle" size={size} color={color} />
           ),
         }}
       />

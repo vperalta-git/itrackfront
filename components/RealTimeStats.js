@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     padding: 16,
     margin: 16,
     borderWidth: 1,
-    borderColor: '#CB1E2A',
+    borderColor: '#ff1e1e',
   },
   title: {
     color: '#fff',
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: '#CB1E2A',
+    color: '#ff1e1e',
     fontSize: 24,
     fontWeight: 'bold',
   },

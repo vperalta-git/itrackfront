@@ -16,95 +16,102 @@ import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { buildApiUrl } from '../constants/api';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 const TestDriveManagementScreen = ({ navigation }) => {
-  const [bookings, setBookings] = useState([]);
-  const [filteredBookings, setFilteredBookings] = useState([]);
+  const { isDarkMode, theme } = useTheme();
+  
+  // Vehicle Management States
+  const [testDriveVehicles, setTestDriveVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('today');
-  
-  // Stats
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    pendingBookings: 0,
-    confirmedBookings: 0,
-    completedBookings: 0
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [newVehicle, setNewVehicle] = useState({
+    unitName: '',
+    unitId: '',
+    vehicleType: 'Light Commercial Vehicle',
+    model: '',
+    status: 'Available',
+    notes: ''
   });
 
+  // Search and Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [filteredVehicles, setFilteredVehicles] = useState([]);
+
   const statusOptions = [
-    'All Status',
-    'Pending',
-    'Confirmed', 
-    'In Progress',
-    'Completed',
-    'Cancelled',
-    'No Show'
+    'All',
+    'Available',
+    'In Use',
+    'Maintenance',
+    'Reserved'
   ];
 
   const vehicleTypeOptions = [
-    'All Types',
-    'Truck',
-    'SUV', 
-    'Van',
-    'Bus',
-    'Commercial Vehicle',
-    'Other'
-  ];
-
-  const dateFilterOptions = [
-    { label: 'Today', value: 'today' },
-    { label: 'Tomorrow', value: 'tomorrow' },
-    { label: 'This Week', value: 'week' },
-    { label: 'This Month', value: 'month' },
-    { label: 'All Time', value: 'all' }
+    'Light Commercial Vehicle',
+    'Heavy Commercial Vehicle',
+    'Passenger Vehicle',
+    'Special Purpose Vehicle'
   ];
 
   useEffect(() => {
-    fetchBookings();
-    fetchStats();
+    fetchTestDriveVehicles();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [bookings, searchQuery, statusFilter, vehicleTypeFilter, dateFilter]);
+  }, [testDriveVehicles, searchQuery, statusFilter]);
 
-  const fetchBookings = async () => {
+  const applyFilters = () => {
+    let filtered = [...testDriveVehicles];
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(vehicle =>
+        vehicle.unitName.toLowerCase().includes(query) ||
+        vehicle.unitId.toLowerCase().includes(query) ||
+        vehicle.model.toLowerCase().includes(query) ||
+        vehicle.vehicleType.toLowerCase().includes(query)
+      );
+    }
+    
+    // Status filter
+    if (statusFilter && statusFilter !== 'All') {
+      filtered = filtered.filter(vehicle => vehicle.status === statusFilter);
+    }
+    
+    setFilteredVehicles(filtered);
+  };
+
+  // ========== VEHICLE MANAGEMENT FUNCTIONS ==========
+
+  const fetchTestDriveVehicles = async () => {
     setLoading(true);
     try {
-      let url = buildApiUrl(`/api/testdrive/bookings?limit=100&sortBy=bookingDate&sortOrder=asc`);
-      
-      // Add date filter to API call
-      if (dateFilter !== 'all') {
-        const dates = getDateRange(dateFilter);
-        if (dates.from) url += `&dateFrom=${dates.from}`;
-        if (dates.to) url += `&dateTo=${dates.to}`;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'));
       const result = await response.json();
       
       if (result.success) {
-        setBookings(result.data);
+        setTestDriveVehicles(result.data);
+        Toast.show({
+          type: 'success',
+          text1: 'Vehicles Loaded',
+          text2: `Found ${result.data.length} test drive vehicles`
+        });
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('Error fetching test drive vehicles:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to load bookings'
+        text2: 'Failed to load test drive vehicles'
       });
     } finally {
       setLoading(false);
@@ -112,467 +119,253 @@ const TestDriveManagementScreen = ({ navigation }) => {
     }
   };
 
-  const fetchStats = async () => {
+  const saveTestDriveVehicle = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/testdrive/stats'));
-      const result = await response.json();
-      
-      if (result.success) {
-        const statusBreakdown = result.data.statusBreakdown;
-        const newStats = {
-          totalBookings: result.data.totalBookings,
-          pendingBookings: statusBreakdown.find(s => s._id === 'Pending')?.count || 0,
-          confirmedBookings: statusBreakdown.find(s => s._id === 'Confirmed')?.count || 0,
-          completedBookings: statusBreakdown.find(s => s._id === 'Completed')?.count || 0
-        };
-        setStats(newStats);
+      if (!newVehicle.unitName || !newVehicle.unitId || !newVehicle.vehicleType || !newVehicle.model) {
+        Alert.alert('Error', 'Please fill in all required fields');
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
 
-  const getDateRange = (filter) => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    switch (filter) {
-      case 'today':
-        return {
-          from: today.toISOString().split('T')[0],
-          to: today.toISOString().split('T')[0]
-        };
-      case 'tomorrow':
-        return {
-          from: tomorrow.toISOString().split('T')[0],
-          to: tomorrow.toISOString().split('T')[0]
-        };
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        return {
-          from: weekStart.toISOString().split('T')[0],
-          to: weekEnd.toISOString().split('T')[0]
-        };
-      case 'month':
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        return {
-          from: monthStart.toISOString().split('T')[0],
-          to: monthEnd.toISOString().split('T')[0]
-        };
-      default:
-        return { from: null, to: null };
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...bookings];
-    
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(booking =>
-        booking.customerName.toLowerCase().includes(query) ||
-        booking.customerPhone.includes(query) ||
-        booking.customerEmail.toLowerCase().includes(query) ||
-        booking.vehicleModel.toLowerCase().includes(query) ||
-        booking.bookingReference.toLowerCase().includes(query)
-      );
-    }
-    
-    // Status filter
-    if (statusFilter && statusFilter !== 'All Status') {
-      filtered = filtered.filter(booking => booking.status === statusFilter);
-    }
-    
-    // Vehicle type filter
-    if (vehicleTypeFilter && vehicleTypeFilter !== 'All Types') {
-      filtered = filtered.filter(booking => booking.vehicleType === vehicleTypeFilter);
-    }
-    
-    setFilteredBookings(filtered);
-  };
-
-  const updateBookingStatus = async (bookingId, newStatus, notes = '') => {
-    try {
-      const response = await fetch(buildApiUrl(`/api/testdrive/bookings/${bookingId}/status`), {
-        method: 'PATCH',
+      const adminName = await AsyncStorage.getItem('accountName');
+      const isEdit = newVehicle._id;
+      
+      const url = isEdit 
+        ? buildApiUrl(`/api/testdrive-vehicles/${newVehicle._id}`)
+        : buildApiUrl('/api/testdrive-vehicles');
+      
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          status: newStatus,
-          notes: notes
+          ...newVehicle,
+          addedBy: adminName || 'Admin',
+          updatedBy: isEdit ? (adminName || 'Admin') : undefined
         })
       });
 
       const result = await response.json();
       
       if (result.success) {
-        // Update local state
-        const updatedBookings = bookings.map(booking =>
-          booking._id === bookingId ? { ...booking, status: newStatus } : booking
-        );
-        setBookings(updatedBookings);
+        Toast.show({
+          type: 'success',
+          text1: isEdit ? 'Vehicle Updated' : 'Vehicle Added',
+          text2: `Test drive vehicle ${isEdit ? 'updated' : 'added'} successfully`
+        });
         
-        // Update selected booking if it's the one we updated
-        if (selectedBooking && selectedBooking._id === bookingId) {
-          setSelectedBooking({ ...selectedBooking, status: newStatus });
-        }
-        
+        resetVehicleForm();
+        setShowAddVehicleModal(false);
+        fetchTestDriveVehicles();
+      } else {
+        Alert.alert('Error', result.error || `Failed to ${isEdit ? 'update' : 'add'} vehicle`);
+      }
+    } catch (error) {
+      console.error('Error saving test drive vehicle:', error);
+      Alert.alert('Error', `Failed to ${newVehicle._id ? 'update' : 'add'} vehicle`);
+    }
+  };
+
+  const resetVehicleForm = () => {
+    setNewVehicle({
+      unitName: '',
+      unitId: '',
+      vehicleType: 'Light Commercial Vehicle',
+      model: '',
+      status: 'Available',
+      notes: ''
+    });
+  };
+
+  const updateVehicleStatus = async (vehicleId, newStatus) => {
+    try {
+      const adminName = await AsyncStorage.getItem('accountName');
+      
+      const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${vehicleId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: newStatus,
+          updatedBy: adminName || 'Admin'
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
         Toast.show({
           type: 'success',
           text1: 'Status Updated',
-          text2: `Booking marked as ${newStatus}`
+          text2: `Vehicle status updated to ${newStatus}`
         });
-        
-        fetchStats(); // Refresh stats
+        fetchTestDriveVehicles();
       } else {
-        throw new Error(result.message);
+        Alert.alert('Error', result.error || 'Failed to update vehicle status');
       }
     } catch (error) {
-      console.error('Error updating status:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to update booking status'
-      });
+      console.error('Error updating vehicle status:', error);
+      Alert.alert('Error', 'Failed to update vehicle status');
     }
   };
 
-  const assignStaff = async (bookingId, salesAgentId, driverId) => {
+  const deleteVehicle = async (vehicleId) => {
     try {
-      const response = await fetch(buildApiUrl(`/api/testdrive/bookings/${bookingId}/assign`), {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          salesAgentId,
-          driverId
-        })
-      });
+      Alert.alert(
+        'Delete Vehicle',
+        'Are you sure you want to delete this test drive vehicle?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${vehicleId}`), {
+                method: 'DELETE'
+              });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // Update local state
-        const updatedBookings = bookings.map(booking =>
-          booking._id === bookingId ? result.data : booking
-        );
-        setBookings(updatedBookings);
-        
-        Toast.show({
-          type: 'success',
-          text1: 'Staff Assigned',
-          text2: 'Staff successfully assigned to booking'
-        });
-      } else {
-        throw new Error(result.message);
-      }
+              const result = await response.json();
+              
+              if (result.success) {
+                Toast.show({
+                  type: 'success',
+                  text1: 'Vehicle Deleted',
+                  text2: 'Test drive vehicle deleted successfully'
+                });
+                fetchTestDriveVehicles();
+              } else {
+                Alert.alert('Error', result.error || 'Failed to delete vehicle');
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Error assigning staff:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to assign staff'
-      });
+      console.error('Error deleting vehicle:', error);
+      Alert.alert('Error', 'Failed to delete vehicle');
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      'Pending': '#FFA500',
-      'Confirmed': '#4CAF50',
-      'In Progress': '#2196F3',
-      'Completed': '#8BC34A',
-      'Cancelled': '#F44336',
-      'No Show': '#9E9E9E'
+      'Available': '#4CAF50',
+      'In Use': '#FF9800',
+      'Maintenance': '#f44336',
+      'Reserved': '#2196F3'
     };
     return colors[status] || '#9E9E9E';
   };
 
-  const formatDateTime = (date, time) => {
-    const bookingDate = new Date(date);
-    return `${bookingDate.toLocaleDateString()} at ${time}`;
-  };
-
-  const showStatusActionSheet = (booking) => {
-    const options = statusOptions.filter(status => status !== 'All Status');
+  const showStatusActionSheet = (vehicle) => {
+    const options = statusOptions.filter(status => status !== 'All');
     
     Alert.alert(
-      'Update Status',
-      `Current status: ${booking.status}`,
+      'Update Vehicle Status',
+      `Current status: ${vehicle.status}`,
       options.map(status => ({
         text: status,
         onPress: () => {
-          if (status !== booking.status) {
-            updateBookingStatus(booking._id, status);
+          if (status !== vehicle.status) {
+            updateVehicleStatus(vehicle._id, status);
           }
         }
       })).concat([{ text: 'Cancel', style: 'cancel' }])
     );
   };
 
-  const renderBookingCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.bookingCard}
-      onPress={() => {
-        setSelectedBooking(item);
-        setShowDetailsModal(true);
-      }}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.bookingReference}>{item.bookingReference}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+  const renderVehicleCard = ({ item }) => {
+    const styles = createStyles(theme);
+    
+    return (
+      <View style={styles.vehicleCard}>
+        <View style={styles.vehicleInfo}>
+          <Text style={styles.vehicleName}>{item.unitName}</Text>
+          <Text style={styles.vehicleId}>Unit ID: {item.unitId}</Text>
+          <Text style={styles.vehicleType}>Type: {item.vehicleType}</Text>
+          <Text style={styles.vehicleModel}>Model: {item.model}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{item.status}</Text>
+          </View>
+          {item.notes && (
+            <Text style={styles.vehicleNotes}>Notes: {item.notes}</Text>
+          )}
         </View>
-      </View>
-      
-      <Text style={styles.customerName}>{item.customerName}</Text>
-      <Text style={styles.vehicleInfo}>{item.vehicleModel} ({item.vehicleType})</Text>
-      <Text style={styles.dateTime}>{formatDateTime(item.bookingDate, item.bookingTime)}</Text>
-      <Text style={styles.phone}>{item.customerPhone}</Text>
-      
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => showStatusActionSheet(item)}
-        >
-          <Text style={styles.actionButtonText}>Update Status</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.actionButton, styles.callButton]}
-          onPress={() => {
-            // Handle phone call
-            Alert.alert(
-              'Call Customer',
-              `Call ${item.customerName} at ${item.customerPhone}?`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Call', onPress: () => {
-                  // Implementation for phone call functionality
-                  console.log('Call customer:', item.customerPhone);
-                }}
-              ]
-            );
-          }}
-        >
-          <Text style={styles.actionButtonText}>📞 Call</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const BookingDetailsModal = () => (
-    <Modal
-      visible={showDetailsModal}
-      animationType="slide"
-      onRequestClose={() => setShowDetailsModal(false)}
-    >
-      <ScrollView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Booking Details</Text>
+        <View style={styles.vehicleActions}>
           <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowDetailsModal(false)}
+            style={styles.editVehicleButton}
+            onPress={() => {
+              setNewVehicle(item);
+              setShowAddVehicleModal(true);
+            }}
           >
-            <Text style={styles.closeButtonText}>✕</Text>
+            <Text style={styles.editVehicleButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statusButton}
+            onPress={() => showStatusActionSheet(item)}
+          >
+            <Text style={styles.statusButtonText}>Status</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => deleteVehicle(item._id)}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
           </TouchableOpacity>
         </View>
-        
-        {selectedBooking && (
-          <View style={styles.detailsContent}>
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Booking Information</Text>
-              <Text style={styles.detailItem}>Reference: {selectedBooking.bookingReference}</Text>
-              <Text style={styles.detailItem}>Status: {selectedBooking.status}</Text>
-              <Text style={styles.detailItem}>
-                Date: {formatDateTime(selectedBooking.bookingDate, selectedBooking.bookingTime)}
-              </Text>
-              <Text style={styles.detailItem}>Duration: {selectedBooking.duration} minutes</Text>
-              <Text style={styles.detailItem}>Route: {selectedBooking.testDriveRoute}</Text>
-              <Text style={styles.detailItem}>Pickup: {selectedBooking.pickupLocation}</Text>
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Customer Information</Text>
-              <Text style={styles.detailItem}>Name: {selectedBooking.customerName}</Text>
-              <Text style={styles.detailItem}>Phone: {selectedBooking.customerPhone}</Text>
-              <Text style={styles.detailItem}>Email: {selectedBooking.customerEmail}</Text>
-              <Text style={styles.detailItem}>Age: {selectedBooking.customerAge}</Text>
-              <Text style={styles.detailItem}>License: {selectedBooking.customerLicenseNumber}</Text>
-              {selectedBooking.customerAddress && (
-                <Text style={styles.detailItem}>Address: {selectedBooking.customerAddress}</Text>
-              )}
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Vehicle Information</Text>
-              <Text style={styles.detailItem}>Model: {selectedBooking.vehicleModel}</Text>
-              <Text style={styles.detailItem}>Type: {selectedBooking.vehicleType}</Text>
-              {selectedBooking.vehicleColor && (
-                <Text style={styles.detailItem}>Color: {selectedBooking.vehicleColor}</Text>
-              )}
-            </View>
-            
-            {(selectedBooking.specialRequests || selectedBooking.customerNotes) && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>Notes</Text>
-                {selectedBooking.specialRequests && (
-                  <Text style={styles.detailItem}>Special Requests: {selectedBooking.specialRequests}</Text>
-                )}
-                {selectedBooking.customerNotes && (
-                  <Text style={styles.detailItem}>Customer Notes: {selectedBooking.customerNotes}</Text>
-                )}
-              </View>
-            )}
-            
-            {selectedBooking.assignedSalesAgent || selectedBooking.assignedDriver ? (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>Assigned Staff</Text>
-                {selectedBooking.assignedSalesAgent && (
-                  <Text style={styles.detailItem}>
-                    Sales Agent: {selectedBooking.assignedSalesAgent.accountName}
-                  </Text>
-                )}
-                {selectedBooking.assignedDriver && (
-                  <Text style={styles.detailItem}>
-                    Driver: {selectedBooking.assignedDriver.accountName}
-                  </Text>
-                )}
-              </View>
-            ) : null}
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalActionButton}
-                onPress={() => showStatusActionSheet(selectedBooking)}
-              >
-                <Text style={styles.modalActionButtonText}>Update Status</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalActionButton, styles.assignButton]}
-                onPress={() => {
-                  // Navigate to staff assignment screen
-                  setShowDetailsModal(false);
-                  navigation.navigate('AssignStaff', { 
-                    booking: selectedBooking,
-                    onAssign: assignStaff
-                  });
-                }}
-              >
-                <Text style={styles.modalActionButtonText}>Assign Staff</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    </Modal>
-  );
-
-  const FilterModal = () => (
-    <Modal
-      visible={showFilterModal}
-      animationType="slide"
-      transparent={true}
-    >
-      <View style={styles.filterModalOverlay}>
-        <View style={styles.filterModal}>
-          <Text style={styles.filterTitle}>Filter Bookings</Text>
-          
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>Status</Text>
-            <Picker
-              selectedValue={statusFilter}
-              onValueChange={setStatusFilter}
-              style={styles.filterPicker}
-            >
-              {statusOptions.map((status) => (
-                <Picker.Item key={status} label={status} value={status === 'All Status' ? '' : status} />
-              ))}
-            </Picker>
-          </View>
-          
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>Vehicle Type</Text>
-            <Picker
-              selectedValue={vehicleTypeFilter}
-              onValueChange={setVehicleTypeFilter}
-              style={styles.filterPicker}
-            >
-              {vehicleTypeOptions.map((type) => (
-                <Picker.Item key={type} label={type} value={type === 'All Types' ? '' : type} />
-              ))}
-            </Picker>
-          </View>
-          
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>Date Range</Text>
-            <Picker
-              selectedValue={dateFilter}
-              onValueChange={setDateFilter}
-              style={styles.filterPicker}
-            >
-              {dateFilterOptions.map((option) => (
-                <Picker.Item key={option.value} label={option.label} value={option.value} />
-              ))}
-            </Picker>
-          </View>
-          
-          <View style={styles.filterActions}>
-            <TouchableOpacity
-              style={styles.filterActionButton}
-              onPress={() => {
-                setStatusFilter('');
-                setVehicleTypeFilter('');
-                setDateFilter('all');
-                setSearchQuery('');
-              }}
-            >
-              <Text style={styles.filterActionButtonText}>Clear All</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.filterActionButton, styles.applyButton]}
-              onPress={() => {
-                setShowFilterModal(false);
-                fetchBookings();
-              }}
-            >
-              <Text style={styles.filterActionButtonText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
-    </Modal>
-  );
+    );
+  };
+
+  const getVehicleStats = () => {
+    const total = testDriveVehicles.length;
+    const available = testDriveVehicles.filter(v => v.status === 'Available').length;
+    const inUse = testDriveVehicles.filter(v => v.status === 'In Use').length;
+    const maintenance = testDriveVehicles.filter(v => v.status === 'Maintenance').length;
+    const reserved = testDriveVehicles.filter(v => v.status === 'Reserved').length;
+    
+    return { total, available, inUse, maintenance, reserved };
+  };
+
+  const styles = createStyles(theme);
+  const vehicleStats = getVehicleStats();
 
   return (
     <View style={styles.container}>
+      {/* Header with Title and Add Button */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Test Drive Vehicle Management</Text>
+        <TouchableOpacity
+          style={styles.addVehicleButton}
+          onPress={() => {
+            resetVehicleForm();
+            setShowAddVehicleModal(true);
+          }}
+        >
+          <Text style={styles.addVehicleButtonText}>+ Add Vehicle</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Stats Header */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.totalBookings}</Text>
+          <Text style={styles.statNumber}>{vehicleStats.total}</Text>
           <Text style={styles.statLabel}>Total</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.pendingBookings}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
+          <Text style={styles.statNumber}>{vehicleStats.available}</Text>
+          <Text style={styles.statLabel}>Available</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.confirmedBookings}</Text>
-          <Text style={styles.statLabel}>Confirmed</Text>
+          <Text style={styles.statNumber}>{vehicleStats.inUse}</Text>
+          <Text style={styles.statLabel}>In Use</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.completedBookings}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
+          <Text style={styles.statNumber}>{vehicleStats.maintenance}</Text>
+          <Text style={styles.statLabel}>Maintenance</Text>
         </View>
       </View>
       
@@ -580,294 +373,368 @@ const TestDriveManagementScreen = ({ navigation }) => {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name, phone, email, or reference..."
+          placeholder="Search by name, ID, model, or type..."
+          placeholderTextColor={theme.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilterModal(true)}
+        <Picker
+          selectedValue={statusFilter}
+          onValueChange={setStatusFilter}
+          style={styles.filterPicker}
         >
-          <Text style={styles.filterButtonText}>🔍 Filter</Text>
-        </TouchableOpacity>
+          {statusOptions.map((status) => (
+            <Picker.Item key={status} label={status} value={status} />
+          ))}
+        </Picker>
       </View>
       
-      {/* Bookings List */}
+      {/* Vehicles List */}
       <FlatList
-        data={filteredBookings}
-        keyExtractor={(item) => item._id}
-        renderItem={renderBookingCard}
+        data={filteredVehicles}
+        keyExtractor={(item) => item._id || item.unitId}
+        renderItem={renderVehicleCard}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchBookings} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={fetchTestDriveVehicles}
+            tintColor={theme.primary}
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {loading ? 'Loading bookings...' : 'No bookings found'}
+              {loading ? 'Loading vehicles...' : 'No test drive vehicles found'}
             </Text>
+            {!loading && (
+              <TouchableOpacity
+                style={styles.addFirstVehicleButton}
+                onPress={() => {
+                  resetVehicleForm();
+                  setShowAddVehicleModal(true);
+                }}
+              >
+                <Text style={styles.addFirstVehicleButtonText}>Add First Vehicle</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
         contentContainerStyle={styles.listContainer}
       />
       
-      <BookingDetailsModal />
-      <FilterModal />
+      {/* Add Vehicle Modal */}
+      <Modal
+        visible={showAddVehicleModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddVehicleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addVehicleModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {newVehicle.unitId ? 'Edit Vehicle' : 'Add Test Drive Vehicle'}
+              </Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setShowAddVehicleModal(false);
+                  resetVehicleForm();
+                }}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Vehicle Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newVehicle.unitName}
+                  onChangeText={(text) => setNewVehicle({...newVehicle, unitName: text})}
+                  placeholder="Enter vehicle name"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Unit ID</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newVehicle.unitId}
+                  onChangeText={(text) => setNewVehicle({...newVehicle, unitId: text})}
+                  placeholder="Enter unit ID"
+                  editable={!newVehicle._id} // Disable editing for existing vehicles
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Vehicle Type</Text>
+                <Picker
+                  selectedValue={newVehicle.vehicleType}
+                  onValueChange={(value) => setNewVehicle({...newVehicle, vehicleType: value})}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Light Commercial Vehicle" value="Light Commercial Vehicle" />
+                  <Picker.Item label="Heavy Commercial Vehicle" value="Heavy Commercial Vehicle" />
+                  <Picker.Item label="Passenger Vehicle" value="Passenger Vehicle" />
+                  <Picker.Item label="Special Purpose Vehicle" value="Special Purpose Vehicle" />
+                </Picker>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Model</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newVehicle.model}
+                  onChangeText={(text) => setNewVehicle({...newVehicle, model: text})}
+                  placeholder="Enter vehicle model"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Status</Text>
+                <Picker
+                  selectedValue={newVehicle.status}
+                  onValueChange={(value) => setNewVehicle({...newVehicle, status: value})}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Available" value="Available" />
+                  <Picker.Item label="In Use" value="In Use" />
+                  <Picker.Item label="Maintenance" value="Maintenance" />
+                </Picker>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notes</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={newVehicle.notes}
+                  onChangeText={(text) => setNewVehicle({...newVehicle, notes: text})}
+                  placeholder="Enter any additional notes"
+                  multiline={true}
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowAddVehicleModal(false);
+                  resetVehicleForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={saveTestDriveVehicle}
+              >
+                <Text style={styles.saveButtonText}>
+                  {newVehicle._id ? 'Update' : 'Add'} Vehicle
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.background,
+  },
+  
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: theme.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.textPrimary,
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: theme.surface,
     padding: 15,
     justifyContent: 'space-between',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
   },
+  
   statCard: {
     alignItems: 'center',
   },
+  
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: theme.primary,
   },
+  
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: theme.textSecondary,
     marginTop: 2,
   },
+  
   searchContainer: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: '#fff',
-    marginTop: 5,
+    backgroundColor: theme.surface,
+    alignItems: 'center',
+    gap: 10,
   },
+  
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginRight: 10,
+    borderColor: theme.border,
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
+    backgroundColor: theme.background,
+    color: theme.textPrimary,
   },
-  filterButton: {
-    backgroundColor: '#CB1E2A',
-    padding: 10,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  filterButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  
+  filterPicker: {
+    width: 120,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 8,
+    backgroundColor: theme.background,
   },
   listContainer: {
     paddingBottom: 20,
   },
-  bookingCard: {
-    backgroundColor: '#fff',
+  vehicleCard: {
+    backgroundColor: theme.surface,
     margin: 10,
     padding: 15,
     borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  cardHeader: {
+    borderWidth: 1,
+    borderColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
   },
-  bookingReference: {
-    fontSize: 16,
+  
+  vehicleInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  
+  vehicleName: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.textPrimary,
+    marginBottom: 5,
+  },
+  
+  vehicleId: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    marginBottom: 3,
+  },
+  
+  vehicleType: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    marginBottom: 3,
+  },
+  
+  vehicleModel: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    marginBottom: 8,
+  },
+  
+  vehicleNotes: {
+    fontSize: 12,
+    color: theme.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 5,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
+  
   statusText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
   },
-  customerName: {
-    fontSize: 18,
+  
+  vehicleActions: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  
+  editVehicleButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 5,
+  },
+  
+  editVehicleButtonText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
-    color: '#CB1E2A',
-    marginBottom: 5,
   },
-  vehicleInfo: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
+  
+  statusButton: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 5,
   },
-  dateTime: {
+  
+  statusButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  
+  deleteButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 5,
+  },
+  
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  addVehicleButton: {
+    backgroundColor: theme.primary,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  
+  addVehicleButtonText: {
+    color: '#fff',
     fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  phone: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 8,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  callButton: {
-    backgroundColor: '#4CAF50',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#CB1E2A',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#fff',
-  },
-  detailsContent: {
-    padding: 20,
-  },
-  detailSection: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 15,
-  },
-  detailSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#CB1E2A',
-    marginBottom: 10,
-  },
-  detailItem: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
-    lineHeight: 22,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  modalActionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  assignButton: {
-    backgroundColor: '#4CAF50',
-  },
-  modalActionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  filterModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterModal: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    width: width * 0.9,
-    maxHeight: '80%',
-  },
-  filterTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#CB1E2A',
-  },
-  filterSection: {
-    marginBottom: 15,
-  },
-  filterLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-    color: '#333',
-  },
-  filterPicker: {
-    backgroundColor: '#fafafa',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-  },
-  filterActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  filterActionButton: {
-    flex: 1,
-    backgroundColor: '#666',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  applyButton: {
-    backgroundColor: '#CB1E2A',
-  },
-  filterActionButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
   },
   emptyContainer: {
@@ -876,10 +743,151 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 50,
   },
+  
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: theme.textSecondary,
     textAlign: 'center',
+    marginBottom: 20,
+  },
+  
+  addFirstVehicleButton: {
+    backgroundColor: theme.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  
+  addFirstVehicleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // Add Vehicle Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  addVehicleModal: {
+    backgroundColor: theme.surface,
+    margin: 20,
+    marginTop: 50,
+    borderRadius: 10,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+    backgroundColor: theme.primary,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+  },
+  
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  
+  closeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  closeButtonText: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  
+  modalContent: {
+    padding: 20,
+    maxHeight: 400,
+  },
+  
+  inputGroup: {
+    marginBottom: 15,
+  },
+  
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.textPrimary,
+    marginBottom: 5,
+  },
+  
+  input: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: theme.background,
+    color: theme.textPrimary,
+  },
+  
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  
+  picker: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 8,
+    backgroundColor: theme.background,
+    color: theme.textPrimary,
+  },
+  
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  
+  cancelButton: {
+    flex: 1,
+    backgroundColor: theme.textSecondary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
+  saveButton: {
+    flex: 1,
+    backgroundColor: theme.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

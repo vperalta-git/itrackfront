@@ -167,7 +167,7 @@ const FallbackMapView = ({ style, userRole = 'agent', agentFilter = null }) => {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Vehicle Data...</Text>
       </View>
     );
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   refreshButton: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#ff1e1e',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,

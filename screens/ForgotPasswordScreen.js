@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   input: { borderWidth: 1, padding: 10, marginBottom: 15 },
-  btn: { backgroundColor: '#CB1E2A', padding: 12, marginTop: 10 },
+  btn: { backgroundColor: '#e50914', padding: 12, marginTop: 10 },
   btnText: { color: '#fff', textAlign: 'center' },
   link: { textAlign: 'center', marginTop: 15, color: '#007BFF' },
 });

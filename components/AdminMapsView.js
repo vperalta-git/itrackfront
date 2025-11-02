@@ -4,12 +4,13 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
 
-const AdminMapsView = () => {
+const AdminMapsView = ({ selectedVehicle = null }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [vehicleLocation, setVehicleLocation] = useState(null);
 
   // Enhanced region with better coverage for Philippines
   const defaultRegion = {
@@ -38,6 +39,40 @@ const AdminMapsView = () => {
     const refreshInterval = setInterval(fetchMapData, 30000); // 30 seconds
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Handle selected vehicle tracking
+  useEffect(() => {
+    if (selectedVehicle) {
+      console.log('🎯 Tracking selected vehicle:', selectedVehicle.unitName);
+      // Try to get location from various sources
+      const location = getVehicleLocation(selectedVehicle);
+      if (location) {
+        setVehicleLocation(location);
+      } else {
+        console.warn('⚠️ No location data found for vehicle:', selectedVehicle.unitName);
+      }
+    }
+  }, [selectedVehicle]);
+
+  const getVehicleLocation = (vehicle) => {
+    // Try different location sources
+    if (vehicle.latitude && vehicle.longitude) {
+      return {
+        latitude: parseFloat(vehicle.latitude),
+        longitude: parseFloat(vehicle.longitude),
+      };
+    }
+    if (vehicle.location?.latitude && vehicle.location?.longitude) {
+      return {
+        latitude: parseFloat(vehicle.location.latitude),
+        longitude: parseFloat(vehicle.location.longitude),
+      };
+    }
+    if (vehicle.currentLocation) {
+      return vehicle.currentLocation;
+    }
+    return null;
+  };
 
   const fetchMapData = async () => {
     setLoading(true);
@@ -142,7 +177,7 @@ const AdminMapsView = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#ff1e1e" />
         <Text style={styles.loadingText}>Loading Admin Map View...</Text>
       </View>
     );
@@ -153,7 +188,11 @@ const AdminMapsView = () => {
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        initialRegion={defaultRegion}
+        initialRegion={selectedVehicle && vehicleLocation ? {
+          ...vehicleLocation,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        } : defaultRegion}
         showsUserLocation={true}
         showsMyLocationButton={true}
         showsCompass={true}
@@ -165,12 +204,22 @@ const AdminMapsView = () => {
             coordinate={currentLocation}
             title="Your Current Location"
             description="Admin Location"
-            pinColor="#CB1E2A"
+            pinColor="#ff1e1e"
           />
         )}
 
-        {/* Vehicle Markers */}
-        {vehicles.map((vehicle, index) => {
+        {/* Selected Vehicle Marker */}
+        {selectedVehicle && vehicleLocation && (
+          <Marker
+            coordinate={vehicleLocation}
+            title={`Vehicle: ${selectedVehicle.unitName}`}
+            description={`Driver: ${selectedVehicle.assignedDriverName || 'Unassigned'} | Status: ${selectedVehicle.status || 'Unknown'}`}
+            pinColor="#FF6B6B"
+          />
+        )}
+
+        {/* All Vehicle Markers (when no specific vehicle selected) */}
+        {!selectedVehicle && vehicles.map((vehicle, index) => {
           // Use the new location field structure
           const lat = parseFloat(vehicle.location?.latitude || defaultRegion.latitude + (Math.random() - 0.5) * 0.01);
           const lng = parseFloat(vehicle.location?.longitude || defaultRegion.longitude + (Math.random() - 0.5) * 0.01);

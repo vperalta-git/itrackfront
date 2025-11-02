@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl } from '../constants/api';
 import DriverMapsView from '../components/DriverMapsView';
 import UniformLoading from '../components/UniformLoading';
@@ -28,8 +30,12 @@ export default function DriverDashboard() {
   const [error, setError] = useState(null);
   const [showShipments, setShowShipments] = useState(true);
   const [driverName, setDriverName] = useState('');
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationPermission, setLocationPermission] = useState(false);
+  const [trackingActive, setTrackingActive] = useState(false);
+  const [locationSubscription, setLocationSubscription] = useState(null);
 
-  // Get driver name from AsyncStorage
+  // Get driver name and setup location tracking
   useEffect(() => {
     const getDriverName = async () => {
       try {
@@ -41,7 +47,159 @@ export default function DriverDashboard() {
       }
     };
     getDriverName();
+    setupLocationTracking();
+    
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
+
+  // Setup location permissions and tracking
+  const setupLocationTracking = async () => {
+    try {
+      console.log('📍 Setting up location tracking...');
+      
+      // Request permissions
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'This app needs location permission to track your vehicle in real-time.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: () => Location.requestForegroundPermissionsAsync() }
+          ]
+        );
+        return;
+      }
+
+      // Request background location permission for continuous tracking
+      const backgroundPermission = await Location.requestBackgroundPermissionsAsync();
+      if (backgroundPermission.status === 'granted') {
+        console.log('✅ Background location permission granted');
+      }
+
+      setLocationPermission(true);
+      
+      // Get initial location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      
+      const initialLocation = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        timestamp: location.timestamp,
+      };
+      
+      setCurrentLocation(initialLocation);
+      console.log('📍 Initial location obtained:', initialLocation);
+      
+    } catch (error) {
+      console.error('❌ Location setup error:', error);
+      Alert.alert('Location Error', 'Could not setup location tracking');
+    }
+  };
+
+  // Start real-time location tracking
+  const startLocationTracking = async () => {
+    try {
+      console.log('🚀 Starting real-time location tracking...');
+      
+      if (!locationPermission) {
+        await setupLocationTracking();
+        return;
+      }
+
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000, // Update every 5 seconds
+          distanceInterval: 10, // Update every 10 meters
+        },
+        (location) => {
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            timestamp: location.timestamp,
+            speed: location.coords.speed,
+            heading: location.coords.heading,
+          };
+          
+          setCurrentLocation(newLocation);
+          updateDriverLocation(newLocation);
+          
+          console.log('📍 Location updated:', {
+            lat: newLocation.latitude.toFixed(6),
+            lng: newLocation.longitude.toFixed(6),
+            speed: newLocation.speed
+          });
+        }
+      );
+      
+      setLocationSubscription(subscription);
+      setTrackingActive(true);
+      Alert.alert('Tracking Started', 'Your location is now being tracked in real-time');
+      
+    } catch (error) {
+      console.error('❌ Error starting location tracking:', error);
+      Alert.alert('Tracking Error', 'Could not start location tracking');
+    }
+  };
+
+  // Stop location tracking
+  const stopLocationTracking = () => {
+    console.log('⏹️ Stopping location tracking...');
+    
+    if (locationSubscription) {
+      locationSubscription.remove();
+      setLocationSubscription(null);
+    }
+    
+    setTrackingActive(false);
+    Alert.alert('Tracking Stopped', 'Location tracking has been stopped');
+  };
+
+  // Update driver location on server
+  const updateDriverLocation = async (location) => {
+    try {
+      const driverId = await AsyncStorage.getItem('userId');
+      const driverEmail = await AsyncStorage.getItem('userEmail');
+      
+      if (!driverId && !driverEmail) {
+        console.warn('⚠️ No driver ID or email found');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/updateDriverLocation'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          driverId: driverId,
+          driverEmail: driverEmail,
+          driverName: driverName,
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: location.timestamp,
+            speed: location.speed,
+            heading: location.heading,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('⚠️ Failed to update driver location on server');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating driver location:', error);
+    }
+  };
 
   // Fetch Driver Allocations
   const fetchDriverAllocations = useCallback(async () => {
@@ -231,6 +389,39 @@ export default function DriverDashboard() {
         <View style={styles.headerLeft}>
           <Text style={styles.heading}>Driver Dashboard</Text>
           <Text style={styles.driverNameText}>Welcome, {driverName}</Text>
+          
+          {/* GPS Tracking Controls */}
+          <View style={styles.gpsContainer}>
+            <View style={styles.gpsStatus}>
+              <Ionicons 
+                name={trackingActive ? "location" : "location-outline"} 
+                size={16} 
+                color={trackingActive ? "#28a745" : "#dc3545"} 
+              />
+              <Text style={[styles.gpsStatusText, { color: trackingActive ? "#28a745" : "#dc3545" }]}>
+                {trackingActive ? "GPS Active" : "GPS Inactive"}
+              </Text>
+              {currentLocation && (
+                <Text style={styles.locationText}>
+                  {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.gpsButton, trackingActive ? styles.gpsButtonStop : styles.gpsButtonStart]}
+              onPress={trackingActive ? stopLocationTracking : startLocationTracking}
+            >
+              <Ionicons 
+                name={trackingActive ? "stop" : "play"} 
+                size={16} 
+                color="#fff" 
+              />
+              <Text style={styles.gpsButtonText}>
+                {trackingActive ? "Stop" : "Start"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
           {!showShipments && selectedAllocation && (
             <TouchableOpacity 
               style={styles.showShipmentsButton}
@@ -395,7 +586,7 @@ const styles = StyleSheet.create({
   heading: { 
     fontSize: 24, 
     fontWeight: "bold", 
-    color: "#CB1E2A",
+    color: "#e50914",
     marginBottom: 4,
   },
   driverNameText: {
@@ -415,8 +606,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
+  gpsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8f9fa",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  gpsStatus: {
+    flex: 1,
+    flexDirection: "column",
+  },
+  gpsStatusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  locationText: {
+    fontSize: 10,
+    color: "#666",
+    marginTop: 2,
+  },
+  gpsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    minWidth: 70,
+    justifyContent: "center",
+  },
+  gpsButtonStart: {
+    backgroundColor: "#28a745",
+  },
+  gpsButtonStop: {
+    backgroundColor: "#dc3545",
+  },
+  gpsButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 4,
+  },
   logoutBtn: { 
-    backgroundColor: "#CB1E2A", 
+    backgroundColor: "#e50914", 
     paddingHorizontal: 16,
     paddingVertical: 8, 
     borderRadius: 8,

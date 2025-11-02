@@ -141,7 +141,7 @@ export default function DispatchVehicleDetail() {
   if (loading || !vehicle) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CB1E2A" />
+        <ActivityIndicator size="large" color="#e50914" />
         <Text style={styles.loadingText}>Loading vehicle details...</Text>
       </View>
     );
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderLeftWidth: 4,
-    borderLeftColor: '#CB1E2A',
+    borderLeftColor: '#e50914',
   },
 
   vehicleHeader: {
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   vinText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#CB1E2A',
+    color: '#e50914',
     marginBottom: 4,
   },
 
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
 
   processCompleted: {
     backgroundColor: '#e8f5e8',
-    borderColor: '#CB1E2A',
+    borderColor: '#e50914',
   },
 
   processPending: {
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   },
 
   processLabelCompleted: {
-    color: '#CB1E2A',
+    color: '#e50914',
   },
 
   processLabelPending: {
@@ -465,8 +465,8 @@ const styles = StyleSheet.create({
   },
 
   checkboxCompleted: {
-    backgroundColor: '#CB1E2A',
-    borderColor: '#CB1E2A',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
 
   checkboxPending: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
 
   markCompleteBtn: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
   },
 
   releaseBtn: {

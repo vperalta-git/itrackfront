@@ -100,7 +100,7 @@ const DiagnosticMapScreen = () => {
 
       {!mapReady && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#CB1E2A" />
+          <ActivityIndicator size="large" color="#e50914" />
           <Text style={styles.loadingText}>Loading map...</Text>
         </View>
       )}
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-    color: '#CB1E2A',
+    color: '#e50914',
   },
   status: {
     fontSize: 16,
@@ -182,13 +182,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#CB1E2A',
+    color: '#e50914',
   },
   refreshButton: {
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 25,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#CB1E2A',
+    backgroundColor: '#e50914',
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 8,

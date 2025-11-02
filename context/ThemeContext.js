@@ -28,14 +28,14 @@ const lightTheme = {
   borderLight: '#F3F4F6',
   
   // Status colors
-  primary: '#CB1E2A',
+  primary: '#ff1e1e',
   secondary: '#007AFF',
   success: '#10B981',
   warning: '#F59E0B',
-  error: '#EF4444',
+  error: '#ff1e1e',
   
   // Interactive colors
-  buttonBackground: '#CB1E2A',
+  buttonBackground: '#ff1e1e',
   buttonText: '#FFFFFF',
   buttonSecondary: '#F3F4F6',
   buttonSecondaryText: '#6B7280',
@@ -67,14 +67,14 @@ const darkTheme = {
   borderLight: '#374151',
   
   // Status colors
-  primary: '#EF4444',
+  primary: '#ff1e1e',
   secondary: '#3B82F6',
   success: '#10B981',
   warning: '#F59E0B',
-  error: '#EF4444',
+  error: '#ff1e1e',
   
   // Interactive colors
-  buttonBackground: '#EF4444',
+  buttonBackground: '#ff1e1e',
   buttonText: '#FFFFFF',
   buttonSecondary: '#374151',
   buttonSecondaryText: '#D1D5DB',
