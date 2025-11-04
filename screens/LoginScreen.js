@@ -167,29 +167,21 @@ export default function LoginScreen() {
 
       // ✅ Navigate based on detected role (handle case-insensitive)
       const role = userRole;
-      console.log('🧭 Navigating based on role:', role);
+      console.log('🧭 Navigating to UnifiedDrawer for role:', role);
       
+      // All users now go to the unified drawer - role-based filtering happens inside
       switch (role) {
         case 'Admin':
-          console.log('➡️ Navigating to AdminDrawer');
-          navigation.replace('AdminDrawer');
-          break;
         case 'Sales Agent':
-          console.log('➡️ Navigating to AgentDrawer');
-          navigation.replace('AgentDrawer');
-          break;
         case 'Dispatch':
-          console.log('➡️ Navigating to DispatchDashboard');
-          navigation.replace('DispatchDashboard');
-          break;
-        case 'Driver':
-          console.log('➡️ Navigating to DriverDashboard');
-          navigation.replace('DriverDashboard');
-          break;
         case 'Supervisor':
         case 'Manager':
-          console.log('➡️ Navigating to AdminDrawer (supervisor/manager)');
-          navigation.replace('AdminDrawer');
+          console.log('➡️ Navigating to UnifiedDrawer');
+          navigation.replace('UnifiedDrawer');
+          break;
+        case 'Driver':
+          console.log('➡️ Navigating to DriverDashboard (direct)');
+          navigation.replace('DriverDashboard');
           break;
         default:
           console.error('❌ Unknown role received:', userRole);
@@ -327,6 +319,7 @@ export default function LoginScreen() {
               />
             </View>
             <Text style={styles.title}>I-Track Login</Text>
+            <Text style={[styles.subtitle, {color: '#e50914', fontSize: 12, marginTop: 5}]}>v47.1.0 - Web Sync Complete</Text>
 
             <TextInput
               placeholder="Email"

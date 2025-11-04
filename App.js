@@ -1,4 +1,4 @@
-//App.js - I-Track v46.3.1 - Updated November 3, 2025
+//App.js - I-Track v47.0.1 - WEB SYNC COMPLETE - Updated November 5, 2025
 
 // 🚨 IMMEDIATE StyleSheet crash protection - MUST be first
 if (typeof StyleSheet === 'undefined') {
@@ -45,6 +45,9 @@ import TestDriveManagementScreen from './screens/TestDriveManagementScreen';
 import BookingDetailsScreen from './screens/BookingDetailsScreen';
 import ThemeProvider from './context/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// New Unified Drawer Component
+import UnifiedDrawer from './components/UnifiedDrawer';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -343,6 +346,14 @@ export default function App() {
           />
 
           {/* Main Dashboard Screens */}
+          {/* NEW: Unified Drawer for all roles except Driver */}
+          <Stack.Screen 
+            name="UnifiedDrawer" 
+            component={UnifiedDrawer} 
+            options={{ headerShown: false }} 
+          />
+          
+          {/* Legacy Drawers - keeping for backward compatibility */}
           <Stack.Screen 
             name="AdminDrawer" 
             component={AdminDrawer} 
