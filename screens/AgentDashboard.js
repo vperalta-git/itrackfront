@@ -18,6 +18,7 @@ import { buildApiUrl } from '../constants/api';
 import AgentMapsView from '../components/AgentMapsView';
 import ImprovedMapsView from '../components/ImprovedMapsView';
 import UniformLoading from '../components/UniformLoading';
+import Colors from '../constants/Colors';
 
 import styles from "../styles/AgentDashboardStyles";
 

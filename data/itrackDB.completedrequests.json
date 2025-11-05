@@ -1,0 +1,113 @@
+[{
+  "_id": {
+    "$oid": "68515c1280094ae8081d83bb"
+  },
+  "dateCreated": "Tue Jun 17 2025 08:00:00 GMT+0800 (Philippine Standard Time)",
+  "vehicleRegNo": "df 43363",
+  "service": [
+    "Tinting",
+    "Ceramic Coating"
+  ],
+  "status": "Completed",
+  "inProgressAt": {
+    "$date": "2025-06-17T12:14:05.257Z"
+  },
+  "completedAt": {
+    "$date": "2025-06-17T12:14:08.858Z"
+  },
+  "serviceDurationMinutes": 3,
+  "preparedBy": "asd",
+  "createdAt": {
+    "$date": "2025-06-17T12:14:01.708Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-17T12:14:01.708Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "685254d057943d0b49d8e0ba"
+  },
+  "dateCreated": "Wed Jun 18 2025 08:00:00 GMT+0800 (Philippine Standard Time)",
+  "vehicleRegNo": "adsas",
+  "unitName": "Isuzu D-MAX",
+  "service": [
+    "Carwash"
+  ],
+  "serviceTime": "15",
+  "status": "Completed",
+  "inProgressAt": {
+    "$date": "2025-06-18T05:10:56.708Z"
+  },
+  "completedAt": {
+    "$date": "2025-06-18T05:55:26.788Z"
+  },
+  "serviceDurationMinutes": 13,
+  "preparedBy": "admin1",
+  "createdAt": {
+    "$date": "2025-06-18T05:10:44.166Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-18T05:10:44.166Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6853eef31afc5496893791fc"
+  },
+  "dateCreated": "Thu Jun 19 2025 08:00:00 GMT+0800 (Philippine Standard Time)",
+  "vehicleRegNo": "DG 3545",
+  "unitName": "Isuzu D-MAX",
+  "service": [
+    "Carwash",
+    "Tinting",
+    "Ceramic Coating"
+  ],
+  "serviceTime": "240",
+  "status": "Completed",
+  "inProgressAt": {
+    "$date": "2025-06-19T11:04:01.050Z"
+  },
+  "completedAt": {
+    "$date": "2025-06-19T11:05:21.537Z"
+  },
+  "serviceDurationMinutes": 19,
+  "preparedBy": "admin1",
+  "createdAt": {
+    "$date": "2025-06-19T11:03:45.608Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-19T11:03:45.608Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6853f99be1b8cf4ad3cce233"
+  },
+  "dateCreated": "Thu Jun 19 2025 08:00:00 GMT+0800 (Philippine Standard Time)",
+  "vehicleRegNo": "ssd",
+  "unitName": "Isuzu MU-X",
+  "service": [
+    "Tinting"
+  ],
+  "serviceTime": "60",
+  "status": "Completed",
+  "inProgressAt": {
+    "$date": "2025-06-19T11:44:52.178Z"
+  },
+  "completedAt": {
+    "$date": "2025-06-19T11:50:51.320Z"
+  },
+  "serviceDurationMinutes": 6,
+  "preparedBy": "admin1",
+  "createdAt": {
+    "$date": "2025-06-19T11:44:48.927Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-19T11:44:48.927Z"
+  },
+  "__v": 0
+}]

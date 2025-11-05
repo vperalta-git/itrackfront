@@ -22,6 +22,7 @@ import { useTheme } from '../context/ThemeContext';
 import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
 import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
 import UniformLoading from '../components/UniformLoading';
+import Colors from '../constants/Colors';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();

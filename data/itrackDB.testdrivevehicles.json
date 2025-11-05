@@ -1,0 +1,19 @@
+[{
+  "_id": {
+    "$oid": "690b4d7b5e8a0a95cd2d16d0"
+  },
+  "unitName2": "MUX",
+  "unitId2": "HJ7237",
+  "bodyColor2": "Red",
+  "variation2": "4x4",
+  "quantity2": 1,
+  "addedBy": "admin3",
+  "createdAt": {
+    "$date": "2025-11-05T13:13:31.711Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-05T13:14:27.483Z"
+  },
+  "__v": 0,
+  "updatedBy": "admin3"
+}]

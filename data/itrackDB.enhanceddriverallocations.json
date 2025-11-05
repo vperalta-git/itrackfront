@@ -1,0 +1,212 @@
+[{
+  "_id": {
+    "$oid": "68dfb8f4dfe4273d1406ae9c"
+  },
+  "unitName": "Isuzu D-Max LS 4x4 AT",
+  "unitId": "ISUZU-2024-001-TEST",
+  "bodyColor": "Pearl White",
+  "variation": "LS 4x4 AT",
+  "model": "D-Max",
+  "assignedDriver": "driver",
+  "assignedAgent": "asd",
+  "assignedManager": null,
+  "assignedSupervisor": null,
+  "pickupLocation": {
+    "id": "isuzu_ph",
+    "name": "Isuzu Philippines (Main Warehouse)",
+    "address": "Isuzu Philippines Corporation, Laguna",
+    "latitude": 14.2162,
+    "longitude": 121.1624,
+    "type": "warehouse",
+    "color": "#1E40AF",
+    "contactPerson": null,
+    "contactNumber": null
+  },
+  "deliveryLocation": {
+    "id": "isuzu_pasig",
+    "name": "Isuzu Pasig Dealership",
+    "address": "Isuzu Pasig Dealership, Ortigas Ave, Pasig City",
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "type": "dealership",
+    "color": "#DC2626",
+    "contactPerson": null,
+    "contactNumber": null
+  },
+  "status": "Delivered",
+  "priority": "High",
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Arrived at Isuzu Pasig Dealership",
+    "timestamp": {
+      "$date": "2025-10-03T13:22:21.347Z"
+    },
+    "accuracy": 10,
+    "speed": 60,
+    "heading": 45
+  },
+  "estimatedTimes": {
+    "pickupETA": {
+      "$date": "2025-10-03T13:52:20.589Z"
+    },
+    "deliveryETA": {
+      "$date": "2025-10-03T17:52:20.589Z"
+    },
+    "totalEstimatedDuration": 240
+  },
+  "actualTimes": {
+    "assignmentAccepted": {
+      "$date": "2025-10-03T11:52:21.279Z"
+    },
+    "departureToPickup": null,
+    "arrivedAtPickup": null,
+    "pickupCompleted": null,
+    "departureToDelivery": null,
+    "arrivedAtDelivery": null,
+    "deliveryCompleted": {
+      "$date": "2025-10-03T11:52:21.401Z"
+    }
+  },
+  "trackingVisibility": {
+    "driver": true,
+    "agent": true,
+    "manager": true,
+    "supervisor": true,
+    "admin": true
+  },
+  "notes": [
+    {
+      "author": "System",
+      "authorRole": "Admin",
+      "message": "Enhanced allocation test created",
+      "timestamp": {
+        "$date": "2025-10-03T11:52:20.589Z"
+      },
+      "isSystemGenerated": true,
+      "_id": {
+        "$oid": "68dfb8f4dfe4273d1406ae9d"
+      }
+    },
+    {
+      "author": "driver",
+      "authorRole": "Driver",
+      "message": "Driver has accepted the assignment",
+      "timestamp": {
+        "$date": "2025-10-03T11:52:21.279Z"
+      },
+      "isSystemGenerated": false,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea0"
+      }
+    },
+    {
+      "author": "GPS System",
+      "authorRole": "System",
+      "message": "Driver has started journey from pickup location",
+      "timestamp": {
+        "$date": "2025-10-03T11:52:21.345Z"
+      },
+      "isSystemGenerated": true,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea3"
+      }
+    },
+    {
+      "author": "GPS System",
+      "authorRole": "System",
+      "message": "Driver has arrived at delivery location",
+      "timestamp": {
+        "$date": "2025-10-03T13:22:21.347Z"
+      },
+      "isSystemGenerated": true,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea7"
+      }
+    },
+    {
+      "author": "driver",
+      "authorRole": "Driver",
+      "message": "Vehicle successfully delivered to customer",
+      "timestamp": {
+        "$date": "2025-10-03T11:52:21.401Z"
+      },
+      "isSystemGenerated": false,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea9"
+      }
+    }
+  ],
+  "completedAt": {
+    "$date": "2025-10-03T11:52:21.401Z"
+  },
+  "locationHistory": [
+    {
+      "latitude": 14.2162,
+      "longitude": 121.1624,
+      "timestamp": {
+        "$date": "2025-10-03T11:52:21.345Z"
+      },
+      "address": "Starting from Isuzu Philippines, Laguna",
+      "accuracy": 10,
+      "speed": 0,
+      "heading": 45,
+      "milestone": "pickup_start",
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea2"
+      }
+    },
+    {
+      "latitude": 14.3162,
+      "longitude": 121.1724,
+      "timestamp": {
+        "$date": "2025-10-03T12:22:21.346Z"
+      },
+      "address": "En route via SLEX",
+      "accuracy": 10,
+      "speed": 60,
+      "heading": 45,
+      "milestone": null,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea4"
+      }
+    },
+    {
+      "latitude": 14.4162,
+      "longitude": 121.0824,
+      "timestamp": {
+        "$date": "2025-10-03T12:52:21.347Z"
+      },
+      "address": "Approaching Metro Manila",
+      "accuracy": 10,
+      "speed": 60,
+      "heading": 45,
+      "milestone": null,
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea5"
+      }
+    },
+    {
+      "latitude": 14.5791,
+      "longitude": 121.0655,
+      "timestamp": {
+        "$date": "2025-10-03T13:22:21.347Z"
+      },
+      "address": "Arrived at Isuzu Pasig Dealership",
+      "accuracy": 10,
+      "speed": 60,
+      "heading": 45,
+      "milestone": "delivery_arrived",
+      "_id": {
+        "$oid": "68dfb8f5dfe4273d1406aea6"
+      }
+    }
+  ],
+  "createdAt": {
+    "$date": "2025-10-03T11:52:20.597Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-03T11:52:21.403Z"
+  },
+  "__v": 3
+}]

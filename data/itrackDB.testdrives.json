@@ -1,0 +1,38 @@
+[{
+  "_id": {
+    "$oid": "68bfb8b68e58f482e8192488"
+  },
+  "vehicleId": {
+    "$oid": "68bace0bd9e1be15ab5edbda"
+  },
+  "date": "2025-09-09",
+  "time": "13:18",
+  "name": "Juan",
+  "contact": "09368034572",
+  "createdAt": {
+    "$date": "2025-09-09T05:18:46.045Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-09T05:18:46.045Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68bfbd64be9fb65733c61d03"
+  },
+  "vehicleId": {
+    "$oid": "6855d444cc638795662be225"
+  },
+  "date": "2025-09-18",
+  "time": "13:38",
+  "name": "Tony ",
+  "contact": "09171233443",
+  "createdAt": {
+    "$date": "2025-09-09T05:38:44.187Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-09T05:38:44.187Z"
+  },
+  "__v": 0
+}]

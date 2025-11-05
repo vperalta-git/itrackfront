@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import Colors from '../constants/Colors';
 // import { useGoogleAuth } from '../utils/googleAuth'; // Commented out Google Auth
 
 export default function LoginScreen() {
@@ -538,19 +539,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   forgotPasswordText: {
-    color: '#e50914',
+    color: Colors.primary,
     fontSize: 14,
     fontWeight: '500',
   },
   loginBtn: {
-    backgroundColor: '#e50914', 
+    backgroundColor: Colors.primary, 
     paddingVertical: 14,
     borderRadius: 8, 
     alignItems: 'center', 
     marginTop: 10,
   },
   loginText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -654,10 +655,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetBtn: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
   },
   resetBtnText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontWeight: 'bold',
   },
 });

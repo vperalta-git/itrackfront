@@ -2,7 +2,7 @@
   "expo": {
     "name": "I-Track",
     "slug": "itrack",
-    "version": "47.1.0",
+    "version": "47.2.0",
     "orientation": "portrait",
     "icon": "./assets/logoitrack.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.acmobility.itrack",
-      "versionCode": 48,
+      "versionCode": 49,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logoitrack.png",
         "backgroundColor": "#ffffff"

@@ -1,15 +1,15 @@
-// Enhanced API configuration with dynamic server URL fetching - DEVELOPMENT MODE
-let cachedServerUrl = 'http://localhost:5000'; // Default to local development
+// Enhanced API configuration with dynamic server URL fetching - PRODUCTION MODE
+let cachedServerUrl = 'https://itrack-backend-1.onrender.com'; // Default to production server for testing
 let isInitialized = false;
 
 // Function to fetch server configuration from backend
 const fetchServerConfig = async () => {
   const fallbackUrls = [
-    'http://localhost:5000',                  // Primary - Local development for testing
-    'http://192.168.254.147:5000',            // Local network fallback 1
+    'https://itrack-backend-1.onrender.com',  // PRIMARY - Production Render deployment (working with itrackDB)
+    'https://itrack-web-backend.onrender.com', // Web backup 
+    'http://localhost:5000',                  // Local development server
+    'http://192.168.254.147:5000',            // Local network fallback (if on same WiFi)
     'http://10.0.2.2:5000',                   // Android emulator host
-    'https://itrack-backend-1.onrender.com',   // Production Render deployment
-    'https://itrack-web-backend.onrender.com', // Secondary - Web backup
     'http://10.97.63.190:5000'                // Local network fallback 2
   ];
 

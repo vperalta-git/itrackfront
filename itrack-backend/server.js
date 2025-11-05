@@ -199,9 +199,9 @@ async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
   }
 }
 
-// MongoDB URI configuration - Updated for deployment flexibility
+// MongoDB URI configuration - Updated to connect to your itrackDB database
 const mongoURI = process.env.MONGODB_URI || 
-  'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+  'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
 
 // Connect to MongoDB with retry logic
 mongoose.connect(mongoURI)
@@ -350,7 +350,7 @@ UserSchema.pre('save', function(next) {
   next();
 });
 
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.model('User', UserSchema, 'users');
 
 // Vehicle Schema
 const VehicleSchema = new mongoose.Schema({
@@ -372,7 +372,7 @@ const VehicleSchema = new mongoose.Schema({
   customer_name: String, // Added for agent dashboard
   customer_number: String, // Added for agent dashboard
 });
-const Vehicle = mongoose.model('Vehicle', VehicleSchema);
+const Vehicle = mongoose.model('Vehicle', VehicleSchema, 'vehicles');
 
 // Driver Allocation Schema (enhanced for dispatch functionality)
 // SYNCED DriverAllocation Schema - Matches web version exactly
@@ -484,6 +484,7 @@ app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     console.log('📥 Login attempt:', username);
+    console.log('🔍 Looking for user with email or username:', username.toLowerCase().trim());
 
     // Check admin credentials first
     if (username === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
@@ -502,14 +503,20 @@ app.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in database by email only
+    // Find user in database by email OR username
     const user = await User.findOne({
-      email: username.toLowerCase().trim()
+      $or: [
+        { email: username.toLowerCase().trim() },
+        { username: username.toLowerCase().trim() }
+      ]
     });
     
     if (!user) {
+      console.log('❌ User not found for:', username.toLowerCase().trim());
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
+
+    console.log('✅ User found:', user.username, 'Email:', user.email);
 
     let isValidLogin = false;
     let isTemporaryPassword = false;
@@ -534,14 +541,18 @@ app.post('/login', async (req, res) => {
 
     // If not using temporary password, check regular password
     if (!isValidLogin) {
+      console.log('🔍 Comparing password for user:', user.username);
       const isMatch = await bcrypt.compare(password, user.password);
       if (isMatch) {
         isValidLogin = true;
         console.log('🔑 User logged in with regular password:', username);
+      } else {
+        console.log('❌ Password mismatch for user:', user.username);
       }
     }
 
     if (!isValidLogin) {
+      console.log('❌ Login failed for user:', user.username);
       return res.status(401).json({ success: false, message: 'Invalid password' });
     }
 
@@ -1106,7 +1117,7 @@ const InventorySchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 },
   status: { type: String, default: 'Available' }
 }, { timestamps: true });
-const Inventory = mongoose.model('Inventory', InventorySchema);
+const Inventory = mongoose.model('Inventory', InventorySchema, 'inventories');
 
 // Get all stock/inventory
 app.get('/getStock', async (req, res) => {
@@ -1789,7 +1800,7 @@ const ServiceRequestSchema = new mongoose.Schema({
   completedAt: Date,
   completedBy: String
 }, { timestamps: true });
-const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema);
+const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema, 'servicerequests');
 
 // Get service requests
 app.get('/getRequest', async (req, res) => {
@@ -2764,7 +2775,7 @@ const TestDriveSchema = new mongoose.Schema({
   createdBy: String
 }, { timestamps: true });
 
-const TestDrive = mongoose.model('TestDrive', TestDriveSchema);
+const TestDrive = mongoose.model('TestDrive', TestDriveSchema, 'testdrives');
 
 app.get('/getTestDrives', async (req, res) => {
   try {

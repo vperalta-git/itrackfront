@@ -32,9 +32,9 @@ const TestDriveManagementScreen = ({ navigation }) => {
   const [newVehicle, setNewVehicle] = useState({
     unitName: '',
     unitId: '',
-    vehicleType: 'Light Commercial Vehicle',
+    vehicleType: '',
     model: '',
-    status: 'Available',
+    status: '',
     notes: ''
   });
 

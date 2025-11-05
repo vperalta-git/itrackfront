@@ -1,0 +1,481 @@
+[{
+  "_id": {
+    "$oid": "682acf70054fec798b6346da"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "DF7573",
+  "bodyColor": "White",
+  "variation": "4x2 LSA",
+  "createdAt": {
+    "$date": "2025-05-19T06:28:00.640Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-15T15:43:11.556Z"
+  },
+  "__v": 0,
+  "quantity": 1,
+  "location": {
+    "latitude": 14.575566261315384,
+    "longitude": 121.0859880603911,
+    "address": "Isuzu Pasig Service Center",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.291Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Assigned to Dispatch"
+},
+{
+  "_id": {
+    "$oid": "682d2b537f0737db8969221a"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FH2575",
+  "bodyColor": "Orange",
+  "variation": "LS-E",
+  "createdAt": {
+    "$date": "2025-05-21T01:24:35.304Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:10:55.605Z"
+  },
+  "__v": 0,
+  "quantity": 1,
+  "location": {
+    "latitude": 14.604800445365305,
+    "longitude": 121.02146954763282,
+    "address": "Isuzu BGC Showroom",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.327Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "68356364294cdd0c811a23cd"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "HT9473",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "createdAt": {
+    "$date": "2025-05-27T07:01:56.675Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:01.049Z"
+  },
+  "__v": 0,
+  "quantity": 1,
+  "location": {
+    "latitude": 14.537050469182185,
+    "longitude": 121.00196722332404,
+    "address": "Isuzu Manila Main Branch",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.358Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "683be2b9177352b2bfc320d1"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "KV3572",
+  "bodyColor": "White",
+  "variation": "4x4",
+  "createdAt": {
+    "$date": "2025-06-01T05:18:49.546Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-03T17:44:46.987Z"
+  },
+  "__v": 0,
+  "quantity": 1,
+  "location": {
+    "latitude": 14.576967438782068,
+    "longitude": 121.08548815897136,
+    "address": "Isuzu Pasig Service Center",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.394Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Allocated"
+},
+{
+  "_id": {
+    "$oid": "684bd981b6d9c1a4ca3a5b4f"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "JS2594",
+  "bodyColor": "Gray",
+  "variation": "4x2 LSA",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-06-13T07:55:45.526Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:06.068Z"
+  },
+  "__v": 0,
+  "location": {
+    "latitude": 14.537735965077779,
+    "longitude": 121.00192986774192,
+    "address": "Isuzu Manila Main Branch",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.424Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "684c448f8ca087b38dad2592"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "GS2462",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-06-13T15:32:31.271Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:11.164Z"
+  },
+  "__v": 0,
+  "location": {
+    "latitude": 14.576279906658533,
+    "longitude": 121.08462384221986,
+    "address": "Isuzu Pasig Service Center",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.454Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "6855d444cc638795662be225"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "FG4343",
+  "bodyColor": "Gray",
+  "variation": "4x2 LSA",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-06-20T21:36:04.323Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:17.855Z"
+  },
+  "__v": 0,
+  "location": {
+    "latitude": 14.577318660882513,
+    "longitude": 121.08478980815346,
+    "address": "Isuzu Pasig Service Center",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.485Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "68563bd34cbdaf3f9bc94077"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "JG3462",
+  "bodyColor": "Orange",
+  "variation": "4x4",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-06-21T04:57:55.802Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:22.227Z"
+  },
+  "__v": 0,
+  "location": {
+    "latitude": 14.598942178366649,
+    "longitude": 121.03146988657424,
+    "address": "Isuzu Makati Dealership",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.516Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "6859340c6ea49e4ee83e3010"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-06-23T11:01:32.103Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:26.488Z"
+  },
+  "__v": 0,
+  "status": "Assigned to Dispatch",
+  "location": {
+    "latitude": 14.604679687291922,
+    "longitude": 121.02124041588617,
+    "address": "Isuzu BGC Showroom",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.551Z"
+    }
+  },
+  "model": "D-Max"
+},
+{
+  "_id": {
+    "$oid": "68a9d361060eec8bfb5cd6fa"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "EW9823",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-08-23T14:42:41.927Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-03T02:11:31.262Z"
+  },
+  "__v": 0,
+  "status": "Assigned to Dispatch",
+  "location": {
+    "latitude": 14.599729943406512,
+    "longitude": 121.03041180777089,
+    "address": "Isuzu Makati Dealership",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.581Z"
+    }
+  },
+  "model": "D-Max"
+},
+{
+  "_id": {
+    "$oid": "68ae1bcb24a8dcc55729e6c4"
+  },
+  "unitName": " MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "createdAt": {
+    "$date": "2025-08-26T20:40:43.016Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T13:39:26.611Z"
+  },
+  "__v": 0,
+  "status": "Assigned to Dispatch",
+  "quantity": 1,
+  "location": {
+    "latitude": 14.53723496338113,
+    "longitude": 121.0023718029959,
+    "address": "Isuzu Manila Main Branch",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.611Z"
+    }
+  },
+  "model": "D-Max"
+},
+{
+  "_id": {
+    "$oid": "68ae1c2324a8dcc55729e6c7"
+  },
+  "unitName": "MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "createdAt": {
+    "$date": "2025-08-26T20:42:11.113Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T13:39:26.641Z"
+  },
+  "__v": 0,
+  "quantity": 1,
+  "status": "Assigned to Dispatch",
+  "location": {
+    "latitude": 14.599157775083759,
+    "longitude": 121.03096951531533,
+    "address": "Isuzu Makati Dealership",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.641Z"
+    }
+  },
+  "model": "D-Max"
+},
+{
+  "_id": {
+    "$oid": "68bace0bd9e1be15ab5edbda"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "quantity": 1,
+  "createdAt": {
+    "$date": "2025-09-05T11:48:27.274Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T13:39:26.672Z"
+  },
+  "__v": 0,
+  "location": {
+    "latitude": 14.599704816829066,
+    "longitude": 121.02987912482712,
+    "address": "Isuzu Makati Dealership",
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.671Z"
+    }
+  },
+  "model": "D-Max",
+  "status": "Available"
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976d99"
+  },
+  "unitName": "Isuzu D-Max LS 4x2",
+  "unitId": "ISUZU-001",
+  "bodyColor": "Pearl White",
+  "variation": "Single Cab",
+  "location": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership, Ortigas Ave, Pasig City",
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:52.115Z"
+    }
+  },
+  "status": "Available",
+  "model": "D-Max",
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.118Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T15:07:52.118Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976d9b"
+  },
+  "unitName": "Isuzu MU-X LS-E",
+  "unitId": "ISUZU-002",
+  "bodyColor": "Obsidian Gray",
+  "variation": "SUV",
+  "location": {
+    "latitude": 14.5801,
+    "longitude": 121.0665,
+    "address": "Isuzu Pasig Service Center, C5 Road, Pasig City",
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:52.153Z"
+    }
+  },
+  "status": "Available",
+  "model": "MU-X",
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.154Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T15:07:52.154Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976d9d"
+  },
+  "unitName": "Isuzu NPR Truck",
+  "unitId": "ISUZU-003",
+  "bodyColor": "White",
+  "variation": "Cargo Truck",
+  "location": {
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "address": "Isuzu Makati Showroom, Ayala Avenue, Makati City",
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:52.187Z"
+    }
+  },
+  "status": "Available",
+  "model": "NPR",
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.187Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-19T15:07:52.187Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976d9f"
+  },
+  "unitName": "Isuzu D-Max V-Cross",
+  "unitId": "ISUZU-004",
+  "bodyColor": "Magnetic Red",
+  "variation": "4x2 LSA",
+  "location": {
+    "latitude": 14.5176,
+    "longitude": 121.0509,
+    "address": "Isuzu Taguig Branch, C6 Road, Taguig City",
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:52.219Z"
+    }
+  },
+  "status": "Available",
+  "model": "D-Max",
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.219Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-01T05:15:07.875Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976da1"
+  },
+  "unitName": "Isuzu MU-X Blue Power",
+  "unitId": "ISUZU-005",
+  "bodyColor": "Titanium Silver",
+  "variation": "LS-E",
+  "location": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Isuzu Mandaluyong Showroom, EDSA, Mandaluyong City",
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:52.280Z"
+    }
+  },
+  "status": "Assigned to Dispatch",
+  "model": "MU-X",
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.280Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-01T05:15:24.123Z"
+  },
+  "__v": 0
+}]

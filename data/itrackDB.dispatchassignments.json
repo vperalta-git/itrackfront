@@ -1,0 +1,375 @@
+[{
+  "_id": {
+    "$oid": "68ae472c2060502291fac0eb"
+  },
+  "vehicleId": {
+    "$oid": "684c448f8ca087b38dad2592"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "GS 2462",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "processes": [
+    "tinting",
+    "carwash"
+  ],
+  "status": "Assigned to Dispatch",
+  "assignedAt": {
+    "$date": "2025-08-26T23:45:47.391Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": false,
+    "carwash": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68ae48cf2060502291fac0f4"
+  },
+  "vehicleId": {
+    "$oid": "68ae1c2324a8dcc55729e6c7"
+  },
+  "unitName": "MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "processes": [
+    "tinting",
+    "carwash",
+    "rust_proof"
+  ],
+  "status": "Assigned to Dispatch",
+  "assignedAt": {
+    "$date": "2025-08-26T23:52:46.665Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "rust_proof": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68ae48db2060502291fac0f7"
+  },
+  "vehicleId": {
+    "$oid": "68ae1c2324a8dcc55729e6c7"
+  },
+  "unitName": "MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "processes": [
+    "ceramic_coating",
+    "rust_proof",
+    "accessories"
+  ],
+  "status": "Assigned to Dispatch",
+  "assignedAt": {
+    "$date": "2025-08-26T23:52:59.317Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "accessories": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68ae48e92060502291fac0fa"
+  },
+  "vehicleId": {
+    "$oid": "684c448f8ca087b38dad2592"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "GS 2462",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "processes": [
+    "tinting",
+    "carwash",
+    "rust_proof"
+  ],
+  "status": "In Progress",
+  "assignedAt": {
+    "$date": "2025-08-26T23:53:13.079Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "rust_proof": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 1,
+  "completedProcesses": [
+    null
+  ],
+  "updatedAt": {
+    "$date": "2025-09-12T20:55:40.959Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68ae4cf91c344818ac81db8a"
+  },
+  "vehicleId": "68ae1c2324a8dcc55729e6c7",
+  "unitName": "MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "processes": [
+    "tinting",
+    "carwash"
+  ],
+  "status": "Assigned to Dispatch",
+  "assignedAt": {
+    "$date": "2025-08-27T00:10:33.300Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": false,
+    "carwash": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68ae4d3c1c344818ac81db96"
+  },
+  "vehicleId": "68a9d361060eec8bfb5cd6fa",
+  "unitName": "Isuzu Traviz",
+  "unitId": "EW 9823",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "processes": [
+    "tinting",
+    "carwash",
+    "rust_proof"
+  ],
+  "status": "In Progress",
+  "assignedAt": {
+    "$date": "2025-08-27T00:11:39.977Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "rust_proof": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "__v": 1,
+  "completedProcesses": [
+    null
+  ],
+  "updatedAt": {
+    "$date": "2025-09-18T08:14:58.955Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68ae58ee5e5c7213c76f395c"
+  },
+  "vehicleId": "68ae1bcb24a8dcc55729e6c4",
+  "unitName": " MUX",
+  "unitId": "DJI123",
+  "bodyColor": "Gray",
+  "variation": "4x4",
+  "processes": [
+    "tinting",
+    "accessories",
+    "ceramic_coating"
+  ],
+  "status": "Ready for Release",
+  "assignedAt": {
+    "$date": "2025-08-27T01:01:34.132Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "tinting": true,
+    "accessories": true,
+    "ceramic_coating": true
+  },
+  "processCompletedBy": {
+    "tinting": "asd",
+    "accessories": "asd",
+    "ceramic_coating": "asd"
+  },
+  "processCompletedAt": {
+    "tinting": {
+      "$date": "2025-09-07T16:14:03.920Z"
+    },
+    "accessories": {
+      "$date": "2025-09-07T16:14:09.713Z"
+    },
+    "ceramic_coating": {
+      "$date": "2025-09-07T16:14:12.352Z"
+    }
+  },
+  "__v": 1,
+  "completedProcesses": [],
+  "updatedAt": {
+    "$date": "2025-09-12T20:56:32.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bdaa97904fd9bc04e44184"
+  },
+  "vehicleId": "6859340c6ea49e4ee83e3010",
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FD 3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "processes": [
+    "carwash",
+    "tinting",
+    "accessories",
+    "rust_proof",
+    "ceramic_coating"
+  ],
+  "status": "Ready for Release",
+  "assignedAt": {
+    "$date": "2025-09-07T15:53:59.448Z"
+  },
+  "assignedBy": "admin",
+  "processStatus": {
+    "carwash": true,
+    "tinting": true,
+    "accessories": true,
+    "rust_proof": true,
+    "ceramic_coating": true
+  },
+  "processCompletedBy": {
+    "carwash": "asd",
+    "tinting": "asd",
+    "accessories": "asd",
+    "rust_proof": "asd",
+    "ceramic_coating": "asd"
+  },
+  "processCompletedAt": {
+    "carwash": {
+      "$date": "2025-09-07T16:02:16.982Z"
+    },
+    "tinting": {
+      "$date": "2025-09-07T16:02:21.224Z"
+    },
+    "accessories": {
+      "$date": "2025-09-07T16:02:24.929Z"
+    },
+    "rust_proof": {
+      "$date": "2025-09-07T16:02:28.888Z"
+    },
+    "ceramic_coating": {
+      "$date": "2025-09-07T16:06:46.524Z"
+    }
+  },
+  "__v": 1,
+  "completedProcesses": [],
+  "updatedAt": {
+    "$date": "2025-09-10T04:24:57.084Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0f32878b40a0cae8b2d5b"
+  },
+  "vehicleId": "test123",
+  "unitName": "Isuzu Traviz",
+  "unitId": "TEST001",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "processes": [
+    "Delivery to Isuzu Pasig",
+    "Stock Integration"
+  ],
+  "status": "In Progress",
+  "assignedBy": "Admin",
+  "completedProcesses": [
+    null
+  ],
+  "assignedAt": {
+    "$date": "2025-09-10T03:40:24.768Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-10T03:40:24.772Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-12T20:55:29.132Z"
+  },
+  "__v": 1
+},
+{
+  "_id": {
+    "$oid": "68cbbf5f52464eb4dc7129ca"
+  },
+  "vehicleId": "68bace0bd9e1be15ab5edbda",
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "processes": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "status": "In Progress",
+  "assignedBy": "admin",
+  "completedProcesses": [
+    null
+  ],
+  "assignedAt": {
+    "$date": "2025-09-18T08:14:23.524Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-18T08:14:23.525Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-18T08:14:39.644Z"
+  },
+  "__v": 1
+},
+{
+  "_id": {
+    "$oid": "68e00b1b2d058d71520377bb"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "DF 4573",
+  "bodyColor": "White",
+  "variation": "4x2 LSA",
+  "status": "Assigned to Dispatch",
+  "processes": [
+    "carwash",
+    "ceramic_coating",
+    "accessories",
+    "tinting",
+    "rust_proof"
+  ],
+  "processStatus": {
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "tinting": false,
+    "rust_proof": false
+  },
+  "assignedBy": "admin",
+  "notes": [],
+  "createdAt": {
+    "$date": "2025-10-03T17:42:51.529Z"
+  },
+  "__v": 0
+}]

@@ -1,0 +1,46 @@
+[{
+  "_id": {
+    "$oid": "68bf0b5da4c6bca3ab02c42a"
+  },
+  "vehicleId": "68bdaa97904fd9bc04e44184",
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FD 3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "completedProcesses": [
+    "carwash",
+    "tinting",
+    "accessories",
+    "rust_proof",
+    "ceramic_coating"
+  ],
+  "releasedBy": "Admin",
+  "releasedAt": {
+    "$date": "2025-09-08T16:59:08.008Z"
+  },
+  "status": "Released to Customer",
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68bf0ca9e994d98cdb27b244"
+  },
+  "vehicleId": "68bdaa97904fd9bc04e44184",
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FD 3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "completedProcesses": [
+    "carwash",
+    "tinting",
+    "accessories",
+    "rust_proof",
+    "ceramic_coating"
+  ],
+  "releasedBy": "Admin",
+  "releasedAt": {
+    "$date": "2025-09-08T17:04:39.280Z"
+  },
+  "status": "Released to Customer",
+  "__v": 0
+}]

@@ -17,6 +17,9 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import Colors from '../constants/Colors';
+import EnhancedVehicleForm from '../components/EnhancedVehicleForm';
+import { getUnitNames, getVariationsForUnit, VEHICLE_STATUS_OPTIONS } from '../constants/VehicleModels';
 
 const { width } = Dimensions.get('window');
 
@@ -27,17 +30,8 @@ export default function InventoryScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  
-  // New vehicle form state
-  const [newVehicle, setNewVehicle] = useState({
-    unitName: '',
-    unitId: '',
-    bodyColor: '',
-    variation: '',
-    status: 'In Stock',
-    notes: ''
-  });
 
   // Fetch vehicles from inventory
   const fetchVehicles = useCallback(async () => {
@@ -92,9 +86,9 @@ export default function InventoryScreen() {
   };
 
   // Add new vehicle to inventory
-  const handleAddVehicle = async () => {
-    if (!newVehicle.unitName || !newVehicle.unitId) {
-      Alert.alert('Error', 'Please fill in required fields (Unit Name & Unit ID)');
+  const handleAddVehicle = async (vehicleData) => {
+    if (!vehicleData.unitName || !vehicleData.variation || !vehicleData.conductionNumber) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -105,8 +99,9 @@ export default function InventoryScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...newVehicle,
-          addedBy: await AsyncStorage.getItem('accountName') || 'System'
+          ...vehicleData,
+          addedBy: await AsyncStorage.getItem('accountName') || 'System',
+          dateAdded: new Date().toISOString()
         }),
       });
 
@@ -114,22 +109,46 @@ export default function InventoryScreen() {
       
       if (data.success) {
         Alert.alert('Success', 'Vehicle added to inventory successfully');
-        setShowAddModal(false);
-        setNewVehicle({
-          unitName: '',
-          unitId: '',
-          bodyColor: '',
-          variation: '',
-          status: 'In Stock',
-          notes: ''
-        });
-        fetchVehicles();
+        fetchVehicles(); // Refresh the list
       } else {
         Alert.alert('Error', data.message || 'Failed to add vehicle');
       }
     } catch (error) {
       console.error('Error adding vehicle:', error);
       Alert.alert('Error', 'Failed to add vehicle to inventory');
+    }
+  };
+
+  // Update existing vehicle
+  const handleUpdateVehicle = async (vehicleData) => {
+    if (!selectedVehicle) return;
+
+    try {
+      const response = await fetch(buildApiUrl(`/updateInventoryItem/${selectedVehicle._id}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...vehicleData,
+          lastUpdatedBy: await AsyncStorage.getItem('accountName') || 'System',
+          dateUpdated: new Date().toISOString()
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        Alert.alert('Success', 'Vehicle updated successfully');
+        fetchVehicles(); // Refresh the list
+        setShowEditModal(false);
+        setSelectedVehicle(null);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update vehicle');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+      Alert.alert('Error', 'Failed to update vehicle');
     }
   };
 
@@ -184,13 +203,25 @@ export default function InventoryScreen() {
       
       <View style={styles.vehicleDetails}>
         <View style={styles.detailRow}>
-          <MaterialIcons name="palette" size={16} color="#666" />
-          <Text style={styles.detailText}>Color: {item.bodyColor || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailRow}>
           <MaterialIcons name="build" size={16} color="#666" />
           <Text style={styles.detailText}>Variation: {item.variation || 'Standard'}</Text>
         </View>
+        <View style={styles.detailRow}>
+          <MaterialIcons name="palette" size={16} color="#666" />
+          <Text style={styles.detailText}>Color: {item.bodyColor || 'N/A'}</Text>
+        </View>
+        {item.conductionNumber && (
+          <View style={styles.detailRow}>
+            <MaterialIcons name="confirmation-number" size={16} color="#666" />
+            <Text style={styles.detailText}>Conduction: {item.conductionNumber}</Text>
+          </View>
+        )}
+        {item.engineNumber && (
+          <View style={styles.detailRow}>
+            <MaterialIcons name="settings" size={16} color="#666" />
+            <Text style={styles.detailText}>Engine: {item.engineNumber}</Text>
+          </View>
+        )}
         {item.addedDate && (
           <View style={styles.detailRow}>
             <MaterialIcons name="schedule" size={16} color="#666" />
@@ -202,6 +233,16 @@ export default function InventoryScreen() {
       </View>
 
       <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.editBtn]}
+          onPress={() => {
+            setEditingVehicle(item);
+            setShowEditModal(true);
+          }}
+        >
+          <MaterialIcons name="edit" size={16} color="#007AFF" />
+          <Text style={styles.actionBtnText}>Edit</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.editBtn]}
           onPress={() => {
@@ -218,8 +259,8 @@ export default function InventoryScreen() {
             );
           }}
         >
-          <MaterialIcons name="edit" size={16} color="#007AFF" />
-          <Text style={styles.actionBtnText}>Update</Text>
+          <MaterialIcons name="update" size={16} color="#007AFF" />
+          <Text style={styles.actionBtnText}>Status</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -307,88 +348,29 @@ export default function InventoryScreen() {
         />
       )}
 
-      {/* Add Vehicle Modal */}
-      <Modal visible={showAddModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Vehicle</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <MaterialIcons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
+      {/* Enhanced Vehicle Form Modal */}
+      {showAddModal && (
+        <EnhancedVehicleForm
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddVehicle}
+          mode="add"
+        />
+      )}
 
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Unit Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Isuzu D-MAX"
-                  value={newVehicle.unitName}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, unitName: text})}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Unit ID *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., DMAX001"
-                  value={newVehicle.unitId}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, unitId: text})}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Body Color</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., White, Red, Black"
-                  value={newVehicle.bodyColor}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, bodyColor: text})}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Variation</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., 4x4, LS, EX"
-                  value={newVehicle.variation}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, variation: text})}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Notes</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Additional notes..."
-                  value={newVehicle.notes}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, notes: text})}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setShowAddModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtn]}
-                onPress={handleAddVehicle}
-              >
-                <Text style={styles.saveBtnText}>Add Vehicle</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Enhanced Edit Vehicle Form Modal */}
+      {showEditModal && editingVehicle && (
+        <EnhancedVehicleForm
+          visible={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingVehicle(null);
+          }}
+          onSubmit={handleUpdateVehicle}
+          mode="edit"
+          initialData={editingVehicle}
+        />
+      )}
     </View>
   );
 }
@@ -396,7 +378,7 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.backgroundLight,
   },
   header: {
     flexDirection: 'row',
@@ -415,19 +397,19 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontWeight: '600',
     marginLeft: 4,
   },
   searchContainer: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.background,
   },
   searchBox: {
     flexDirection: 'row',
@@ -460,21 +442,21 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   filterBtnActive: {
-    backgroundColor: '#e50914',
-    borderColor: '#e50914',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterBtnText: {
     color: '#666',
     fontWeight: '500',
   },
   filterBtnTextActive: {
-    color: '#fff',
+    color: Colors.textLight,
   },
   listContainer: {
     padding: 20,
   },
   vehicleCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,

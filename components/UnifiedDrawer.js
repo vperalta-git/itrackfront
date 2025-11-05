@@ -13,7 +13,8 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import Colors from '../constants/Colors';
 
 // Import all screens
 import AdminDashboard from '../screens/AdminDashboard';
@@ -221,9 +222,9 @@ export default function UnifiedDrawer() {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: '#e50914' },
-        headerTintColor: '#fff',
-        drawerStyle: { backgroundColor: '#1a1a1a', width: width * 0.8 },
+        headerStyle: { backgroundColor: Colors.primary },
+        headerTintColor: Colors.textLight,
+        drawerStyle: { backgroundColor: Colors.secondary, width: width * 0.8 },
         headerTitle: 'I-Track System',
       }}
     >
@@ -318,7 +319,7 @@ export default function UnifiedDrawer() {
 const styles = StyleSheet.create({
   drawerContainer: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: Colors.secondary,
   },
   drawerHeader: {
     padding: 20,
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeMenuItem: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
   },
   menuIcon: {
     width: 24,
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#333',
+    backgroundColor: Colors.secondaryLight,
     borderRadius: 8,
   },
   signOutIcon: {

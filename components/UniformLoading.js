@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import Colors from '../constants/Colors';
 
 const UniformLoading = ({ 
   message = 'Loading...', 
   size = 'large', 
   showMessage = true,
-  backgroundColor = 'rgba(255, 255, 255, 0.95)',
+  backgroundColor = Colors.loadingBackground,
   style = {} 
 }) => {
   return (
@@ -67,8 +68,8 @@ const styles = StyleSheet.create({
     height: 80,
   },
   loadingText: {
-    color: '#2D2D2D',
-    fontWeight: '500',
+    color: Colors.primary,
+    fontWeight: '600',
     textAlign: 'center',
   },
   smallText: {

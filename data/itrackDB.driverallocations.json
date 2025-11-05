@@ -1,0 +1,2518 @@
+[{
+  "_id": {
+    "$oid": "684781c3a98bcffb042f5b09"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FJ3577",
+  "bodyColor": "White",
+  "variation": "4x4",
+  "assignedDriver": "Benjamin",
+  "status": "In Transit",
+  "date": {
+    "$date": "2025-06-10T00:00:00.000Z"
+  },
+  "__v": 1,
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:11.996Z"
+  },
+  "allocatedBy": "admin3",
+  "driverLocation": {
+    "latitude": 14.58560053287582,
+    "longitude": 121.05575963545368,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.249Z"
+    }
+  },
+  "location": {
+    "latitude": 14.732170553608528,
+    "longitude": 121.04969365062206,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.247Z"
+    },
+    "address": "Malabon City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.6507,
+    "longitude": 121.1029,
+    "address": "Marikina City Center",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:11.994Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6507,
+    "longitude": 121.1029,
+    "address": "Marikina City Center",
+    "customerName": "Customer 797",
+    "contactNumber": "+639178740039"
+  }
+},
+{
+  "_id": {
+    "$oid": "6855d92708e6aecf96aa14f2"
+  },
+  "unitName": "DMAX",
+  "unitId": "12834",
+  "bodyColor": "White",
+  "variation": "N/A",
+  "assignedDriver": "Vionne Ulrich Peralta",
+  "status": "Delivered",
+  "createdAt": {
+    "$date": "2025-06-20T21:56:55.921Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.029Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.470478071496334,
+    "longitude": 121.04781095590036,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.317Z"
+    }
+  },
+  "location": {
+    "latitude": 14.772751887911353,
+    "longitude": 121.05985768412836,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.317Z"
+    },
+    "address": "Navotas City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.028Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Customer Location - QC",
+    "customerName": "Customer 167",
+    "contactNumber": "+639172624541"
+  }
+},
+{
+  "_id": {
+    "$oid": "6855f29508e6aecf96aa1593"
+  },
+  "unitName": "Traviz",
+  "unitId": "5754",
+  "bodyColor": "N/A",
+  "variation": "N/A",
+  "assignedDriver": "Vionne Ulrich Peralta",
+  "status": "Out for Delivery",
+  "createdAt": {
+    "$date": "2025-06-20T23:45:25.431Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.062Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.648434500939734,
+    "longitude": 121.03073947226578,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.347Z"
+    }
+  },
+  "location": {
+    "latitude": 14.468038165493185,
+    "longitude": 121.04851196865708,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.347Z"
+    },
+    "address": "Muntinlupa City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.060Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Mandaluyong City",
+    "customerName": "Customer 643",
+    "contactNumber": "+639170847284"
+  }
+},
+{
+  "_id": {
+    "$oid": "68562b36831a97cce43b9a95"
+  },
+  "unitName": "DMax",
+  "unitId": "8273628",
+  "bodyColor": "N/A",
+  "variation": "N/A",
+  "assignedDriver": "Vionne Ulrich Peralta",
+  "status": "Pending",
+  "createdAt": {
+    "$date": "2025-06-21T03:47:02.200Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.095Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.468213315185704,
+    "longitude": 121.04899343562838,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.384Z"
+    }
+  },
+  "location": {
+    "latitude": 14.53574537033206,
+    "longitude": 121.00607900382643,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.383Z"
+    },
+    "address": "Manila City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Isuzu Quezon City Branch",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.094Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5255,
+    "longitude": 121.0225,
+    "address": "Customer Location - Taguig",
+    "customerName": "Customer 160",
+    "contactNumber": "+639176855818"
+  }
+},
+{
+  "_id": {
+    "$oid": "685638374cbdaf3f9bc94032"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "TESTING",
+  "bodyColor": "White",
+  "variation": "4x4",
+  "assignedDriver": "John Doe",
+  "status": "Delivered",
+  "date": {
+    "$date": "2025-06-21T00:00:00.000Z"
+  },
+  "allocatedBy": "admin3",
+  "__v": 1,
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.126Z"
+  },
+  "driverLocation": {
+    "latitude": 14.576015079775495,
+    "longitude": 121.0858540682077,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.417Z"
+    }
+  },
+  "location": {
+    "latitude": 14.573174234631812,
+    "longitude": 121.08158088014673,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.417Z"
+    },
+    "address": "Pasig City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.125Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Mandaluyong City",
+    "customerName": "Customer 690",
+    "contactNumber": "+639171940297"
+  }
+},
+{
+  "_id": {
+    "$oid": "68563eb34cbdaf3f9bc940db"
+  },
+  "unitName": "testing",
+  "unitId": "testing",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "assignedDriver": "Benjamin",
+  "status": "Delivered",
+  "date": {
+    "$date": "2025-06-21T00:00:00.000Z"
+  },
+  "allocatedBy": "admin3",
+  "__v": 1,
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.157Z"
+  },
+  "driverLocation": {
+    "latitude": 14.652582297446207,
+    "longitude": 121.03117815219089,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.448Z"
+    }
+  },
+  "location": {
+    "latitude": 14.581399384004628,
+    "longitude": 121.06098588373062,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.448Z"
+    },
+    "address": "Mandaluyong City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.157Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5513,
+    "longitude": 121.0477,
+    "address": "BGC, Taguig City",
+    "customerName": "Customer 277",
+    "contactNumber": "+639173846872"
+  }
+},
+{
+  "_id": {
+    "$oid": "685934b16ea49e4ee83e307a"
+  },
+  "unitName": "testingeeeee",
+  "unitId": "testing",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "assignedDriver": "John Doe",
+  "status": "Out for Delivery",
+  "date": {
+    "$date": "2025-06-23T00:00:00.000Z"
+  },
+  "allocatedBy": "admin1",
+  "__v": 1,
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.188Z"
+  },
+  "driverLocation": {
+    "latitude": 14.731635331585847,
+    "longitude": 121.05550098848512,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.494Z"
+    }
+  },
+  "location": {
+    "latitude": 14.65035458890147,
+    "longitude": 120.9869818350361,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.493Z"
+    },
+    "address": "Valenzuela City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.187Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5906,
+    "longitude": 120.9719,
+    "address": "Customer Location - Manila",
+    "customerName": "Customer 435",
+    "contactNumber": "+639173108049"
+  }
+},
+{
+  "_id": {
+    "$oid": "68a9d498060eec8bfb5cd70c"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "WB3846",
+  "bodyColor": "Blue",
+  "variation": "LS",
+  "assignedDriver": "John Doe",
+  "status": "Pending",
+  "date": {
+    "$date": "2025-08-23T00:00:00.000Z"
+  },
+  "allocatedBy": "admin3",
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.590456738572248,
+    "longitude": 120.96422942011166,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.527Z"
+    }
+  },
+  "location": {
+    "latitude": 14.650054074174808,
+    "longitude": 120.98254478977233,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.527Z"
+    },
+    "address": "Valenzuela City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.219Z"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "address": "Isuzu Makati Showroom",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.218Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6019,
+    "longitude": 121.0355,
+    "address": "San Juan City",
+    "customerName": "Customer 488",
+    "contactNumber": "+639176541197"
+  }
+},
+{
+  "_id": {
+    "$oid": "68ac2089f8ce17f374dda8fd"
+  },
+  "unitName": "Traviz",
+  "unitId": "TD4812",
+  "bodyColor": "N/A",
+  "variation": "N/A",
+  "assignedDriver": "Driver",
+  "status": "Pending",
+  "createdAt": {
+    "$date": "2025-08-25T08:36:25.623Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.250Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.43928158584702,
+    "longitude": 120.9989698955708,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.559Z"
+    }
+  },
+  "location": {
+    "latitude": 14.649908682097932,
+    "longitude": 121.03372779075413,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.558Z"
+    },
+    "address": "Quezon City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Isuzu Quezon City Branch",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.249Z"
+    }
+  },
+  "allocatedBy": "admin3",
+  "deliveryLocation": {
+    "latitude": 14.4297,
+    "longitude": 121.0403,
+    "address": "Alabang, Muntinlupa",
+    "customerName": "Customer 363",
+    "contactNumber": "+639174760016"
+  }
+},
+{
+  "_id": {
+    "$oid": "68ae13c8826c216e6d9f96fd"
+  },
+  "unitName": "DMAX",
+  "unitId": "HD8123",
+  "bodyColor": "Black",
+  "variation": "4x2 LSA",
+  "assignedDriver": "Driver (Tester)",
+  "status": "Pending",
+  "date": {
+    "$date": "2025-08-26T20:06:32.827Z"
+  },
+  "allocatedBy": "Admin",
+  "createdAt": {
+    "$date": "2025-08-26T20:06:32.834Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.281Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.650169701777482,
+    "longitude": 120.98389363059322,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.592Z"
+    }
+  },
+  "location": {
+    "latitude": 14.60266613440445,
+    "longitude": 121.02230132643635,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.592Z"
+    },
+    "address": "BGC, Taguig City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "address": "Isuzu Makati Showroom",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.280Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.4297,
+    "longitude": 121.0403,
+    "address": "Alabang, Muntinlupa",
+    "customerName": "Customer 220",
+    "contactNumber": "+639174793761"
+  }
+},
+{
+  "_id": {
+    "$oid": "68ae1ed224a8dcc55729e70c"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "assignedDriver": "Driver123",
+  "status": "Assigned",
+  "createdAt": {
+    "$date": "2025-08-26T20:53:38.926Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.313Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.673529775936627,
+    "longitude": 121.04432716673067,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.624Z"
+    }
+  },
+  "location": {
+    "latitude": 14.599212965164327,
+    "longitude": 121.01910526255243,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.623Z"
+    },
+    "address": "BGC, Taguig City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.312Z"
+    }
+  },
+  "allocatedBy": "admin3",
+  "deliveryLocation": {
+    "latitude": 14.5866,
+    "longitude": 121.0635,
+    "address": "Ortigas Center, Pasig",
+    "customerName": "Customer 250",
+    "contactNumber": "+639177190494"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bc1c5d518438f1fc7e1648"
+  },
+  "unitName": "ISUZU MU-X",
+  "unitId": "FG4523",
+  "bodyColor": "Blue",
+  "variation": "LS-E",
+  "assignedDriver": "John Doe",
+  "status": "Pending",
+  "date": {
+    "$date": "2025-09-06T00:00:00.000Z"
+  },
+  "allocatedBy": "admin3",
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.438898712712092,
+    "longitude": 121.00045797871748,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.654Z"
+    }
+  },
+  "location": {
+    "latitude": 14.587134904595006,
+    "longitude": 120.96843816830871,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.654Z"
+    },
+    "address": "Las Pinas City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.344Z"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Isuzu Quezon City Branch",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.343Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6019,
+    "longitude": 121.0355,
+    "address": "San Juan City",
+    "customerName": "Customer 471",
+    "contactNumber": "+639176720657"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bf15b83c47d184407f269b"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "FG4343",
+  "bodyColor": "Gray",
+  "variation": "4x2 LSA",
+  "assignedDriver": "driveracc",
+  "assignedAgent": "salesagent1",
+  "status": "Assigned",
+  "allocatedBy": "admin3",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check"
+  ],
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "overallProgress": {
+    "completed": 0,
+    "total": 3,
+    "isComplete": false
+  },
+  "isReady": false,
+  "date": {
+    "$date": "2025-09-08T17:43:20.251Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-08T17:43:20.257Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.374Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.577910425488906,
+    "longitude": 121.08471118513647,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.688Z"
+    }
+  },
+  "location": {
+    "latitude": 14.649394791996649,
+    "longitude": 121.03486023973744,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.687Z"
+    },
+    "address": "Quezon City"
+  },
+  "readyForRelease": false,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.373Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5378,
+    "longitude": 121.0014,
+    "address": "Customer Location - Makati",
+    "customerName": "Customer 698",
+    "contactNumber": "+639170411629"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bf15e03c47d184407f269f"
+  },
+  "unitName": "MUX",
+  "unitId": "EF9",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driveracc",
+  "assignedAgent": "salesagent1",
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check"
+  ],
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "overallProgress": {
+    "completed": 0,
+    "total": 3,
+    "isComplete": false
+  },
+  "isReady": false,
+  "date": {
+    "$date": "2025-09-08T17:44:00.034Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-08T17:44:00.035Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.406Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.731798692972147,
+    "longitude": 121.0521424131651,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.729Z"
+    }
+  },
+  "location": {
+    "latitude": 14.441964254670962,
+    "longitude": 121.00537574965325,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.729Z"
+    },
+    "address": "Paranaque City"
+  },
+  "readyForRelease": false,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.405Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Mandaluyong City",
+    "customerName": "Customer 74",
+    "contactNumber": "+639171000507"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bf17793c47d184407f26ae"
+  },
+  "unitName": "mux",
+  "unitId": "sir123",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driver1",
+  "assignedAgent": "salesagent1",
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check"
+  ],
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "overallProgress": {
+    "completed": 0,
+    "total": 3,
+    "isComplete": false
+  },
+  "isReady": false,
+  "date": {
+    "$date": "2025-09-08T17:50:49.776Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-08T17:50:49.777Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.436Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.585344911685644,
+    "longitude": 121.0568174934067,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.777Z"
+    }
+  },
+  "location": {
+    "latitude": 14.47062656210598,
+    "longitude": 121.0478788889866,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.777Z"
+    },
+    "address": "Muntinlupa City"
+  },
+  "readyForRelease": false,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.436Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5866,
+    "longitude": 121.0635,
+    "address": "Ortigas Center, Pasig",
+    "customerName": "Customer 15",
+    "contactNumber": "+639178111984"
+  }
+},
+{
+  "_id": {
+    "$oid": "68bf1bb5f5cc07df2c9bf81d"
+  },
+  "unitName": "dmax",
+  "unitId": "ddmaxx",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driveracc",
+  "assignedAgent": "salesagent1",
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check"
+  ],
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "processCompletedBy": {},
+  "processCompletedAt": {},
+  "overallProgress": {
+    "completed": 0,
+    "total": 3,
+    "isComplete": false
+  },
+  "isReady": false,
+  "date": {
+    "$date": "2025-09-08T18:08:53.196Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-08T18:08:53.202Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.467Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.574226775934228,
+    "longitude": 121.08319625523606,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.808Z"
+    }
+  },
+  "location": {
+    "latitude": 14.601070327042466,
+    "longitude": 121.02081103225568,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.808Z"
+    },
+    "address": "BGC, Taguig City"
+  },
+  "readyForRelease": false,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.466Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5255,
+    "longitude": 121.0225,
+    "address": "Customer Location - Taguig",
+    "customerName": "Customer 582",
+    "contactNumber": "+639172881875"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0a83eec91220a4c7de1bd"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "status": "Assigned to Dispatch",
+  "date": {
+    "$date": "2025-09-09T22:20:46.311Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-09T22:20:46.315Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.498Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.245Z"
+    }
+  },
+  "location": {
+    "latitude": 14.728744967207142,
+    "longitude": 121.05553001953204,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.854Z"
+    },
+    "address": "Malabon City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.497Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5513,
+    "longitude": 121.0477,
+    "address": "BGC, Taguig City",
+    "customerName": "Customer 608",
+    "contactNumber": "+639173097737"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0a87cec91220a4c7de1c2"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "status": "Assigned to Dispatch",
+  "date": {
+    "$date": "2025-09-09T22:21:48.919Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-09T22:21:48.920Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.527Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.245Z"
+    }
+  },
+  "location": {
+    "latitude": 14.580448696730638,
+    "longitude": 121.05829003578675,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.899Z"
+    },
+    "address": "Mandaluyong City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.527Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6019,
+    "longitude": 121.0355,
+    "address": "San Juan City",
+    "customerName": "Customer 65",
+    "contactNumber": "+639177119546"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0a890ec91220a4c7de1c6"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "status": "Assigned to Dispatch",
+  "date": {
+    "$date": "2025-09-09T22:22:08.995Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-09T22:22:08.996Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.558Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.245Z"
+    }
+  },
+  "location": {
+    "latitude": 14.534389261249496,
+    "longitude": 121.00202792168173,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.931Z"
+    },
+    "address": "Manila City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.557Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6507,
+    "longitude": 121.1029,
+    "address": "Marikina City Center",
+    "customerName": "Customer 755",
+    "contactNumber": "+639176324963"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0a935a4b77e7cf426402c"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "status": "Assigned to Dispatch",
+  "date": {
+    "$date": "2025-09-09T22:24:53.826Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-09T22:24:53.830Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.588Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.245Z"
+    }
+  },
+  "location": {
+    "latitude": 14.470149530014575,
+    "longitude": 121.04806107774193,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.964Z"
+    },
+    "address": "Muntinlupa City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.588Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5255,
+    "longitude": 121.0225,
+    "address": "Customer Location - Taguig",
+    "customerName": "Customer 462",
+    "contactNumber": "+639179121746"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0a94ba4b77e7cf4264037"
+  },
+  "unitName": "Isuzu Traviz",
+  "unitId": "FD3434",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "status": "Assigned to Dispatch",
+  "date": {
+    "$date": "2025-09-09T22:25:15.863Z"
+  },
+  "createdAt": {
+    "$date": "2025-09-09T22:25:15.863Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.619Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.245Z"
+    }
+  },
+  "location": {
+    "latitude": 14.606970914488294,
+    "longitude": 121.01888947553745,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:25.999Z"
+    },
+    "address": "BGC, Taguig City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.618Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6019,
+    "longitude": 121.0355,
+    "address": "San Juan City",
+    "customerName": "Customer 847",
+    "contactNumber": "+639176818107"
+  }
+},
+{
+  "_id": {
+    "$oid": "68c0f101a0508e15ccb5fa06"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "GS 2462",
+  "bodyColor": "Blue",
+  "variation": "4x2 LSA",
+  "assignedDriver": "driveracc",
+  "status": "Assigned",
+  "date": {
+    "$date": "2025-09-10T03:31:13.693Z"
+  },
+  "allocatedBy": "Admin",
+  "createdAt": {
+    "$date": "2025-09-10T03:31:13.694Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.648Z"
+  },
+  "__v": 1,
+  "driverLocation": {
+    "latitude": 14.732990473143158,
+    "longitude": 121.05667497920773,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.030Z"
+    }
+  },
+  "location": {
+    "latitude": 14.72781032225628,
+    "longitude": 121.05225886966875,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.029Z"
+    },
+    "address": "Malabon City"
+  },
+  "overallProgress": {
+    "completed": 0,
+    "isComplete": false,
+    "total": 0
+  },
+  "processStatus": {
+    "accessories": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "rust_proof": false,
+    "tinting": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "readyForRelease": false,
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.647Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6507,
+    "longitude": 121.1029,
+    "address": "Marikina City Center",
+    "customerName": "Customer 395",
+    "contactNumber": "+639171836130"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cbbeba52464eb4dc7129b7"
+  },
+  "unitName": "Mux",
+  "unitId": "1909",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driveracc",
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-18T08:11:38.044Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.679Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.59196753651937,
+    "longitude": 121.13150748943927,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.065Z"
+    }
+  },
+  "location": {
+    "latitude": 14.76645311470824,
+    "longitude": 121.05747655143269,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.065Z"
+    },
+    "address": "Navotas City"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.678Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5866,
+    "longitude": 121.0635,
+    "address": "Ortigas Center, Pasig",
+    "customerName": "Customer 858",
+    "contactNumber": "+639171717957"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cc4ccf7d072c5501e39ea3"
+  },
+  "unitName": "Dmax",
+  "unitId": "321098",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driveracc",
+  "status": "In Progress",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-18T18:17:51.485Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.709Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.5399820226914,
+    "longitude": 121.00281331330872,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.099Z"
+    }
+  },
+  "location": {
+    "latitude": 14.589612338292394,
+    "longitude": 121.12572208352391,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.099Z"
+    },
+    "address": "Antipolo, Rizal"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.709Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6019,
+    "longitude": 121.0355,
+    "address": "San Juan City",
+    "customerName": "Customer 708",
+    "contactNumber": "+639175947018"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cc4e397d072c5501e39eb8"
+  },
+  "unitName": "Test Unit",
+  "unitId": "TEST001",
+  "bodyColor": "Red",
+  "variation": "LS",
+  "assignedDriver": "john_doe",
+  "status": "Pending",
+  "allocatedBy": "admin",
+  "requestedProcesses": [
+    "carwash",
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 1,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-18T18:23:53.466Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.740Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.64858276868716,
+    "longitude": 120.9840274152946,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.130Z"
+    }
+  },
+  "location": {
+    "latitude": 14.523903382174316,
+    "longitude": 121.08000662313152,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.130Z"
+    },
+    "address": "Marikina City"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Isuzu Quezon City Branch",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.739Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5378,
+    "longitude": 121.0014,
+    "address": "Customer Location - Makati",
+    "customerName": "Customer 54",
+    "contactNumber": "+639173619448"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd0623c44dbbbb10e4899c"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "KV3572",
+  "bodyColor": "White",
+  "variation": "4x4",
+  "assignedDriver": "driveracc",
+  "status": "In Progress",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T07:28:35.339Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.770Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.673900067113431,
+    "longitude": 121.04230865332546,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.162Z"
+    }
+  },
+  "location": {
+    "latitude": 14.534429942246362,
+    "longitude": 121.00286944977377,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.162Z"
+    },
+    "address": "Manila City"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.769Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5513,
+    "longitude": 121.0477,
+    "address": "BGC, Taguig City",
+    "customerName": "Customer 406",
+    "contactNumber": "+639177874152"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd089fc44dbbbb10e489b3"
+  },
+  "unitName": "Isuzu D-Max Test",
+  "unitId": "TESTVIN123",
+  "bodyColor": "Red",
+  "variation": "Pickup",
+  "assignedDriver": "testdriver123",
+  "status": "In Progress",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T07:39:11.259Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.799Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.536131459970571,
+    "longitude": 121.0001161149139,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.194Z"
+    }
+  },
+  "location": {
+    "latitude": 14.590223329196155,
+    "longitude": 121.12649173348322,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.194Z"
+    },
+    "address": "Antipolo, Rizal"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.798Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6507,
+    "longitude": 121.1029,
+    "address": "Marikina City Center",
+    "customerName": "Customer 507",
+    "contactNumber": "+639175637531"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd21364ffd8711d94c666f"
+  },
+  "unitName": "Isuzu D-Max Local",
+  "unitId": "LOCAL123",
+  "bodyColor": "Red",
+  "variation": "4x4",
+  "assignedDriver": "testdriverlocal",
+  "assignedAgent": null,
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T09:24:06.724Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.829Z"
+  },
+  "__v": 0,
+  "driverLocation": {
+    "latitude": 14.675092087493043,
+    "longitude": 121.04216779162421,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.227Z"
+    }
+  },
+  "location": {
+    "latitude": 14.586916244311226,
+    "longitude": 121.12794763887631,
+    "lastUpdated": {
+      "$date": "2025-09-19T13:39:26.227Z"
+    },
+    "address": "Antipolo, Rizal"
+  },
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.828Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.6198,
+    "longitude": 121.0568,
+    "address": "Customer Location - Pasig",
+    "customerName": "Customer 434",
+    "contactNumber": "+639179390990"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976da3"
+  },
+  "unitName": "Isuzu D-Max LS 4x2",
+  "unitId": "ISUZU-001",
+  "bodyColor": "Pearl White",
+  "variation": "Single Cab",
+  "assignedDriver": "testdriver1",
+  "assignedAgent": "testagent1",
+  "status": "Assigned",
+  "location": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    },
+    "address": "Isuzu Pasig Dealership, Ortigas Ave, Pasig City"
+  },
+  "driverLocation": {
+    "latitude": 14.57,
+    "longitude": 121.058,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    }
+  },
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.313Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.859Z"
+  },
+  "__v": 0,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.858Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5866,
+    "longitude": 121.0635,
+    "address": "Ortigas Center, Pasig",
+    "customerName": "Customer 743",
+    "contactNumber": "+639179844574"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976da5"
+  },
+  "unitName": "Isuzu MU-X LS-E",
+  "unitId": "ISUZU-002",
+  "bodyColor": "Obsidian Gray",
+  "variation": "SUV",
+  "assignedDriver": "testdriver1",
+  "assignedAgent": "testagent1",
+  "status": "Ready for Delivery",
+  "location": {
+    "latitude": 14.5801,
+    "longitude": 121.0665,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    },
+    "address": "Isuzu Pasig Service Center, C5 Road, Pasig City"
+  },
+  "driverLocation": {
+    "latitude": 14.571,
+    "longitude": 121.059,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    }
+  },
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.347Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.890Z"
+  },
+  "__v": 0,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.890Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5906,
+    "longitude": 120.9719,
+    "address": "Customer Location - Manila",
+    "customerName": "Customer 587",
+    "contactNumber": "+639177488604"
+  }
+},
+{
+  "_id": {
+    "$oid": "68cd71c8831b4a7a6a976da7"
+  },
+  "unitName": "Isuzu NPR Truck",
+  "unitId": "ISUZU-003",
+  "bodyColor": "White",
+  "variation": "Cargo Truck",
+  "assignedDriver": "testdriver2",
+  "assignedAgent": "testagent2",
+  "status": "In Transit",
+  "location": {
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    },
+    "address": "Isuzu Makati Showroom, Ayala Avenue, Makati City"
+  },
+  "driverLocation": {
+    "latitude": 14.55,
+    "longitude": 121.03,
+    "lastUpdated": {
+      "$date": "2025-09-19T15:07:51.213Z"
+    }
+  },
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 0,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "createdAt": {
+    "$date": "2025-09-19T15:07:52.377Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.920Z"
+  },
+  "__v": 0,
+  "deliveryDestination": {
+    "address": "Isuzu Pasig Dealership, C5 Road, Pasig City, Metro Manila",
+    "contactNumber": "+63 2 8234 5678",
+    "contactPerson": "Isuzu Pasig Reception",
+    "latitude": 14.5791,
+    "longitude": 121.0655
+  },
+  "currentLocation": {
+    "latitude": 14.676,
+    "longitude": 121.0437,
+    "address": "Customer Location - QC",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.919Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.4297,
+    "longitude": 121.0403,
+    "address": "Alabang, Muntinlupa",
+    "customerName": "Customer 687",
+    "contactNumber": "+639177415110"
+  }
+},
+{
+  "_id": {
+    "$oid": "68db75778c759fdb6e055b7f"
+  },
+  "unitName": "Isuzu MU-X Blue Power",
+  "unitId": "ISUZU-005",
+  "bodyColor": "Titanium Silver",
+  "variation": "SUV 7-Seater",
+  "assignedDriver": "Unassigned",
+  "status": "Pending",
+  "allocatedBy": "admin",
+  "currentLocation": {
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "address": "Isuzu Makati Showroom",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.950Z"
+    }
+  },
+  "deliveryDestination": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership, Metro Manila"
+  },
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check",
+    "tinting",
+    "ceramic_coating",
+    "carwash",
+    "accessories",
+    "rust_proof"
+  ],
+  "processStatus": {
+    "tinting": false,
+    "carwash": false,
+    "ceramic_coating": false,
+    "accessories": false,
+    "rust_proof": false,
+    "delivery_to_isuzu_pasig": false
+  },
+  "overallProgress": {
+    "completed": 0,
+    "total": 8,
+    "isComplete": false
+  },
+  "readyForRelease": false,
+  "locationHistory": [],
+  "createdAt": {
+    "$date": "2025-09-30T06:15:19.404Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.950Z"
+  },
+  "__v": 0,
+  "deliveryLocation": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Mandaluyong City",
+    "customerName": "Customer 706",
+    "contactNumber": "+639176395569"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e00b8e2d058d71520377cf"
+  },
+  "unitName": "Isuzu MU-X",
+  "unitId": "KV3572",
+  "bodyColor": "White",
+  "variation": "4x4",
+  "assignedDriver": "driveracc",
+  "assignedAgent": "salesagent1",
+  "status": "Assigned",
+  "allocatedBy": "Admin",
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:12.980Z"
+    }
+  },
+  "deliveryDestination": {
+    "latitude": 14.5791,
+    "longitude": 121.0614,
+    "address": "Isuzu Pasig"
+  },
+  "requestedProcesses": [
+    "delivery_to_isuzu_pasig",
+    "stock_integration",
+    "documentation_check"
+  ],
+  "processStatus": {},
+  "date": {
+    "$date": "2025-10-03T17:44:46.777Z"
+  },
+  "locationHistory": [],
+  "createdAt": {
+    "$date": "2025-10-03T17:44:46.829Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:12.981Z"
+  },
+  "__v": 0,
+  "deliveryLocation": {
+    "latitude": 14.4297,
+    "longitude": 121.0403,
+    "address": "Alabang, Muntinlupa",
+    "customerName": "Customer 379",
+    "contactNumber": "+639179509681"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e162f9ce0f62d86689bfdc"
+  },
+  "unitName": "DMAX",
+  "unitId": "683c2045e709e3096afe2950",
+  "bodyColor": "White",
+  "variation": "4x2 LSA",
+  "assignedDriver": "driveracc",
+  "status": "Assigned",
+  "date": {
+    "$date": "2025-10-04T18:10:01.155Z"
+  },
+  "createdAt": {
+    "$date": "2025-10-04T18:10:01.210Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:13.010Z"
+  },
+  "__v": 0,
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:13.010Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5513,
+    "longitude": 121.0477,
+    "address": "BGC, Taguig City",
+    "customerName": "Customer 363",
+    "contactNumber": "+639177193550"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e28b0b0d149926256da479"
+  },
+  "unitName": "MUX",
+  "unitId": "683bf8b07472f3cc0b942075",
+  "bodyColor": "White",
+  "variation": "4x2 LSA",
+  "assignedDriver": "driveracc",
+  "status": "Assigned",
+  "date": {
+    "$date": "2025-10-05T15:13:15.332Z"
+  },
+  "createdAt": {
+    "$date": "2025-10-05T15:13:15.330Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:13.040Z"
+  },
+  "__v": 0,
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:13.040Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.5794,
+    "longitude": 121.0359,
+    "address": "Mandaluyong City",
+    "customerName": "Customer 178",
+    "contactNumber": "+639178394490"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e342b5e5b966a7d831e6dc"
+  },
+  "unitName": "testingnatin",
+  "unitId": "1234",
+  "bodyColor": "Manual Entry",
+  "variation": "Manual Entry",
+  "assignedDriver": "driveracc",
+  "status": "Assigned",
+  "date": {
+    "$date": "2025-10-06T04:16:54.507Z"
+  },
+  "createdAt": {
+    "$date": "2025-10-06T04:16:53.691Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-10T16:57:13.071Z"
+  },
+  "__v": 0,
+  "currentLocation": {
+    "latitude": 14.5791,
+    "longitude": 121.0655,
+    "address": "Isuzu Pasig Dealership",
+    "lastUpdated": {
+      "$date": "2025-10-10T16:57:13.071Z"
+    }
+  },
+  "deliveryLocation": {
+    "latitude": 14.4297,
+    "longitude": 121.0403,
+    "address": "Alabang, Muntinlupa",
+    "customerName": "Customer 152",
+    "contactNumber": "+639175579267"
+  }
+}]

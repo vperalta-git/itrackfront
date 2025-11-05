@@ -16,6 +16,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import Colors from '../constants/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundcolor: Colors.textLight,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -585,19 +586,19 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontWeight: '600',
     marginLeft: 4,
   },
   searchContainer: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundcolor: Colors.textLight,
   },
   searchBox: {
     flexDirection: 'row',
@@ -618,7 +619,7 @@ const styles = StyleSheet.create({
   filterContainer: {
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: '#fff',
+    backgroundcolor: Colors.textLight,
   },
   filterBtn: {
     paddingHorizontal: 16,
@@ -630,7 +631,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   filterBtnActive: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     borderColor: '#e50914',
   },
   filterBtnText: {
@@ -638,13 +639,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   filterBtnTextActive: {
-    color: '#fff',
+    color: Colors.textLight,
   },
   listContainer: {
     padding: 20,
   },
   requestCard: {
-    backgroundColor: '#fff',
+    backgroundcolor: Colors.textLight,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -687,7 +688,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   badgeText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -777,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundcolor: Colors.textLight,
     borderRadius: 12,
     width: width * 0.9,
     maxHeight: '90%',
@@ -835,7 +836,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   priorityBtnActive: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     borderColor: '#e50914',
   },
   priorityBtnText: {
@@ -843,7 +844,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   priorityBtnTextActive: {
-    color: '#fff',
+    color: Colors.textLight,
   },
   servicesGrid: {
     flexDirection: 'row',
@@ -862,7 +863,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   serviceOptionActive: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     borderColor: '#e50914',
   },
   serviceOptionText: {
@@ -871,7 +872,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   serviceOptionTextActive: {
-    color: '#fff',
+    color: Colors.textLight,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -896,10 +897,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveBtn: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
   },
   saveBtnText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontWeight: '600',
   },
   // Details Modal Styles
@@ -935,7 +936,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   detailServiceTag: {
-    backgroundColor: '#e50914',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -943,7 +944,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailServiceTagText: {
-    color: '#fff',
+    color: Colors.textLight,
     fontSize: 14,
     fontWeight: '500',
   },

@@ -1,0 +1,38 @@
+[{
+  "_id": {
+    "$oid": "68515c3780094ae8081d83fe"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "IF 3802",
+  "bodyColor": "Black",
+  "variation": "LS-E",
+  "assignedDriver": "John Doe",
+  "status": "Completed",
+  "allocatedBy": "asd",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-06-17T12:14:47.796Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-17T12:14:47.796Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e88423aa751c7a820df8f1"
+  },
+  "unitName": "Isuzu D-MAX",
+  "unitId": "IF3802",
+  "bodyColor": "Black",
+  "variation": "4x4",
+  "assignedDriver": "John Doe",
+  "status": "Completed",
+  "allocatedBy": "admin3",
+  "updatedAt": {
+    "$date": "2025-10-10T03:57:23.936Z"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-10-10T03:57:23.936Z"
+  }
+}]
