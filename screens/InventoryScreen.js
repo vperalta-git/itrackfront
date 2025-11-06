@@ -99,7 +99,8 @@ export default function InventoryScreen() {
 
   // Add new vehicle to inventory
   const handleAddVehicle = async (vehicleData) => {
-    if (!vehicleData.unitName || !vehicleData.variation || !vehicleData.conductionNumber) {
+    if (!vehicleData.unitName || !vehicleData.variation || !vehicleData.vin || 
+        !vehicleData.conductionNumber || !vehicleData.engineNumber) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -260,18 +261,7 @@ export default function InventoryScreen() {
           <MaterialIcons name="palette" size={16} color="#666" />
           <Text style={styles.detailText}>Color: {item.bodyColor || 'N/A'}</Text>
         </View>
-        {item.conductionNumber && (
-          <View style={styles.detailRow}>
-            <MaterialIcons name="confirmation-number" size={16} color="#666" />
-            <Text style={styles.detailText}>Conduction: {item.conductionNumber}</Text>
-          </View>
-        )}
-        {item.engineNumber && (
-          <View style={styles.detailRow}>
-            <MaterialIcons name="settings" size={16} color="#666" />
-            <Text style={styles.detailText}>Engine: {item.engineNumber}</Text>
-          </View>
-        )}
+
         {item.addedDate && (
           <View style={styles.detailRow}>
             <MaterialIcons name="schedule" size={16} color="#666" />

@@ -42,14 +42,14 @@ export default function EnhancedVehicleForm({
   const [formData, setFormData] = useState({
     unitName: '',
     variation: '',
-    conductionNumber: '',
     vin: '',
-    bodyColor: '',
-    status: 'Available',
+    conductionNumber: '',
     engineNumber: '',
+    chassisNumber: '',
     keyNumber: '',
     plateNumber: '',
-    chassisNumber: '',
+    bodyColor: '',
+    status: 'Available',
     notes: ''
   });
 
@@ -92,14 +92,14 @@ export default function EnhancedVehicleForm({
     setFormData({
       unitName: '',
       variation: '',
-      conductionNumber: '',
       vin: '',
-      bodyColor: '',
-      status: 'Available',
+      conductionNumber: '',
       engineNumber: '',
+      chassisNumber: '',
       keyNumber: '',
       plateNumber: '',
-      chassisNumber: '',
+      bodyColor: '',
+      status: 'Available',
       notes: ''
     });
     setAvailableVariations([]);
@@ -153,12 +153,16 @@ export default function EnhancedVehicleForm({
       newErrors.variation = 'Invalid variation for selected unit';
     }
 
+    if (!formData.vin.trim()) {
+      newErrors.vin = 'VIN is required';
+    }
+
     if (!formData.conductionNumber.trim()) {
       newErrors.conductionNumber = 'Conduction Number is required';
     }
 
-    if (!formData.vin.trim()) {
-      newErrors.vin = 'VIN is required';
+    if (!formData.engineNumber.trim()) {
+      newErrors.engineNumber = 'Engine Number is required';
     }
 
     if (!formData.bodyColor.trim()) {
@@ -300,39 +304,39 @@ export default function EnhancedVehicleForm({
             <Text style={styles.sectionTitle}>Vehicle Details</Text>
             
             {renderInput(
-              'Conduction Number *', 
-              'conductionNumber', 
-              'Enter conduction number'
-            )}
-            
-            {renderInput(
               'VIN *', 
               'vin', 
               'Enter Vehicle Identification Number'
             )}
-            
+
             {renderInput(
-              'Engine Number', 
-              'engineNumber', 
-              'Enter engine number'
+              'Conduction Number *', 
+              'conductionNumber', 
+              'Enter Conduction Number'
             )}
-            
+
+            {renderInput(
+              'Engine Number *', 
+              'engineNumber', 
+              'Enter Engine Number'
+            )}
+
             {renderInput(
               'Chassis Number', 
               'chassisNumber', 
-              'Enter chassis number'
+              'Enter Chassis Number'
             )}
-            
+
             {renderInput(
               'Key Number', 
               'keyNumber', 
-              'Enter key number'
+              'Enter Key Number'
             )}
-            
+
             {renderInput(
               'Plate Number', 
               'plateNumber', 
-              'Enter plate number'
+              'Enter Plate Number'
             )}
           </View>
 
