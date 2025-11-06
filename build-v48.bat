@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 Building I-Track v48.0.0 - Route Planning & Enhanced Tracking Release
+echo 🚀 Building I-Track v48.0.0 - Route Planning and Enhanced Tracking Release
 cd /d "d:\Mobile App I-Track\itrack"
 
 echo 📝 Version: 48.0.0 with Route Planning System
