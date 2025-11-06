@@ -57,10 +57,23 @@ function AgentDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#e50914' },
-        headerTintColor: '#fff',
+        headerStyle: { 
+          backgroundColor: '#e50914',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+        },
+        headerTintColor: '#ffffff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16 },
+        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerStyle: { backgroundColor: '#e50914' },
+        drawerContentStyle: { backgroundColor: '#e50914' },
+        drawerItemStyle: { marginVertical: 2 },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Drawer.Screen 
@@ -102,10 +115,23 @@ function AdminDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#e50914' },
-        headerTintColor: '#fff',
+        headerStyle: { 
+          backgroundColor: '#e50914',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+        },
+        headerTintColor: '#ffffff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16 },
+        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerStyle: { backgroundColor: '#e50914' },
+        drawerContentStyle: { backgroundColor: '#e50914' },
+        drawerItemStyle: { marginVertical: 2 },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Drawer.Screen 
@@ -167,10 +193,23 @@ function ManagerDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#e50914' },
-        headerTintColor: '#fff',
+        headerStyle: { 
+          backgroundColor: '#e50914',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+        },
+        headerTintColor: '#ffffff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16 },
+        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerStyle: { backgroundColor: '#e50914' },
+        drawerContentStyle: { backgroundColor: '#e50914' },
+        drawerItemStyle: { marginVertical: 2 },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Drawer.Screen 
@@ -217,10 +256,23 @@ function SupervisorDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#e50914' },
-        headerTintColor: '#fff',
+        headerStyle: { 
+          backgroundColor: '#e50914',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+        },
+        headerTintColor: '#ffffff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16 },
+        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerStyle: { backgroundColor: '#e50914' },
+        drawerContentStyle: { backgroundColor: '#e50914' },
+        drawerItemStyle: { marginVertical: 2 },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Drawer.Screen 
@@ -323,9 +375,20 @@ export default function App() {
         <Stack.Navigator 
           initialRouteName={initialRoute}
           screenOptions={{
-            headerStyle: { backgroundColor: '#e50914' },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: 'bold' },
+            headerStyle: { 
+              backgroundColor: '#e50914',
+              elevation: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3,
+            },
+            headerTintColor: '#ffffff',
+            headerTitleStyle: { 
+              fontWeight: '700',
+              fontSize: 18,
+              color: '#ffffff'
+            },
           }}
         >
           {/* Authentication Screens */}

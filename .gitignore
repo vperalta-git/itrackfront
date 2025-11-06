@@ -77,4 +77,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# APK files (should not be committed to repository)
+*.apk
+*.aab
+
 # @end expo-cli

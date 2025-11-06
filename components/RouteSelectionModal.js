@@ -433,6 +433,20 @@ const RouteSelectionModal = ({
               onPress={handleMapPress}
               showsUserLocation={true}
               showsMyLocationButton={true}
+              onMapReady={() => {
+                console.log('🗺️ RouteSelectionModal: Map loaded successfully');
+              }}
+              onError={(error) => {
+                console.error('🗺️ RouteSelectionModal: Map error:', error);
+                Alert.alert(
+                  'Map Error',
+                  'Unable to load map. Please check your internet connection and try again.',
+                  [{ text: 'OK' }]
+                );
+              }}
+              loadingEnabled={true}
+              loadingIndicatorColor="#dc2626"
+              loadingBackgroundColor="#f3f4f6"
             >
               {/* Pickup Marker */}
               {pickupLocation && (

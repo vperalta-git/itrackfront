@@ -233,16 +233,24 @@ export default function UnifiedDrawer() {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: '#dc2626' }, // Red header to match sidebar
-        headerTintColor: '#fff',
+        headerStyle: { 
+          backgroundColor: '#e50914',
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+        },
+        headerTintColor: '#ffffff',
         drawerStyle: { 
-          backgroundColor: '#dc2626', // Red drawer background
-          width: Math.min(width * 0.85, 320), // Responsive width with max limit
+          backgroundColor: '#e50914',
+          width: Math.min(width * 0.88, 340),
         },
         headerTitle: 'I-Track System',
         headerTitleStyle: {
           fontSize: 18,
-          fontWeight: 'bold',
+          fontWeight: '700',
+          color: '#ffffff',
         },
       }}
     >
@@ -342,116 +350,132 @@ export default function UnifiedDrawer() {
 const styles = StyleSheet.create({
   drawerWrapper: {
     flex: 1,
-    backgroundColor: '#dc2626', // Red sidebar background
+    backgroundColor: '#e50914', // Clean red sidebar background (Netflix red)
   },
   drawerScrollContainer: {
     flexGrow: 1,
-    paddingBottom: 30, // Ensure content doesn't get cut off at bottom
-    minHeight: '100%', // Ensure full height is used
+    paddingBottom: 30,
+    minHeight: '100%',
   },
   drawerHeader: {
     padding: 20,
-    paddingTop: 30, // Extra padding for status bar
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingTop: 40, // More space for status bar
+    paddingBottom: 25,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
-    backgroundColor: '#dc2626', // Red background
+    backgroundColor: '#e50914',
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
-    tintColor: '#fff',
+    width: 50,
+    height: 50,
+    marginBottom: 12,
+    tintColor: '#ffffff',
   },
   appTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    letterSpacing: 1,
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 1.2,
+    textAlign: 'center',
   },
   userWelcome: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 16,
-    marginBottom: 2,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   userRole: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 15,
+    textAlign: 'center',
+    overflow: 'hidden',
   },
   menuContainer: {
-    paddingVertical: 15,
-    paddingHorizontal: 5,
-    flex: 1, // Allow menu to take available space
+    paddingVertical: 20,
+    paddingHorizontal: 8,
+    flex: 1,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginHorizontal: 5,
-    marginVertical: 2,
-    borderRadius: 8,
-    minHeight: 48, // Ensure touch targets are accessible
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginHorizontal: 6,
+    marginVertical: 3,
+    borderRadius: 10,
+    minHeight: 52,
+    backgroundColor: 'transparent',
   },
   activeMenuItem: {
-    backgroundColor: '#000000', // Black highlight for active item
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffffff',
+    paddingLeft: 14, // Adjust for border
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
   },
   menuIcon: {
-    width: 22,
-    height: 22,
-    marginRight: 15,
-    tintColor: '#fff',
+    width: 24,
+    height: 24,
+    marginRight: 16,
+    tintColor: '#ffffff',
+    opacity: 0.9,
   },
   activeMenuIcon: {
-    tintColor: '#fff', // Keep icons white even when active
+    tintColor: '#ffffff',
+    opacity: 1,
   },
   menuText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '500',
-    flex: 1, // Allow text to take available space
+    flex: 1,
+    opacity: 0.9,
   },
   activeMenuText: {
-    fontWeight: 'bold',
-    color: '#fff', // Keep text white when active
+    fontWeight: '600',
+    color: '#ffffff',
+    opacity: 1,
   },
   signOutContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    marginTop: 'auto', // Push to bottom but still scrollable
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+    marginTop: 'auto',
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.2)',
+    minHeight: 52,
   },
   signOutIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 12,
-    tintColor: '#fff',
+    width: 22,
+    height: 22,
+    marginRight: 14,
+    tintColor: '#ffffff',
+    opacity: 0.9,
   },
   signOutText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '600',
+    opacity: 0.9,
   },
 });

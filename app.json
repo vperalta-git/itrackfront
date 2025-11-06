@@ -2,7 +2,7 @@
   "expo": {
     "name": "I-Track",
     "slug": "itrack",
-    "version": "50.0.0",
+    "version": "51.0.0",
     "orientation": "portrait",
     "icon": "./assets/logoitrack.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.acmobility.itrack",
-      "versionCode": 52,
+      "versionCode": 53,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logoitrack.png",
         "backgroundColor": "#ffffff"
@@ -29,7 +29,12 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "INTERNET"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/logoitrack.png"
