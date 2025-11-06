@@ -19,10 +19,12 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
+import StocksOverview from '../components/StocksOverview';
 import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
 import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
 import UniformLoading from '../components/UniformLoading';
 import Colors from '../constants/Colors';
+import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -35,7 +37,6 @@ export default function AdminDashboard() {
   const [drivers, setDrivers] = useState([]);
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState('dashboard'); // Add tab state
 
   // Inventory management state
   const [inventory, setInventory] = useState([]);
@@ -48,6 +49,8 @@ export default function AdminDashboard() {
     bodyColor: "",
     variation: "",
   });
+  const [selectedUnitName, setSelectedUnitName] = useState("");
+  const [availableVariations, setAvailableVariations] = useState([]);
   const [editStock, setEditStock] = useState({
     unitName: "",
     unitId: "",
@@ -262,6 +265,14 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle unit name selection and update variations
+  const handleUnitNameChange = (unitName) => {
+    setSelectedUnitName(unitName);
+    setNewStock({ ...newStock, unitName: unitName, variation: "" }); // Reset variation when unit changes
+    const variations = getVariationsForUnit(unitName);
+    setAvailableVariations(variations);
+  };
+
   const handleAddStock = async () => {
     const { unitName, conductionNumber, bodyColor, variation } = newStock;
     if (!unitName || !conductionNumber || !bodyColor || !variation) {
@@ -288,6 +299,8 @@ export default function AdminDashboard() {
       
       Alert.alert("Success", "Stock added successfully!");
       setNewStock({ unitName: "", conductionNumber: "", bodyColor: "", variation: "" });
+      setSelectedUnitName("");
+      setAvailableVariations([]);
       setShowAddStockModal(false);
       await fetchInventory(); // Refresh inventory data
     } catch (error) {
@@ -1058,92 +1071,8 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* Stock Status Section - Accurate Pie Chart */}
-        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Stock Status Distribution</Text>
-          
-          {/* Improved Pie Chart with Visual Representation */}
-          <TouchableOpacity style={styles.pieChartContainer} onLongPress={() => {
-            Alert.alert('Stock Status Details', 
-              Object.entries(stockData)
-                .map(([status, count]) => `${status}: ${count} vehicles`)
-                .join('\n') + `\n\nTotal Inventory: ${inventory.length} vehicles`
-            );
-          }}>
-            <View style={[styles.pieChart, { borderColor: theme.primary }]}>
-              <Text style={[styles.pieChartLabel, { color: theme.textSecondary }]}>Stock{'\n'}Status{'\n'}(Tap for Details)</Text>
-              
-              {/* Visual pie chart representation using circles */}
-              <View style={styles.pieChartVisual}>
-                {Object.entries(stockData).map(([status, count], index) => {
-                  const totalStock = inventory.length;
-                  const percentage = totalStock > 0 ? (count / totalStock) * 100 : 0;
-                  const colors = {
-                    'Available': '#059669', // Green
-                    'Allocated': '#F59E0B', // Yellow
-                    'In Preparation': '#3B82F6', // Blue
-                    'Ready for Release': '#8B5CF6', // Purple
-                    'Released': '#6B7280', // Gray
-                    'In Transit': '#EF4444' // Red
-                  };
-                  
-                  return (
-                    <View 
-                      key={index} 
-                      style={[
-                        styles.pieSegment, 
-                        { 
-                          backgroundColor: colors[status] || '#6B7280',
-                          width: Math.max(percentage * 2, 8), // Minimum width of 8
-                          height: Math.max(percentage * 2, 8)
-                        }
-                      ]} 
-                    />
-                  );
-                })}
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Stock Status Breakdown List */}
-          <View style={styles.vehicleBreakdownList}>
-            {Object.entries(stockData).map(([status, count], index) => {
-              const totalStock = inventory.length;
-              const percentage = totalStock > 0 ? ((count / totalStock) * 100).toFixed(1) : '0.0';
-              const colors = {
-                'Available': '#059669',
-                'Allocated': '#F59E0B',
-                'In Preparation': '#3B82F6',
-                'Ready for Release': '#8B5CF6',
-                'Released': '#6B7280',
-                'In Transit': '#EF4444'
-              };
-              
-              return (
-                <TouchableOpacity 
-                  key={index} 
-                  style={styles.vehicleBreakdownItem}
-                  onPress={() => Alert.alert(status, `Count: ${count} vehicles\nPercentage: ${percentage}% of total stock`)}
-                >
-                  <View style={[styles.colorIndicator, { 
-                    backgroundColor: colors[status] || '#6B7280'
-                  }]} />
-                  <Text style={[styles.vehicleModel, { color: theme.text, flex: 2 }]}>{status}</Text>
-                  <Text style={[styles.vehicleCount, { color: theme.textSecondary }]}>{count}</Text>
-                  <Text style={[styles.vehiclePercentage, { color: theme.textTertiary }]}>({percentage}%)</Text>
-                </TouchableOpacity>
-              );
-            })}
-            
-            {/* Total Summary */}
-            <View style={[styles.vehicleBreakdownItem, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 8, paddingTop: 8 }]}>
-              <View style={[styles.colorIndicator, { backgroundColor: theme.primary }]} />
-              <Text style={[styles.vehicleModel, { color: theme.text, fontWeight: 'bold', flex: 2 }]}>Total Stock</Text>
-              <Text style={[styles.vehicleCount, { color: theme.text, fontWeight: 'bold' }]}>{inventory.length}</Text>
-              <Text style={[styles.vehiclePercentage, { color: theme.text, fontWeight: 'bold' }]}>(100%)</Text>
-            </View>
-          </View>
-        </View>
+        {/* Stocks Overview with Real Pie Charts */}
+        <StocksOverview inventory={inventory} theme={theme} />
 
         {/* Recent In Progress Vehicle Preparation */}
         <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
@@ -1742,58 +1671,8 @@ export default function AdminDashboard() {
             </TouchableOpacity>
           </View>
 
-          {/* Tab Navigation */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'dashboard' && styles.activeTab]}
-              onPress={() => setCurrentTab('dashboard')}
-            >
-              <Text style={[styles.tabText, currentTab === 'dashboard' && styles.activeTabText]}>
-                Dashboard
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'inventory' && styles.activeTab]}
-              onPress={() => setCurrentTab('inventory')}
-            >
-              <Text style={[styles.tabText, currentTab === 'inventory' && styles.activeTabText]}>
-                Inventory
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'dispatch' && styles.activeTab]}
-              onPress={() => setCurrentTab('dispatch')}
-            >
-              <Text style={[styles.tabText, currentTab === 'dispatch' && styles.activeTabText]}>
-                Dispatch
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'release' && styles.activeTab]}
-              onPress={() => setCurrentTab('release')}
-            >
-              <Text style={[styles.tabText, currentTab === 'release' && styles.activeTabText]}>
-                Release
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, currentTab === 'reports' && styles.activeTab]}
-              onPress={() => setCurrentTab('reports')}
-            >
-              <Text style={[styles.tabText, currentTab === 'reports' && styles.activeTabText]}>
-                Reports
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tab Content */}
-          {currentTab === 'dashboard' ? renderDashboardContent() : 
-           currentTab === 'inventory' ? renderInventoryContent() : 
-           currentTab === 'dispatch' ? renderDispatchAssignmentContent() :
-
-           currentTab === 'release' ? renderReleaseContent() :
-           renderReportsContent()}
+          {/* Main Dashboard Content */}
+          {renderDashboardContent()}
         </View>
       </ScrollView>
       
@@ -1961,12 +1840,18 @@ export default function AdminDashboard() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add New Stock</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Unit Name"
-              value={newStock.unitName}
-              onChangeText={(text) => setNewStock({ ...newStock, unitName: text })}
-            />
+            {/* Unit Name Dropdown */}
+            <Picker
+              selectedValue={selectedUnitName}
+              onValueChange={handleUnitNameChange}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Unit Name" value="" />
+              {getUnitNames().map((unitName) => (
+                <Picker.Item key={unitName} label={unitName} value={unitName} />
+              ))}
+            </Picker>
+            
             <TextInput
               style={styles.input}
               placeholder="Conduction Number"
@@ -1979,16 +1864,21 @@ export default function AdminDashboard() {
               value={newStock.bodyColor}
               onChangeText={(text) => setNewStock({ ...newStock, bodyColor: text })}
             />
+            
+            {/* Variation Dropdown - only enabled when unit name is selected */}
             <Picker
               selectedValue={newStock.variation}
               onValueChange={(value) => setNewStock({ ...newStock, variation: value })}
-              style={styles.picker}
+              style={[styles.picker, !selectedUnitName && styles.disabledPicker]}
+              enabled={!!selectedUnitName}
             >
-              <Picker.Item label="Select Variation" value="" />
-              <Picker.Item label="4x2 LSA" value="4x2 LSA" />
-              <Picker.Item label="4x4" value="4x4" />
-              <Picker.Item label="LS-E" value="LS-E" />
-              <Picker.Item label="LS" value="LS" />
+              <Picker.Item 
+                label={selectedUnitName ? "Select Variation" : "First select Unit Name"} 
+                value="" 
+              />
+              {availableVariations.map((variation) => (
+                <Picker.Item key={variation} label={variation} value={variation} />
+              ))}
             </Picker>
 
             <View style={styles.modalButtons}>
@@ -4000,48 +3890,7 @@ const createStyles = (theme) => StyleSheet.create({
     marginBottom: 16,
   },
 
-  pieChartContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
 
-  pieChart: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 8,
-    borderColor: '#DC2626',
-  },
-
-  pieChartLabel: {
-    fontSize: 12,
-    color: theme.textSecondary,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-
-  pieChartVisual: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 2,
-    maxWidth: 30,
-  },
-
-  pieSegment: {
-    borderRadius: 2,
-    minWidth: 4,
-    minHeight: 4,
-  },
-
-  vehicleBreakdownList: {
-    gap: 8,
-  },
 
   vehicleBreakdownItem: {
     flexDirection: 'row',
@@ -4128,5 +3977,10 @@ const createStyles = (theme) => StyleSheet.create({
     color: '#9ca3af',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+
+  disabledPicker: {
+    opacity: 0.5,
+    backgroundColor: '#f5f5f5',
   },
 });

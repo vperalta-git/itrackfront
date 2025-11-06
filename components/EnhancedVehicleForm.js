@@ -9,18 +9,16 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import Colors from '../constants/Colors';
 import { 
-  VEHICLE_MODELS, 
-  getUnitNames, 
-  getVariationsForUnit, 
-  isValidUnitVariationPair,
   VEHICLE_STATUS_OPTIONS,
   BODY_COLOR_OPTIONS 
 } from '../constants/VehicleModels';
+import { useVehicleModels } from '../hooks/useVehicleModels';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +29,16 @@ export default function EnhancedVehicleForm({
   initialData = null,
   title = "Add Vehicle"
 }) {
+  const {
+    unitNames,
+    loading: modelsLoading,
+    error: modelsError,
+    isOnline,
+    getVariationsForUnit,
+    getVariationsForUnitAsync,
+    validateUnitVariationPair
+  } = useVehicleModels();
+
   const [formData, setFormData] = useState({
     unitName: '',
     variation: '',
@@ -47,17 +55,38 @@ export default function EnhancedVehicleForm({
 
   const [availableVariations, setAvailableVariations] = useState([]);
   const [errors, setErrors] = useState({});
+  const [variationsLoading, setVariationsLoading] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
       if (initialData.unitName) {
-        setAvailableVariations(getVariationsForUnit(initialData.unitName));
+        loadVariationsForUnit(initialData.unitName);
       }
     } else {
       resetForm();
     }
   }, [initialData, visible]);
+
+  // Load variations for selected unit
+  const loadVariationsForUnit = async (unitName) => {
+    if (!unitName) {
+      setAvailableVariations([]);
+      return;
+    }
+
+    setVariationsLoading(true);
+    try {
+      const variations = await getVariationsForUnitAsync(unitName);
+      setAvailableVariations(variations);
+    } catch (error) {
+      console.warn('Failed to load variations:', error);
+      // Fallback to local data
+      setAvailableVariations(getVariationsForUnit(unitName));
+    } finally {
+      setVariationsLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -77,14 +106,15 @@ export default function EnhancedVehicleForm({
     setErrors({});
   };
 
-  const handleUnitNameChange = (unitName) => {
-    const variations = getVariationsForUnit(unitName);
+  const handleUnitNameChange = async (unitName) => {
     setFormData(prev => ({
       ...prev,
       unitName,
       variation: '' // Reset variation when unit changes
     }));
-    setAvailableVariations(variations);
+    
+    // Load variations for the selected unit
+    await loadVariationsForUnit(unitName);
     
     // Clear variation error if exists
     if (errors.variation) {
@@ -92,14 +122,18 @@ export default function EnhancedVehicleForm({
     }
   };
 
-  const handleVariationChange = (variation) => {
+  const handleVariationChange = async (variation) => {
     // Validate that variation belongs to selected unit
-    if (formData.unitName && !isValidUnitVariationPair(formData.unitName, variation)) {
-      setErrors(prev => ({ 
-        ...prev, 
-        variation: 'Selected variation does not belong to the chosen unit' 
-      }));
-      return;
+    if (formData.unitName && variation) {
+      const validation = await validateUnitVariationPair(formData.unitName, variation);
+      
+      if (!validation.isValid) {
+        setErrors(prev => ({ 
+          ...prev, 
+          variation: validation.error || 'Selected variation does not belong to the chosen unit' 
+        }));
+        return;
+      }
     }
     
     setFormData(prev => ({ ...prev, variation }));
@@ -115,7 +149,7 @@ export default function EnhancedVehicleForm({
 
     if (!formData.variation.trim()) {
       newErrors.variation = 'Variation is required';
-    } else if (!isValidUnitVariationPair(formData.unitName, formData.variation)) {
+    } else if (!availableVariations.includes(formData.variation)) {
       newErrors.variation = 'Invalid variation for selected unit';
     }
 
@@ -222,16 +256,43 @@ export default function EnhancedVehicleForm({
             {renderPicker(
               'Unit Name *', 
               'unitName', 
-              getUnitNames(), 
-              "Select Vehicle Unit"
+              unitNames, 
+              modelsLoading ? "Loading units..." : "Select Vehicle Unit"
             )}
             
-            {renderPicker(
-              'Variation *', 
-              'variation', 
-              availableVariations, 
-              formData.unitName ? "Select Variation" : "Select Unit Name first"
-            )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Variation *</Text>
+              <View style={[styles.pickerContainer, errors.variation && styles.inputError]}>
+                {variationsLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.loadingText}>Loading variations...</Text>
+                  </View>
+                ) : (
+                  <Picker
+                    selectedValue={formData.variation}
+                    onValueChange={handleVariationChange}
+                    style={styles.picker}
+                    enabled={!!formData.unitName && availableVariations.length > 0}
+                  >
+                    <Picker.Item 
+                      label={
+                        !formData.unitName 
+                          ? "Select Unit Name first"
+                          : availableVariations.length === 0 
+                          ? "No variations available"
+                          : "Select Variation"
+                      } 
+                      value="" 
+                    />
+                    {availableVariations.map((variation) => (
+                      <Picker.Item key={variation} label={variation} value={variation} />
+                    ))}
+                  </Picker>
+                )}
+              </View>
+              {errors.variation && <Text style={styles.errorText}>{errors.variation}</Text>}
+            </View>
           </View>
 
           {/* Vehicle Details */}
@@ -438,5 +499,17 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    paddingHorizontal: 12,
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: Colors.textSecondary,
   },
 });

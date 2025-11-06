@@ -281,6 +281,114 @@ class LocationService {
   }
 
   /**
+   * Update vehicle allocation location in database
+   * @param {string} allocationId - Allocation ID
+   * @param {Object} locationData - Location data to update
+   * @returns {Promise<boolean>} - Whether update was successful
+   */
+  async updateVehicleLocation(allocationId, locationData) {
+    try {
+      console.log('📤 Updating allocation location...', { allocationId, locationData });
+      
+      const payload = {
+        location: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          accuracy: locationData.accuracy,
+          altitude: locationData.altitude,
+          speed: locationData.speed,
+          heading: locationData.heading,
+          timestamp: locationData.timestamp || Date.now(),
+        },
+        lastLocationUpdate: new Date().toISOString(),
+      };
+
+      const response = await fetch(buildApiUrl(`/updateAllocationLocation/${allocationId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Allocation location updated successfully:', result);
+        return true;
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to update allocation location:', response.status, errorText);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error updating allocation location:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Start location tracking with callback registration
+   * @param {Function} callback - Callback function for location updates
+   * @param {Object} options - Location tracking options
+   * @returns {Promise<string>} - Tracking callback ID
+   */
+  async startLocationTracking(callback, options = {}) {
+    try {
+      console.log('🎯 Starting enhanced location tracking...');
+      
+      const hasPermission = await this.checkLocationPermission();
+      if (!hasPermission) {
+        const granted = await this.requestLocationPermission();
+        if (!granted) {
+          throw new Error('Location permission not granted');
+        }
+      }
+
+      // Stop any existing tracking first
+      await this.stopLocationTracking();
+
+      const defaultOptions = {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000, // Check every 5 seconds
+        distanceInterval: 10, // Only update if moved 10+ meters
+      };
+
+      const mergedOptions = { ...defaultOptions, ...options };
+
+      this.watchPositionSubscription = await Location.watchPositionAsync(
+        mergedOptions,
+        (location) => {
+          const newPosition = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            accuracy: location.coords.accuracy,
+            altitude: location.coords.altitude,
+            speed: location.coords.speed,
+            heading: location.coords.heading,
+            timestamp: location.timestamp,
+          };
+
+          console.log('📍 Enhanced location update:', newPosition);
+          this.lastKnownPosition = newPosition;
+          
+          if (callback && typeof callback === 'function') {
+            callback(newPosition);
+          }
+        }
+      );
+
+      this.isTracking = true;
+      console.log('✅ Enhanced location tracking started');
+      
+      // Return a tracking ID (simplified for this implementation)
+      return 'enhanced-tracking-id';
+    } catch (error) {
+      console.error('❌ Error starting enhanced location tracking:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Calculate distance between two coordinates (Haversine formula)
    * @param {Object} coord1 - {latitude, longitude}
    * @param {Object} coord2 - {latitude, longitude}

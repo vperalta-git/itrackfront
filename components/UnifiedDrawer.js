@@ -33,6 +33,7 @@ import ServiceRequestScreen from '../screens/ServiceRequestScreen';
 import TestDriveScreen from '../screens/TestDriveScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import VehicleModelsScreen from '../screens/VehicleModelsScreen';
 
 // Import icons (using the same icons as web)
 const dashboardIcon = require('../assets/icons/dashboard.png');
@@ -77,6 +78,7 @@ function CustomDrawerContent(props) {
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
+    { name: "Vehicle Models", icon: stocksIcon, screen: "VehicleModels", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
     { name: "Vehicle Tracking", icon: shipmentsIcon, screen: "VehicleTracking", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
@@ -147,60 +149,69 @@ function CustomDrawerContent(props) {
   };
 
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContainer}>
-      {/* Header with logo (matching web) */}
-      <View style={styles.drawerHeader}>
-        <Image source={itrackLogo} style={styles.logo} />
-        <Text style={styles.appTitle}>I-TRACK</Text>
-        <Text style={styles.userWelcome}>Welcome, {userName}</Text>
-        <Text style={styles.userRole}>{userRole}</Text>
-      </View>
+    <View style={styles.drawerWrapper}>
+      <DrawerContentScrollView 
+        {...props} 
+        contentContainerStyle={styles.drawerScrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header with logo (matching web) */}
+        <View style={styles.drawerHeader}>
+          <Image source={itrackLogo} style={styles.logo} />
+          <Text style={styles.appTitle}>I-TRACK</Text>
+          <Text style={styles.userWelcome}>Welcome, {userName}</Text>
+          <Text style={styles.userRole}>{userRole}</Text>
+        </View>
 
-      {/* Menu Items */}
-      <View style={styles.menuContainer}>
-        {getFilteredMenu().map((item) => (
-          <TouchableOpacity
-            key={item.name}
-            style={[
-              styles.menuItem,
-              props.state.routeNames[props.state.index] === item.screen && styles.activeMenuItem
-            ]}
-            onPress={() => {
-              if (item.screen === 'Dashboard') {
-                // Navigate to appropriate dashboard based on role
-                if (userRole === 'Driver') {
-                  props.navigation.navigate('DriverDashboard');
-                } else if (userRole === 'Dispatch') {
-                  props.navigation.navigate('DispatchDashboard');
-                } else if (userRole === 'Sales Agent') {
-                  props.navigation.navigate('AgentDashboard');
+        {/* Menu Items */}
+        <View style={styles.menuContainer}>
+          {getFilteredMenu().map((item) => (
+            <TouchableOpacity
+              key={item.name}
+              style={[
+                styles.menuItem,
+                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuItem
+              ]}
+              onPress={() => {
+                if (item.screen === 'Dashboard') {
+                  // Navigate to appropriate dashboard based on role
+                  if (userRole === 'Driver') {
+                    props.navigation.navigate('DriverDashboard');
+                  } else if (userRole === 'Dispatch') {
+                    props.navigation.navigate('DispatchDashboard');
+                  } else if (userRole === 'Sales Agent') {
+                    props.navigation.navigate('AgentDashboard');
+                  } else {
+                    props.navigation.navigate('AdminDashboard');
+                  }
                 } else {
-                  props.navigation.navigate('AdminDashboard');
+                  props.navigation.navigate(item.screen);
                 }
-              } else {
-                props.navigation.navigate(item.screen);
-              }
-            }}
-          >
-            <Image source={item.icon} style={styles.menuIcon} />
-            <Text style={[
-              styles.menuText,
-              props.state.routeNames[props.state.index] === item.screen && styles.activeMenuText
-            ]}>
-              {item.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              }}
+            >
+              <Image source={item.icon} style={[
+                styles.menuIcon,
+                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuIcon
+              ]} />
+              <Text style={[
+                styles.menuText,
+                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuText
+              ]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Sign Out Button (matching web) */}
-      <View style={styles.signOutContainer}>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Image source={signOutIcon} style={styles.signOutIcon} />
-          <Text style={styles.signOutText}>Log Out</Text>
-        </TouchableOpacity>
-      </View>
-    </DrawerContentScrollView>
+        {/* Sign Out Button (matching web) */}
+        <View style={styles.signOutContainer}>
+          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+            <Image source={signOutIcon} style={styles.signOutIcon} />
+            <Text style={styles.signOutText}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
+      </DrawerContentScrollView>
+    </View>
   );
 }
 
@@ -222,10 +233,17 @@ export default function UnifiedDrawer() {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.primary },
-        headerTintColor: Colors.textLight,
-        drawerStyle: { backgroundColor: Colors.secondary, width: width * 0.8 },
+        headerStyle: { backgroundColor: '#dc2626' }, // Red header to match sidebar
+        headerTintColor: '#fff',
+        drawerStyle: { 
+          backgroundColor: '#dc2626', // Red drawer background
+          width: Math.min(width * 0.85, 320), // Responsive width with max limit
+        },
         headerTitle: 'I-Track System',
+        headerTitleStyle: {
+          fontSize: 18,
+          fontWeight: 'bold',
+        },
       }}
     >
       {/* Dashboard Screens */}
@@ -277,6 +295,11 @@ export default function UnifiedDrawer() {
         options={{ title: 'User Management' }}
       />
       <Drawer.Screen
+        name="VehicleModels"
+        component={VehicleModelsScreen}
+        options={{ title: 'Vehicle Models' }}
+      />
+      <Drawer.Screen
         name="Reports"
         component={ReportsScreen}
         options={{ title: 'Reports' }}
@@ -317,15 +340,22 @@ export default function UnifiedDrawer() {
 }
 
 const styles = StyleSheet.create({
-  drawerContainer: {
+  drawerWrapper: {
     flex: 1,
-    backgroundColor: Colors.secondary,
+    backgroundColor: '#dc2626', // Red sidebar background
+  },
+  drawerScrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 30, // Ensure content doesn't get cut off at bottom
+    minHeight: '100%', // Ensure full height is used
   },
   drawerHeader: {
     padding: 20,
+    paddingTop: 30, // Extra padding for status bar
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
+    backgroundColor: '#dc2626', // Red background
   },
   logo: {
     width: 60,
@@ -338,63 +368,85 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
+    letterSpacing: 1,
   },
   userWelcome: {
-    color: '#ccc',
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 16,
     marginBottom: 2,
   },
   userRole: {
-    color: '#e50914',
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   menuContainer: {
-    flex: 1,
-    paddingVertical: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 5,
+    flex: 1, // Allow menu to take available space
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    marginHorizontal: 10,
+    marginHorizontal: 5,
+    marginVertical: 2,
     borderRadius: 8,
+    minHeight: 48, // Ensure touch targets are accessible
   },
   activeMenuItem: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#000000', // Black highlight for active item
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   menuIcon: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     marginRight: 15,
     tintColor: '#fff',
+  },
+  activeMenuIcon: {
+    tintColor: '#fff', // Keep icons white even when active
   },
   menuText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+    flex: 1, // Allow text to take available space
   },
   activeMenuText: {
     fontWeight: 'bold',
+    color: '#fff', // Keep text white when active
   },
   signOutContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    marginTop: 'auto', // Push to bottom but still scrollable
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: Colors.secondaryLight,
+    backgroundColor: 'rgba(0,0,0,0.2)',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   signOutIcon: {
     width: 20,
     height: 20,
-    marginRight: 10,
+    marginRight: 12,
     tintColor: '#fff',
   },
   signOutText: {

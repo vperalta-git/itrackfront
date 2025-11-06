@@ -67,25 +67,160 @@ export default function HistoryScreen() {
     }
   };
 
+  // Helper function to get changes between before and after states
+  const getChanges = (before, after) => {
+    if (!before || !after) return [];
+
+    return Object.keys(after).reduce((changes, key) => {
+      if (before[key] !== after[key]) {
+        changes.push({ field: key, before: before[key], after: after[key] });
+      }
+      return changes;
+    }, []);
+  };
+
+  // Helper functions for processing audit trail data
+  const getAuditActionDescription = (action, resource) => {
+    const actionMap = {
+      create: 'Created',
+      update: 'Updated', 
+      delete: 'Deleted'
+    };
+    
+    const resourceMap = {
+      Inventory: 'Vehicle',
+      ServiceRequest: 'Service Request',
+      DriverAllocation: 'Driver Allocation',
+      User: 'User Account'
+    };
+    
+    const actionText = actionMap[action] || action || 'Modified';
+    const resourceText = resourceMap[resource] || resource || 'Resource';
+    
+    return `${actionText} ${resourceText}`;
+  };
+
+  const getAuditDescription = (trail) => {
+    const { action, resource, details, performedBy } = trail;
+    
+    try {
+      const before = details?.before || {};
+      const after = details?.after || {};
+
+      // Handle different actions with before/after details (web-style format)
+      switch (action?.toLowerCase()) {
+        case 'update':
+          const changes = getChanges(before, after);
+          if (changes.length > 0) {
+            // Show up to 2 key changes in mobile format
+            const keyChanges = changes.slice(0, 2);
+            const changeText = keyChanges.map(change => {
+              const fieldName = change.field.charAt(0).toUpperCase() + change.field.slice(1);
+              return `${fieldName}: ${change.before} → ${change.after}`;
+            }).join(', ');
+            
+            const moreChanges = changes.length > 2 ? ` (+${changes.length - 2} more)` : '';
+            const identifier = after.unitName || after.name || after.username || before.unitName || before.name || before.username;
+            const itemRef = identifier ? `${identifier}: ` : '';
+            
+            return `${itemRef}${changeText}${moreChanges}`;
+          }
+          break;
+
+        case 'create':
+          if (after && Object.keys(after).length > 0) {
+            const identifier = after.unitName || after.name || after.username || after.title;
+            const variation = after.variation ? ` (${after.variation})` : '';
+            const unitId = after.unitId ? ` [${after.unitId}]` : '';
+            
+            if (identifier) {
+              return `Created: ${identifier}${variation}${unitId}`;
+            }
+            return `Created new ${resource}`;
+          }
+          break;
+
+        case 'delete':
+          if (before && Object.keys(before).length > 0) {
+            const identifier = before.unitName || before.name || before.username || before.title;
+            const variation = before.variation ? ` (${before.variation})` : '';
+            const unitId = before.unitId ? ` [${before.unitId}]` : '';
+            
+            if (identifier) {
+              return `Deleted: ${identifier}${variation}${unitId}`;
+            }
+            return `Deleted ${resource}`;
+          }
+          break;
+
+        default:
+          // Handle legacy format for backwards compatibility
+          if (resource === 'Inventory') {
+            const vehicle = details?.newInventory || details?.after || after;
+            if (vehicle?.unitName) {
+              return `${action}: ${vehicle.unitName} ${vehicle.unitId ? `[${vehicle.unitId}]` : ''}`;
+            }
+          } else if (resource === 'ServiceRequest') {
+            const request = details?.newRequest || after;
+            if (request?.vehicleRegNo) {
+              return `${action}: Service for ${request.vehicleRegNo}`;
+            }
+          } else if (resource === 'DriverAllocation') {
+            const allocation = details?.newAllocation || after;
+            if (allocation?.unitName && allocation?.assignedDriver) {
+              return `${action}: ${allocation.unitName} → ${allocation.assignedDriver}`;
+            }
+          } else if (resource === 'User') {
+            const user = details?.newUser || details?.updatedUser || after;
+            if (user?.name || user?.username) {
+              return `${action}: ${user.name || user.username}`;
+            }
+          }
+          break;
+      }
+      
+      // Final fallback
+      const identifier = after?.name || after?.unitName || after?.username || 
+                        before?.name || before?.unitName || before?.username;
+      return identifier ? `${action} ${identifier}` : `${action} ${resource}`;
+    } catch (error) {
+      console.error('Error processing audit description:', error);
+      return `${action} operation on ${resource}`;
+    }
+  };
+
   const fetchHistoryData = async (role, name) => {
     try {
-      // Helper function for safe API calls
+      // Helper function for safe API calls with detailed logging
       const safeFetch = async (url) => {
         try {
+          console.log(`🔄 Fetching from: ${url}`);
           const response = await fetch(url);
+          
+          if (!response.ok) {
+            console.warn(`⚠️ Non-OK response from ${url}: ${response.status} ${response.statusText}`);
+          }
+          
           const data = await response.json();
+          console.log(`✅ Received data from ${url}:`, {
+            isArray: Array.isArray(data),
+            length: Array.isArray(data) ? data.length : 'N/A',
+            hasSuccess: data.hasOwnProperty('success'),
+            sampleKeys: typeof data === 'object' ? Object.keys(data).slice(0, 5) : []
+          });
+          
           return response.ok ? data : [];
         } catch (error) {
-          console.error(`Error fetching from ${url}:`, error);
+          console.error(`❌ Error fetching from ${url}:`, error);
           return [];
         }
       };
 
       // Fetch data in parallel from correct MongoDB collections
-      const [allocations, users, historyData, releaseHistories] = await Promise.all([
+      const [allocations, users, auditTrails, releaseHistories] = await Promise.all([
         safeFetch(buildApiUrl('/getAllocation')),
         safeFetch(buildApiUrl('/admin/users')),
-        safeFetch(buildApiUrl('/api/history')), // itrackDB > history collection
+        safeFetch(buildApiUrl('/api/audit-trail')), // Web-compatible audit trail endpoint
         safeFetch(buildApiUrl('/api/releasehistories')), // itrackDB > releasehistories collection
       ]);
 
@@ -167,18 +302,32 @@ export default function HistoryScreen() {
         }
       ];
       
-      // Process real history data from MongoDB collections
+      // Process real data from MongoDB collections
       let finalAllocations = [...sampleAllocations]; // Fallback sample data
-      let finalHistoryData = [...sampleSystemActivities]; // Fallback sample data
+      let finalAuditData = [...sampleSystemActivities]; // Fallback sample data
       
       // Use real allocation data if available
       if (Array.isArray(allocations) && allocations.length > 0) {
         finalAllocations = allocations;
       }
       
-      // Use real history data if available
-      if (Array.isArray(historyData) && historyData.length > 0) {
-        finalHistoryData = [...finalHistoryData, ...historyData];
+      // Use real audit trails data if available (web format)
+      if (Array.isArray(auditTrails) && auditTrails.length > 0) {
+        console.log(`📊 Processing ${auditTrails.length} audit trails from web endpoint`);
+        
+        const processedAuditTrails = auditTrails.map(trail => ({
+          _id: trail._id || `audit_${Date.now()}_${Math.random()}`,
+          action: getAuditActionDescription(trail.action, trail.resource),
+          description: getAuditDescription(trail),
+          user: trail.performedBy || 'Unknown',
+          timestamp: trail.timestamp || new Date().toISOString(),
+          resource: trail.resource,
+          resourceId: trail.resourceId,
+          details: trail.details,
+          originalTrail: trail
+        }));
+        
+        finalAuditData = processedAuditTrails;
       }
       
       // Use release history data if available
@@ -196,7 +345,7 @@ export default function HistoryScreen() {
             releasedTo: release.releasedTo
           }
         }));
-        finalHistoryData = [...finalHistoryData, ...processedReleases];
+        finalAuditData = [...finalAuditData, ...processedReleases];
       }
       
       allocations = finalAllocations;
@@ -226,8 +375,8 @@ export default function HistoryScreen() {
         }));
       }
 
-      // Process history data (from MongoDB history collection and release histories)
-      let processedAudit = finalHistoryData.map(activity => ({
+      // Process audit trails data  
+      let processedAudit = finalAuditData.map(activity => ({
         ...activity,
         type: 'audit',
         timestamp: activity.timestamp || activity.createdAt || new Date().toISOString(),
@@ -295,22 +444,45 @@ export default function HistoryScreen() {
     
     switch (filterType) {
       case 'allocations':
-        combined = [...allocationHistory];
+        // Show allocation-related audit trails and direct allocations
+        combined = [
+          ...allocationHistory,
+          ...userHistory.filter(item => 
+            item.resource === 'DriverAllocation' || 
+            item.action?.toLowerCase().includes('allocation') ||
+            item.action?.toLowerCase().includes('driver')
+          )
+        ];
         break;
-      case 'requests':
-        combined = [...requestHistory];
+      case 'inventory':
+        // Show inventory-related audit trails
+        combined = userHistory.filter(item => 
+          item.resource === 'Inventory' ||
+          item.action?.toLowerCase().includes('inventory') ||
+          item.action?.toLowerCase().includes('vehicle') ||
+          item.action?.toLowerCase().includes('stock')
+        );
         break;
-      case 'vehicles':
-        combined = [...vehicleHistory];
+      case 'services':
+        // Show service request audit trails
+        combined = userHistory.filter(item => 
+          item.resource === 'ServiceRequest' ||
+          item.action?.toLowerCase().includes('service') ||
+          item.action?.toLowerCase().includes('request')
+        );
         break;
       case 'users':
-        combined = [...userHistory];
+        // Show user-related audit trails
+        combined = userHistory.filter(item => 
+          item.resource === 'User' ||
+          item.action?.toLowerCase().includes('user') ||
+          item.action?.toLowerCase().includes('account')
+        );
         break;
       case 'all':
       default:
         combined = [
           ...allocationHistory,
-          ...requestHistory,
           ...userHistory,
         ];
         break;
@@ -445,16 +617,12 @@ export default function HistoryScreen() {
 
   const renderFilterTabs = () => {
     const filters = [
-      { key: 'all', label: 'All', icon: '📊' },
+      { key: 'all', label: 'All Activities', icon: '📊' },
       { key: 'allocations', label: 'Allocations', icon: '🚗' },
-      { key: 'requests', label: 'Requests', icon: '📋' },
-      { key: 'vehicles', label: 'Vehicles', icon: '🚛' },
+      { key: 'inventory', label: 'Inventory', icon: '�' },
+      { key: 'services', label: 'Services', icon: '�' },
+      { key: 'users', label: 'Users', icon: '👥' },
     ];
-
-    // Add user filter only for admin/supervisor
-    if (userRole === 'Admin' || userRole === 'Supervisor') {
-      filters.push({ key: 'users', label: 'Users', icon: '👥' });
-    }
 
     return (
       <View style={styles.filterTabs}>

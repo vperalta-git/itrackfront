@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+// Force deployment refresh - latest version with itrackDB connection
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
@@ -539,13 +540,12 @@ app.post('/login', async (req, res) => {
       }
     }
 
-    // If not using temporary password, check regular password
+    // If not using temporary password, check regular password (plain text)
     if (!isValidLogin) {
-      console.log('🔍 Comparing password for user:', user.username);
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (isMatch) {
+      console.log('🔍 Comparing plain text password for user:', user.username);
+      if (password === user.password) {
         isValidLogin = true;
-        console.log('🔑 User logged in with regular password:', username);
+        console.log('🔑 User logged in with plain text password:', username);
       } else {
         console.log('❌ Password mismatch for user:', user.username);
       }
@@ -652,12 +652,11 @@ app.post('/api/login', async (req, res) => {
       }
     }
 
-    // Check regular password if temp password didn't work
+    // Check regular password if temp password didn't work (plain text)
     if (!isValidLogin && user.password) {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (isMatch) {
+      if (password === user.password) {
         isValidLogin = true;
-        console.log('✅ User logged in with regular password:', email);
+        console.log('✅ User logged in with plain text password:', email);
       }
     }
 
@@ -1895,6 +1894,102 @@ app.put('/api/inventory/:id', async (req, res) => {
   }
 });
 
+// ========== AUDIT TRAILS ==========
+
+// Audit Trail Schema  
+const AuditTrailSchema = new mongoose.Schema({
+  action: String,
+  resource: String,
+  resourceId: String,
+  performedBy: String,
+  details: mongoose.Schema.Types.Mixed,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const AuditTrail = mongoose.model('AuditTrail', AuditTrailSchema, 'audittrails');
+
+// Web-compatible audit trail endpoint (matches web version format)
+app.get('/api/audit-trail', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, action, resource, performedBy } = req.query;
+    
+    let query = {};
+    if (action) query.action = action;
+    if (resource) query.resource = resource;
+    if (performedBy) query.performedBy = performedBy;
+    
+    const audittrails = await AuditTrail.find(query)
+      .sort({ timestamp: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit));
+    
+    console.log(`📊 [Web Format] Found ${audittrails.length} audit trails`);
+    
+    // Return in web format (direct array, not wrapped in success object)
+    res.json(audittrails);
+  } catch (error) {
+    console.error('❌ Error fetching audit trails (web format):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get audit trails
+app.get('/api/audittrails', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, action, resource, performedBy } = req.query;
+    
+    let query = {};
+    if (action) query.action = action;
+    if (resource) query.resource = resource;
+    if (performedBy) query.performedBy = performedBy;
+    
+    const audittrails = await AuditTrail.find(query)
+      .sort({ timestamp: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit));
+    
+    const total = await AuditTrail.countDocuments(query);
+    
+    console.log(`📊 Found ${audittrails.length} audit trails (${total} total)`);
+    res.json({ 
+      success: true, 
+      data: audittrails,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: (parseInt(offset) + audittrails.length) < total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching audit trails:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch audit trails',
+      error: error.message
+    });
+  }
+});
+
+// Get audit trails for specific resource
+app.get('/api/audittrails/:resourceId', async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    const audittrails = await AuditTrail.find({ resourceId })
+      .sort({ timestamp: -1 });
+    
+    console.log(`📊 Found ${audittrails.length} audit trails for resource ${resourceId}`);
+    res.json({ success: true, data: audittrails });
+  } catch (error) {
+    console.error('❌ Error fetching resource audit trails:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch resource audit trails',
+      error: error.message
+    });
+  }
+});
+
 // ========== RELEASE MANAGEMENT ==========
 
 // Get releases
@@ -2888,12 +2983,244 @@ app.post('/generateReport', async (req, res) => {
   }
 });
 
+// ============= VEHICLE MODELS API ENDPOINTS =============
+
+// Get all vehicle models (unit names and variations)
+app.get('/getVehicleModels', async (req, res) => {
+  try {
+    const models = await fetch('http://localhost:8000/api/vehicle-models').then(r => r.json());
+    res.json(models);
+  } catch (error) {
+    console.error('❌ Error fetching vehicle models:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch vehicle models' });
+  }
+});
+
+// Get unit names only
+app.get('/getUnitNames', async (req, res) => {
+  try {
+    const unitNames = await fetch('http://localhost:8000/api/vehicle-models/units').then(r => r.json());
+    res.json(unitNames);
+  } catch (error) {
+    console.error('❌ Error fetching unit names:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch unit names' });
+  }
+});
+
+// Get variations for specific unit
+app.get('/getVariations/:unitName', async (req, res) => {
+  try {
+    const { unitName } = req.params;
+    const variations = await fetch(`http://localhost:8000/api/vehicle-models/${encodeURIComponent(unitName)}/variations`).then(r => r.json());
+    res.json(variations);
+  } catch (error) {
+    console.error('❌ Error fetching variations:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch variations' });
+  }
+});
+
+// Validate unit-variation pair
+app.post('/validateUnitVariation', async (req, res) => {
+  try {
+    const validation = await fetch('http://localhost:8000/api/vehicle-models/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    }).then(r => r.json());
+    res.json(validation);
+  } catch (error) {
+    console.error('❌ Error validating unit-variation pair:', error);
+    res.status(500).json({ success: false, message: 'Failed to validate unit-variation pair' });
+  }
+});
+
+// ============= INVENTORY API ENDPOINTS =============
+
+// Get inventory with enhanced filtering
+app.get('/getInventory', async (req, res) => {
+  try {
+    const { status, unitName, search } = req.query;
+    let query = {};
+
+    if (status && status !== 'all') {
+      query.status = new RegExp(status, 'i');
+    }
+    
+    if (unitName) {
+      query.unitName = new RegExp(unitName, 'i');
+    }
+    
+    if (search) {
+      query.$or = [
+        { unitName: new RegExp(search, 'i') },
+        { unitId: new RegExp(search, 'i') },
+        { bodyColor: new RegExp(search, 'i') },
+        { variation: new RegExp(search, 'i') },
+        { conductionNumber: new RegExp(search, 'i') }
+      ];
+    }
+
+    const inventory = await Inventory.find(query)
+      .sort({ createdAt: -1 })
+      .limit(req.query.limit ? parseInt(req.query.limit) : 100);
+    
+    console.log(`📦 Found ${inventory.length} inventory items`);
+    res.json({ success: true, data: inventory });
+  } catch (error) {
+    console.error('❌ Get inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Add item to inventory
+app.post('/addToInventory', async (req, res) => {
+  try {
+    const {
+      unitName,
+      variation,
+      conductionNumber,
+      vin,
+      bodyColor,
+      status = 'Available',
+      engineNumber,
+      keyNumber,
+      plateNumber,
+      chassisNumber,
+      notes,
+      addedBy
+    } = req.body;
+    
+    // Validate required fields
+    if (!unitName || !variation || !conductionNumber || !vin) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Unit name, variation, conduction number, and VIN are required' 
+      });
+    }
+    
+    // Check if vehicle with same VIN or conduction number exists
+    const existingVehicle = await Inventory.findOne({
+      $or: [
+        { vin },
+        { conductionNumber }
+      ]
+    });
+    
+    if (existingVehicle) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vehicle with this VIN or conduction number already exists' 
+      });
+    }
+    
+    // Generate unitId if not provided
+    const unitId = req.body.unitId || `${unitName.replace(/\s+/g, '')}_${Date.now()}`;
+    
+    const newInventoryItem = new Inventory({
+      unitName,
+      unitId,
+      variation,
+      conductionNumber,
+      vin,
+      bodyColor,
+      status,
+      engineNumber,
+      keyNumber,
+      plateNumber,
+      chassisNumber,
+      notes,
+      addedBy: addedBy || 'System',
+      addedDate: new Date()
+    });
+    
+    const savedItem = await newInventoryItem.save();
+    console.log('✅ Added inventory item:', savedItem.unitId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Vehicle added to inventory successfully',
+      data: savedItem 
+    });
+  } catch (error) {
+    console.error('❌ Add inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update inventory item
+app.put('/updateInventoryItem/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      ...req.body,
+      lastUpdatedBy: req.body.lastUpdatedBy || 'System',
+      dateUpdated: new Date()
+    };
+    
+    const updatedItem = await Inventory.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+    
+    console.log('✅ Updated inventory item:', updatedItem.unitId);
+    res.json({ 
+      success: true, 
+      message: 'Inventory item updated successfully',
+      data: updatedItem 
+    });
+  } catch (error) {
+    console.error('❌ Update inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete inventory item
+app.delete('/deleteInventoryItem/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deletedItem = await Inventory.findByIdAndDelete(id);
+    
+    if (!deletedItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+    
+    console.log('✅ Deleted inventory item:', deletedItem.unitId);
+    res.json({ 
+      success: true, 
+      message: 'Inventory item deleted successfully',
+      data: deletedItem 
+    });
+  } catch (error) {
+    console.error('❌ Delete inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 console.log('');
 console.log('🔥 ADDITIONAL UNIFIED MOBILE ENDPOINTS:');
-console.log('  📦 INVENTORY:');
+console.log('  � VEHICLE MODELS:');
+console.log('    - GET  /getVehicleModels');
+console.log('    - GET  /getUnitNames');
+console.log('    - GET  /getVariations/:unitName');
+console.log('    - POST /validateUnitVariation');
+console.log('');
+console.log('  �📦 INVENTORY:');
 console.log('    - GET  /getInventory');
 console.log('    - POST /addToInventory');
 console.log('    - PUT  /updateInventoryItem/:id');
+console.log('    - DELETE /deleteInventoryItem/:id');
 console.log('');
 console.log('  🔧 SERVICE REQUESTS:');
 console.log('    - GET  /getServiceRequests');

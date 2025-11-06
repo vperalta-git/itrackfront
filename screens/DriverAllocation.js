@@ -1,11 +1,13 @@
 //DriverAllocation.js
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Modal, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Modal, StyleSheet, Alert, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
+import ViewShipment from '../components/ViewShipment';
+import RouteSelectionModal from '../components/RouteSelectionModal';
 
 const DriverAllocation = () => {
   const { theme } = useTheme();
@@ -41,6 +43,10 @@ const DriverAllocation = () => {
   const [selectedDriver, setSelectedDriver] = useState('');
   const [pickupPoint, setPickupPoint] = useState('');
   const [dropoffPoint, setDropoffPoint] = useState('');
+  const [isViewShipmentOpen, setIsViewShipmentOpen] = useState(false);
+  const [selectedRowData, setSelectedRowData] = useState(null);
+  const [isRouteSelectionOpen, setIsRouteSelectionOpen] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState(null);
 
   useEffect(() => {
     fetchAllocations();
@@ -144,8 +150,12 @@ const DriverAllocation = () => {
         assignedAgent: selectedAgent,
         status: 'Assigned',
         allocatedBy: 'Admin',
-        pickupPoint: pickupPoint,
-        dropoffPoint: dropoffPoint,
+        pickupPoint: selectedRoute?.pickup?.name || pickupPoint,
+        dropoffPoint: selectedRoute?.dropoff?.name || dropoffPoint,
+        pickupCoordinates: selectedRoute?.pickup?.coordinates,
+        dropoffCoordinates: selectedRoute?.dropoff?.coordinates,
+        routeDistance: selectedRoute?.distance,
+        estimatedTime: selectedRoute?.estimatedTime,
         date: new Date().toISOString(),
         customerName: newAllocation.customerName,
         customerEmail: newAllocation.customerEmail,
@@ -199,8 +209,12 @@ const DriverAllocation = () => {
         assignedAgent: selectedAgent,
         status: 'Assigned',
         allocatedBy: 'Admin',
-        pickupPoint: pickupPoint,
-        dropoffPoint: dropoffPoint,
+        pickupPoint: selectedRoute?.pickup?.name || pickupPoint,
+        dropoffPoint: selectedRoute?.dropoff?.name || dropoffPoint,
+        pickupCoordinates: selectedRoute?.pickup?.coordinates,
+        dropoffCoordinates: selectedRoute?.dropoff?.coordinates,
+        routeDistance: selectedRoute?.distance,
+        estimatedTime: selectedRoute?.estimatedTime,
         date: new Date().toISOString(),
         customerName: newAllocation.customerName,
         customerEmail: newAllocation.customerEmail,
@@ -228,7 +242,35 @@ const DriverAllocation = () => {
     }
   };
 
+  const handleRouteSelection = (routeData) => {
+    setSelectedRoute(routeData);
+    setPickupPoint(routeData.pickup.name);
+    setDropoffPoint(routeData.dropoff.name);
+  };
+
+  const openRouteSelector = () => {
+    if (!selectedRoute) {
+      setIsRouteSelectionOpen(true);
+    } else {
+      // If route already selected, ask if they want to change it
+      Alert.alert(
+        'Change Route?',
+        'A route is already selected. Do you want to change it?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Change Route', onPress: () => setIsRouteSelectionOpen(true) }
+        ]
+      );
+    }
+  };
+
   const handleCreate = () => {
+    // Validate that route is selected
+    if (!selectedRoute && !pickupPoint && !dropoffPoint) {
+      Alert.alert('Missing Route', 'Please select pickup and drop-off locations using the route planner.');
+      return;
+    }
+
     if (mode === 'stock') {
       assignFromStock();
     } else {
@@ -263,98 +305,72 @@ const DriverAllocation = () => {
   const currentAllocations = filteredAllocations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAllocations.length / itemsPerPage);
 
-  const renderItem = ({ item }) => {
-    const getStatusStyle = (status) => {
-      switch (status?.toLowerCase()) {
-        case 'pending':
-          return { container: styles.statusPending, text: styles.statusTextPending };
-        case 'in transit':
-          return { container: styles.statusInTransit, text: styles.statusTextInTransit };
-        case 'delivered':
-        case 'completed':
-          return { container: styles.statusDelivered, text: styles.statusTextDelivered };
-        default:
-          return { container: styles.statusPending, text: styles.statusTextPending };
-      }
-    };
+  const handleRowPress = (item) => {
+    setSelectedRowData(item);
+    setIsViewShipmentOpen(true);
+  };
 
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return { backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'in transit':
+        return { backgroundColor: '#dbeafe', color: '#1e40af' };
+      case 'delivered':
+      case 'completed':
+        return { backgroundColor: '#d1fae5', color: '#065f46' };
+      default:
+        return { backgroundColor: '#f3f4f6', color: '#6b7280' };
+    }
+  };
+
+  const renderTableRow = ({ item, index }) => {
     const statusStyle = getStatusStyle(item.status);
 
     return (
-      <View style={styles.allocationCard}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.unitName}>{item.unitName || 'Unknown Unit'}</Text>
-          <View style={[styles.statusBadge, statusStyle.container]}>
-            <Text style={[styles.statusText, statusStyle.text]}>
+      <TouchableOpacity 
+        style={[styles.tableRow, index % 2 === 0 && styles.evenRow]}
+        onPress={() => handleRowPress(item)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.tableCell}>
+          {item.date ? new Date(item.date).toLocaleDateString('en-CA') : 'N/A'}
+        </Text>
+        <Text style={[styles.tableCell, styles.unitNameCell]}>{item.unitName || 'N/A'}</Text>
+        <Text style={styles.tableCell}>{item.unitId || 'N/A'}</Text>
+        <Text style={styles.tableCell}>{item.bodyColor || 'N/A'}</Text>
+        <Text style={styles.tableCell}>{item.variation || 'N/A'}</Text>
+        <Text style={styles.tableCell}>{item.assignedDriver || 'Unassigned'}</Text>
+        
+        <View style={styles.tableCellStatus}>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Text style={[styles.statusText, { color: statusStyle.color }]}>
               {item.status || 'Pending'}
             </Text>
           </View>
         </View>
 
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date</Text>
-            <Text style={styles.infoValue}>
-              {item.date ? new Date(item.date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              }) : 'Not set'}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Unit ID</Text>
-            <Text style={styles.infoValue}>{item.unitId || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Body Color</Text>
-            <Text style={styles.infoValue}>{item.bodyColor || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Variation</Text>
-            <Text style={styles.infoValue}>{item.variation || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Assigned Driver</Text>
-            <Text style={styles.infoValue}>{item.assignedDriver || 'Unassigned'}</Text>
-          </View>
-
-          {item.pickupPoint && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Pickup Point</Text>
-              <Text style={styles.infoValue}>{item.pickupPoint}</Text>
-            </View>
-          )}
-
-          {item.dropoffPoint && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Drop-off Point</Text>
-              <Text style={styles.infoValue}>{item.dropoffPoint}</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.cardActions}>
+        <View style={styles.tableActions}>
           <TouchableOpacity 
             style={styles.editBtn} 
-            onPress={() => setEditAllocation(item)}
+            onPress={(e) => {
+              e.stopPropagation();
+              setEditAllocation(item);
+            }}
           >
             <Text style={styles.actionBtnText}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.deleteBtn} 
-            onPress={() => handleDelete(item._id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDelete(item._id);
+            }}
           >
             <Text style={styles.actionBtnText}>Delete</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -400,14 +416,29 @@ const DriverAllocation = () => {
           </Text>
         </View>
       ) : (
-        <FlatList
-          style={styles.listContainer}
-          data={currentAllocations}
-          renderItem={renderItem}
-          keyExtractor={item => item._id || Math.random().toString()}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
+        <View style={styles.tableContainer}>
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableHeaderCell}>Date</Text>
+            <Text style={[styles.tableHeaderCell, styles.unitNameHeader]}>Unit Name</Text>
+            <Text style={styles.tableHeaderCell}>Conduction No.</Text>
+            <Text style={styles.tableHeaderCell}>Body Color</Text>
+            <Text style={styles.tableHeaderCell}>Variation</Text>
+            <Text style={styles.tableHeaderCell}>Assigned Driver</Text>
+            <Text style={styles.tableHeaderCell}>Status</Text>
+            <Text style={styles.tableHeaderCell}>Action</Text>
+          </View>
+
+          {/* Table Body */}
+          <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={false}>
+            <FlatList
+              data={currentAllocations}
+              renderItem={renderTableRow}
+              keyExtractor={item => item._id || Math.random().toString()}
+              scrollEnabled={false}
+            />
+          </ScrollView>
+        </View>
       )}
 
       {totalPages > 1 && (
@@ -612,62 +643,131 @@ const DriverAllocation = () => {
                 />
               </View>
 
-              {/* Pickup Point Selection */}
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Pickup Point</Text>
-                <View style={styles.locationButtonsContainer}>
-                  <TouchableOpacity 
-                    style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
-                    onPress={() => setPickupPoint('Isuzu Stockyard')}
-                  >
-                    <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
-                      Isuzu Stockyard
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
-                    onPress={() => setPickupPoint('Isuzu Pasig')}
-                  >
-                    <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
-                      Isuzu Pasig
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Or enter custom pickup location"
-                  value={pickupPoint}
-                  onChangeText={setPickupPoint}
-                />
+              {/* Enhanced Route Selection */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>📍 Route Planning</Text>
               </View>
 
-              {/* Dropoff Point Selection */}
               <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Drop-off Destination</Text>
-                <View style={styles.locationButtonsContainer}>
+                <Text style={styles.inputLabel}>Delivery Route</Text>
+                
+                {selectedRoute ? (
+                  <View style={styles.selectedRouteContainer}>
+                    <View style={styles.routeInfoHeader}>
+                      <Text style={styles.routeInfoTitle}>📊 Selected Route</Text>
+                      <TouchableOpacity 
+                        style={styles.changeRouteButton}
+                        onPress={openRouteSelector}
+                      >
+                        <Text style={styles.changeRouteText}>Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.routeDetails}>
+                      <View style={styles.routePoint}>
+                        <Text style={styles.routePointLabel}>📍 Pickup:</Text>
+                        <Text style={styles.routePointText}>{selectedRoute.pickup.name}</Text>
+                      </View>
+                      
+                      <View style={styles.routeArrow}>
+                        <Text style={styles.routeArrowText}>↓</Text>
+                      </View>
+                      
+                      <View style={styles.routePoint}>
+                        <Text style={styles.routePointLabel}>🎯 Drop-off:</Text>
+                        <Text style={styles.routePointText}>{selectedRoute.dropoff.name}</Text>
+                      </View>
+                      
+                      <View style={styles.routeMetrics}>
+                        <Text style={styles.routeMetric}>
+                          📏 Distance: {selectedRoute.distance} km
+                        </Text>
+                        <Text style={styles.routeMetric}>
+                          ⏱️ Est. Time: {selectedRoute.estimatedTime} mins
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
                   <TouchableOpacity 
-                    style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
-                    onPress={() => setDropoffPoint('Isuzu Stockyard')}
+                    style={styles.selectRouteButton}
+                    onPress={openRouteSelector}
                   >
-                    <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
-                      Isuzu Stockyard
-                    </Text>
+                    <Text style={styles.selectRouteIcon}>🗺️</Text>
+                    <View style={styles.selectRouteContent}>
+                      <Text style={styles.selectRouteTitle}>Plan Delivery Route</Text>
+                      <Text style={styles.selectRouteDescription}>
+                        Use interactive map to select pickup and drop-off locations
+                      </Text>
+                    </View>
+                    <Text style={styles.selectRouteArrow}>›</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
-                    onPress={() => setDropoffPoint('Isuzu Pasig')}
-                  >
-                    <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
-                      Isuzu Pasig
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Or enter custom drop-off location"
-                  value={dropoffPoint}
-                  onChangeText={setDropoffPoint}
-                />
+                )}
+
+                {/* Legacy Quick Selection (fallback) */}
+                {!selectedRoute && (
+                  <>
+                    <Text style={styles.orDivider}>— OR —</Text>
+                    
+                    <View style={styles.legacyLocationContainer}>
+                      <Text style={styles.inputLabel}>Quick Pickup Selection</Text>
+                      <View style={styles.locationButtonsContainer}>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setPickupPoint('Isuzu Stockyard')}
+                        >
+                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
+                            Stockyard
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                          onPress={() => setPickupPoint('Isuzu Pasig')}
+                        >
+                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                            Pasig
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter pickup location"
+                        value={pickupPoint}
+                        onChangeText={setPickupPoint}
+                        placeholderTextColor="#94a3b8"
+                      />
+
+                      <Text style={[styles.inputLabel, { marginTop: 12 }]}>Quick Drop-off Selection</Text>
+                      <View style={styles.locationButtonsContainer}>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setDropoffPoint('Isuzu Stockyard')}
+                        >
+                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
+                            Stockyard
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                          onPress={() => setDropoffPoint('Isuzu Pasig')}
+                        >
+                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                            Pasig
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter drop-off location"
+                        value={dropoffPoint}
+                        onChangeText={setDropoffPoint}
+                        placeholderTextColor="#94a3b8"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
             </View>
             
@@ -685,6 +785,7 @@ const DriverAllocation = () => {
                 setManualVin('');
                 setPickupPoint('');
                 setDropoffPoint('');
+                setSelectedRoute(null);
               }}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
@@ -760,6 +861,23 @@ const DriverAllocation = () => {
           </View>
         </View>
       </Modal>
+
+      {/* View Shipment Modal */}
+      <ViewShipment
+        isOpen={isViewShipmentOpen}
+        onClose={() => setIsViewShipmentOpen(false)}
+        data={selectedRowData}
+      />
+
+      {/* Route Selection Modal */}
+      <RouteSelectionModal
+        isVisible={isRouteSelectionOpen}
+        onClose={() => setIsRouteSelectionOpen(false)}
+        onRouteSelect={handleRouteSelection}
+        title="Plan Delivery Route"
+        initialPickup={selectedRoute?.pickup}
+        initialDropoff={selectedRoute?.dropoff}
+      />
     </View>
   );
 };
@@ -843,118 +961,108 @@ const createStyles = (theme) => StyleSheet.create({
     textAlign: 'center'
   },
 
-  // Card-based List Design
-  listContainer: {
-    paddingHorizontal: 16
-  },
-  allocationCard: {
+  // Table-based Design
+  tableContainer: {
     backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#dc2626'
+    elevation: 3,
+    overflow: 'hidden'
   },
-  cardHeader: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12
+    backgroundColor: '#f8fafc',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e2e8f0',
   },
-  unitName: {
-    fontSize: 18,
+  tableHeaderCell: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1e293b',
-    flex: 1
+    color: '#374151',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  unitNameHeader: {
+    flex: 1.5,
+  },
+  tableBody: {
+    maxHeight: 400, // Limit height for scrolling
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  evenRow: {
+    backgroundColor: '#f9fafb',
+  },
+  tableCell: {
+    fontSize: 14,
+    color: '#374151',
+    textAlign: 'center',
+    flex: 1,
+    paddingHorizontal: 4,
+  },
+  unitNameCell: {
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1.5,
+    textAlign: 'left',
+  },
+  tableCellStatus: {
+    flex: 1,
+    alignItems: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    minWidth: 80,
-    alignItems: 'center'
-  },
-  statusPending: {
-    backgroundColor: '#fef3c7'
-  },
-  statusInTransit: {
-    backgroundColor: '#dbeafe'
-  },
-  statusDelivered: {
-    backgroundColor: '#d1fae5'
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 70,
+    alignItems: 'center',
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
   },
-  statusTextPending: {
-    color: '#92400e'
-  },
-  statusTextInTransit: {
-    color: '#1e40af'
-  },
-  statusTextDelivered: {
-    color: '#065f46'
-  },
-  
-  cardContent: {
-    gap: 8
-  },
-  infoRow: {
+  tableActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-    flex: 1
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#334155',
-    fontWeight: '600',
-    flex: 2,
-    textAlign: 'right'
-  },
-  
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 8
-  },
-  
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    gap: 8
+    flex: 1,
+    justifyContent: 'center',
+    gap: 4,
   },
   editBtn: {
     backgroundColor: '#3b82f6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginHorizontal: 2,
   },
   deleteBtn: {
     backgroundColor: '#ef4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginHorizontal: 2,
   },
   actionBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14
+    fontSize: 12,
   },
 
   // Pagination
@@ -1116,6 +1224,131 @@ const createStyles = (theme) => StyleSheet.create({
   },
   selectedLocationText: {
     color: '#ffffff',
+  },
+
+  // Enhanced Route Selection Styles
+  selectedRouteContainer: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 2,
+    borderColor: '#22c55e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  routeInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  routeInfoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  changeRouteButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  changeRouteText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  routeDetails: {
+    gap: 8,
+  },
+  routePoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+  },
+  routePointLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    minWidth: 80,
+  },
+  routePointText: {
+    fontSize: 14,
+    color: '#1f2937',
+    flex: 1,
+    marginLeft: 8,
+  },
+  routeArrow: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  routeArrowText: {
+    fontSize: 18,
+    color: '#22c55e',
+    fontWeight: 'bold',
+  },
+  routeMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  routeMetric: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  selectRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  selectRouteIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  selectRouteContent: {
+    flex: 1,
+  },
+  selectRouteTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  selectRouteDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  selectRouteArrow: {
+    fontSize: 24,
+    color: '#9ca3af',
+    fontWeight: 'bold',
+  },
+  orDivider: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '600',
+    marginVertical: 20,
+  },
+  legacyLocationContainer: {
+    padding: 16,
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   
   modalBtnRow: { 

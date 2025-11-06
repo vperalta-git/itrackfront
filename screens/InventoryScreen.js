@@ -20,10 +20,21 @@ import UniformLoading from '../components/UniformLoading';
 import Colors from '../constants/Colors';
 import EnhancedVehicleForm from '../components/EnhancedVehicleForm';
 import { getUnitNames, getVariationsForUnit, VEHICLE_STATUS_OPTIONS } from '../constants/VehicleModels';
+import { useVehicleModels } from '../hooks/useVehicleModels';
 
 const { width } = Dimensions.get('window');
 
 export default function InventoryScreen() {
+  // Vehicle Models Hook
+  const {
+    unitNames,
+    getVariationsForUnit: getVariationsFromHook,
+    validateUnitVariationPair,
+    loading: vehicleModelsLoading,
+    error: vehicleModelsError,
+    refreshData: refreshVehicleModels
+  } = useVehicleModels();
+
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,6 +43,7 @@ export default function InventoryScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [editingVehicle, setEditingVehicle] = useState(null);
 
   // Fetch vehicles from inventory
   const fetchVehicles = useCallback(async () => {
@@ -92,6 +104,22 @@ export default function InventoryScreen() {
       return;
     }
 
+    // Validate unit-variation pair
+    try {
+      const isValid = await validateUnitVariationPair(vehicleData.unitName, vehicleData.variation);
+      if (!isValid) {
+        Alert.alert(
+          'Invalid Combination', 
+          `The variation "${vehicleData.variation}" is not available for "${vehicleData.unitName}". Please select a valid combination.`
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Validation error:', error);
+      Alert.alert('Error', 'Failed to validate unit-variation combination');
+      return;
+    }
+
     try {
       const response = await fetch(buildApiUrl('/addToInventory'), {
         method: 'POST',
@@ -110,6 +138,7 @@ export default function InventoryScreen() {
       if (data.success) {
         Alert.alert('Success', 'Vehicle added to inventory successfully');
         fetchVehicles(); // Refresh the list
+        setShowAddModal(false);
       } else {
         Alert.alert('Error', data.message || 'Failed to add vehicle');
       }
@@ -122,6 +151,24 @@ export default function InventoryScreen() {
   // Update existing vehicle
   const handleUpdateVehicle = async (vehicleData) => {
     if (!selectedVehicle) return;
+
+    // Validate unit-variation pair if either has changed
+    if (vehicleData.unitName && vehicleData.variation) {
+      try {
+        const isValid = await validateUnitVariationPair(vehicleData.unitName, vehicleData.variation);
+        if (!isValid) {
+          Alert.alert(
+            'Invalid Combination', 
+            `The variation "${vehicleData.variation}" is not available for "${vehicleData.unitName}". Please select a valid combination.`
+          );
+          return;
+        }
+      } catch (error) {
+        console.error('Validation error:', error);
+        Alert.alert('Error', 'Failed to validate unit-variation combination');
+        return;
+      }
+    }
 
     try {
       const response = await fetch(buildApiUrl(`/updateInventoryItem/${selectedVehicle._id}`), {
@@ -180,9 +227,12 @@ export default function InventoryScreen() {
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchVehicles();
+    await Promise.all([
+      fetchVehicles(),
+      refreshVehicleModels()
+    ]);
   };
 
   // Render vehicle item
@@ -355,6 +405,11 @@ export default function InventoryScreen() {
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddVehicle}
           mode="add"
+          unitNames={unitNames}
+          getVariationsForUnit={getVariationsFromHook}
+          validateUnitVariationPair={validateUnitVariationPair}
+          vehicleModelsLoading={vehicleModelsLoading}
+          vehicleModelsError={vehicleModelsError}
         />
       )}
 
@@ -369,6 +424,11 @@ export default function InventoryScreen() {
           onSubmit={handleUpdateVehicle}
           mode="edit"
           initialData={editingVehicle}
+          unitNames={unitNames}
+          getVariationsForUnit={getVariationsFromHook}
+          validateUnitVariationPair={validateUnitVariationPair}
+          vehicleModelsLoading={vehicleModelsLoading}
+          vehicleModelsError={vehicleModelsError}
         />
       )}
     </View>
