@@ -212,10 +212,15 @@ mongoose.connect(mongoURI)
 // User Schema with Role Validation and Enhanced Password Management - SYNCED WITH WEB VERSION
 const UserSchema = new mongoose.Schema({
   // Core Authentication Fields
-  username: {
+  email: {
     type: String,
     required: true,
     unique: true,
+    trim: true,
+    lowercase: true
+  },
+  username: {
+    type: String,
     trim: true
   },
   password: {
@@ -232,11 +237,6 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
-  },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true
   },
   isActive: {
     type: Boolean,
@@ -480,17 +480,18 @@ const DriverAllocation = mongoose.model('DriverAllocation', DriverAllocationSche
 
 // ======================== AUTH =========================
 
-// Enhanced Login with Temporary Password Support
+// Enhanced Login with Email-based Authentication
 app.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    console.log('📥 Login attempt:', username);
-    console.log('🔍 Looking for user with email or username:', username.toLowerCase().trim());
+    const { username, password } = req.body; // Keep 'username' for backward compatibility but treat as email
+    const email = username; // The mobile app sends email in 'username' field
+    console.log('📥 Login attempt:', email);
+    console.log('🔍 Looking for user with email:', email.toLowerCase().trim());
 
     // Check admin credentials first
-    if (username === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
+    if (email === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
       req.session.user = {
-        username: 'isuzupasigadmin',
+        email: 'admin@isuzupasig.com',
         role: 'Admin',
         accountName: 'Isuzu Pasig Admin'
       };
@@ -504,20 +505,17 @@ app.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in database by email OR username
+    // Find user in database by email only
     const user = await User.findOne({
-      $or: [
-        { email: username.toLowerCase().trim() },
-        { username: username.toLowerCase().trim() }
-      ]
+      email: email.toLowerCase().trim()
     });
     
     if (!user) {
-      console.log('❌ User not found for:', username.toLowerCase().trim());
+      console.log('❌ User not found for:', email.toLowerCase().trim());
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    console.log('✅ User found:', user.username, 'Email:', user.email);
+    console.log('✅ User found:', user.email);
 
     let isValidLogin = false;
     let isTemporaryPassword = false;
@@ -531,7 +529,7 @@ app.post('/login', async (req, res) => {
         isValidLogin = true;
         isTemporaryPassword = true;
         
-        console.log('🔑 User logged in with temporary password:', username);
+        console.log('🔑 User logged in with temporary password:', email);
         
         // Clear temporary password after successful use
         user.temporaryPassword = undefined;
@@ -542,10 +540,10 @@ app.post('/login', async (req, res) => {
 
     // If not using temporary password, check regular password (plain text)
     if (!isValidLogin) {
-      console.log('🔍 Comparing plain text password for user:', user.username);
+      console.log('🔍 Comparing plain text password for user:', user.email);
       if (password === user.password) {
         isValidLogin = true;
-        console.log('🔑 User logged in with plain text password:', username);
+        console.log('🔑 User logged in with plain text password:', email);
       } else {
         console.log('❌ Password mismatch for user:', user.username);
       }
@@ -560,14 +558,13 @@ app.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Create session
+    // Create session based on email
     const sessionUser = {
       id: user._id,
-      username: user.username,
+      email: user.email,
       role: user.role,
       accountName: user.accountName,
       name: user.name || user.accountName,
-      email: user.email,
       assignedTo: user.assignedTo
     };
 
@@ -579,8 +576,7 @@ app.post('/login', async (req, res) => {
         role: user.role,
         accountName: user.accountName,
         name: user.name || user.accountName,
-        email: user.email,
-        username: user.username
+        email: user.email
       }
     };
 
@@ -588,7 +584,7 @@ app.post('/login', async (req, res) => {
     if (isTemporaryPassword) {
       response.requirePasswordChange = true;
       response.message = 'Login successful with temporary password. Please change your password immediately.';
-      console.log('⚠️  User should change password immediately:', username);
+      console.log('⚠️  User should change password immediately:', email);
     }
 
     res.json(response);
@@ -664,10 +660,9 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    // Set session
+    // Set session based on email
     req.session.user = {
       id: user._id,
-      username: user.username || user.email,
       email: user.email,
       role: user.role || 'User',
       accountName: user.name || user.accountName
@@ -1108,13 +1103,23 @@ app.post('/change-password', async (req, res) => {
 
 // Inventory Schema
 const InventorySchema = new mongoose.Schema({
-  unitName: String,
+  unitName: { type: String, required: true },
   unitId: String,
   bodyColor: String,
-  variation: String,
-  conductionNumber: String,
+  variation: { type: String, required: true },
+  conductionNumber: { type: String, required: true },
+  vin: { type: String, required: true, unique: true },
+  engineNumber: String,
+  keyNumber: String,
+  plateNumber: String,
+  chassisNumber: String,
+  notes: String,
   quantity: { type: Number, default: 1 },
-  status: { type: String, default: 'Available' }
+  status: { type: String, default: 'Available' },
+  addedBy: String,
+  lastUpdatedBy: String,
+  addedDate: Date,
+  dateUpdated: Date
 }, { timestamps: true });
 const Inventory = mongoose.model('Inventory', InventorySchema, 'inventories');
 
@@ -2790,37 +2795,7 @@ app.listen(PORT, HOST, () => {
 // =================== ADDITIONAL API ENDPOINTS FOR UNIFIED MOBILE APP ===================
 
 // Inventory Management Endpoints
-app.get('/getInventory', async (req, res) => {
-  try {
-    const inventory = await Vehicle.find({}).sort({ createdAt: -1 });
-    res.json({ success: true, data: inventory });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
-app.post('/addToInventory', async (req, res) => {
-  try {
-    const newVehicle = new Vehicle({
-      ...req.body,
-      status: req.body.status || 'In Stock',
-      addedDate: new Date()
-    });
-    await newVehicle.save();
-    res.json({ success: true, data: newVehicle });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.put('/updateInventoryItem/:id', async (req, res) => {
-  try {
-    const updated = await Vehicle.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // Service Request Endpoints
 app.get('/getServiceRequests', async (req, res) => {

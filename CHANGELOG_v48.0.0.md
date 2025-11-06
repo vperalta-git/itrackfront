@@ -3,6 +3,7 @@
 ## 🚀 Major New Features
 
 ### 📍 Interactive Route Planning System
+
 - **RouteSelectionModal Component**: Complete route planning interface for admin users
 - **Map-Based Selection**: Tap-to-select pickup and drop-off points on interactive map
 - **Search Functionality**: Find locations using integrated search system
@@ -12,28 +13,32 @@
 - **Coordinate Integration**: GPS coordinates stored with each allocation
 
 ### 🎯 Enhanced Driver Allocation
+
 - **Integrated Route Planning**: Direct access to route selection from allocation interface
 - **Enhanced Payload**: Allocation requests now include:
   - Pickup coordinates (latitude, longitude)
-  - Drop-off coordinates (latitude, longitude) 
+  - Drop-off coordinates (latitude, longitude)
   - Pickup address (formatted)
   - Drop-off address (formatted)
   - Estimated distance and travel time
 - **Visual Route Display**: Route information clearly displayed in allocation details
 
 ### 🗺️ Advanced Shipment Tracking
+
 - **Route Visualization**: Polyline connections between pickup and drop-off points
 - **Enhanced Map Markers**: Distinct markers for pickup (green) and drop-off (red) locations
 - **Route Information Section**: Comprehensive route details with addresses and metrics
 - **Live Location Integration**: Real-time vehicle tracking overlaid on designated routes
 
 ### 📊 Real Analytics Dashboard
+
 - **Genuine Pie Charts**: Replaced fake charts with real react-native-chart-kit implementation
 - **StocksOverview Component**: Proper data visualization for vehicle inventory
 - **Dynamic Data**: Charts reflect actual vehicle status and allocation data
 - **Interactive Elements**: Touchable chart segments with detailed information
 
 ### 🛰️ Enhanced Location Services
+
 - **expo-location Integration**: High-accuracy GPS tracking (17.0.1)
 - **Location Permissions**: Proper permission handling in app.json
 - **Callback System**: Real-time location updates with callback registration
@@ -43,18 +48,21 @@
 ## 🔧 Technical Improvements
 
 ### 📱 Dependencies Updated
+
 - **expo-location**: Added version 17.0.1 for enhanced GPS tracking
 - **react-native-chart-kit**: Added version 6.12.0 for real chart implementations
 - **react-native-maps**: Enhanced integration with location services
 - **AsyncStorage**: Smart caching for recent locations and user preferences
 
 ### 🏗️ Architecture Enhancements
+
 - **LocationService.js**: Centralized location management utility
 - **Component Modularity**: Reusable RouteSelectionModal across different screens
 - **Theme Integration**: Consistent theming across all new components
 - **Error Boundaries**: Proper error handling for location and mapping features
 
 ### 🔐 Security & Permissions
+
 - **Location Permissions**: ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION configured
 - **Data Validation**: Input validation for coordinates and route data
 - **Privacy Considerations**: Location data handling with user consent

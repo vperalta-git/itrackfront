@@ -624,13 +624,6 @@ export default function ManagerDashboard() {
 
               <View style={styles.stockCardContent}>
                 <View style={styles.stockInfoRow}>
-                  <Text style={styles.stockInfoLabel}>Conduction #</Text>
-                  <Text style={styles.stockInfoValue}>
-                    {item.conductionNumber || item.unitId || 'N/A'}
-                  </Text>
-                </View>
-
-                <View style={styles.stockInfoRow}>
                   <Text style={styles.stockInfoLabel}>Body Color</Text>
                   <Text style={styles.stockInfoValue}>{item.bodyColor || 'N/A'}</Text>
                 </View>

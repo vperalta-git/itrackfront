@@ -324,25 +324,27 @@ const DriverAllocation = () => {
     }
   };
 
-  const renderTableRow = ({ item, index }) => {
+  const renderAllocationCard = ({ item, index }) => {
     const statusStyle = getStatusStyle(item.status);
 
     return (
       <TouchableOpacity 
-        style={[styles.tableRow, index % 2 === 0 && styles.evenRow]}
+        style={styles.allocationCard}
         onPress={() => handleRowPress(item)}
         activeOpacity={0.7}
       >
-        <Text style={styles.tableCell}>
-          {item.date ? new Date(item.date).toLocaleDateString('en-CA') : 'N/A'}
-        </Text>
-        <Text style={[styles.tableCell, styles.unitNameCell]}>{item.unitName || 'N/A'}</Text>
-        <Text style={styles.tableCell}>{item.unitId || 'N/A'}</Text>
-        <Text style={styles.tableCell}>{item.bodyColor || 'N/A'}</Text>
-        <Text style={styles.tableCell}>{item.variation || 'N/A'}</Text>
-        <Text style={styles.tableCell}>{item.assignedDriver || 'Unassigned'}</Text>
-        
-        <View style={styles.tableCellStatus}>
+        {/* Card Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Text style={styles.cardTitle}>{item.unitName || 'Unknown Vehicle'}</Text>
+            <Text style={styles.cardSubtitle}>
+              {item.date ? new Date(item.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              }) : 'Date not set'}
+            </Text>
+          </View>
           <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
             <Text style={[styles.statusText, { color: statusStyle.color }]}>
               {item.status || 'Pending'}
@@ -350,24 +352,94 @@ const DriverAllocation = () => {
           </View>
         </View>
 
-        <View style={styles.tableActions}>
+        {/* Card Body */}
+        <View style={styles.cardBody}>
+          <View style={styles.cardRow}>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>🏷️ Conduction No.</Text>
+              <Text style={styles.fieldValue}>{item.unitId || 'N/A'}</Text>
+            </View>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>🎨 Body Color</Text>
+              <Text style={styles.fieldValue}>{item.bodyColor || 'N/A'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.cardRow}>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>⚙️ Variation</Text>
+              <Text style={styles.fieldValue}>{item.variation || 'N/A'}</Text>
+            </View>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>👤 Driver</Text>
+              <Text style={[styles.fieldValue, !item.assignedDriver && styles.unassignedText]}>
+                {item.assignedDriver || 'Unassigned'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Route Information */}
+          {(item.pickupPoint || item.dropoffPoint) && (
+            <View style={styles.routeInfo}>
+              <Text style={styles.routeLabel}>📍 Route</Text>
+              <View style={styles.routeDetails}>
+                {item.pickupPoint && (
+                  <Text style={styles.routePoint}>From: {item.pickupPoint}</Text>
+                )}
+                {item.dropoffPoint && (
+                  <Text style={styles.routePoint}>To: {item.dropoffPoint}</Text>
+                )}
+                {item.routeDistance && (
+                  <Text style={styles.routeDistance}>~{item.routeDistance} km</Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Customer Information */}
+          {(item.customerName || item.customerEmail) && (
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerLabel}>👥 Customer</Text>
+              <View style={styles.customerDetails}>
+                {item.customerName && (
+                  <Text style={styles.customerName}>{item.customerName}</Text>
+                )}
+                {item.customerEmail && (
+                  <Text style={styles.customerEmail}>{item.customerEmail}</Text>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Card Actions */}
+        <View style={styles.cardActions}>
           <TouchableOpacity 
-            style={styles.editBtn} 
+            style={styles.cardActionBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRowPress(item);
+            }}
+          >
+            <Text style={styles.cardActionText}>📋 View Details</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.cardActionBtn, styles.editActionBtn]} 
             onPress={(e) => {
               e.stopPropagation();
               setEditAllocation(item);
             }}
           >
-            <Text style={styles.actionBtnText}>Edit</Text>
+            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.deleteBtn} 
+            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
             onPress={(e) => {
               e.stopPropagation();
               handleDelete(item._id);
             }}
           >
-            <Text style={styles.actionBtnText}>Delete</Text>
+            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -416,28 +488,14 @@ const DriverAllocation = () => {
           </Text>
         </View>
       ) : (
-        <View style={styles.tableContainer}>
-          {/* Table Header */}
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderCell}>Date</Text>
-            <Text style={[styles.tableHeaderCell, styles.unitNameHeader]}>Unit Name</Text>
-            <Text style={styles.tableHeaderCell}>Conduction No.</Text>
-            <Text style={styles.tableHeaderCell}>Body Color</Text>
-            <Text style={styles.tableHeaderCell}>Variation</Text>
-            <Text style={styles.tableHeaderCell}>Assigned Driver</Text>
-            <Text style={styles.tableHeaderCell}>Status</Text>
-            <Text style={styles.tableHeaderCell}>Action</Text>
-          </View>
-
-          {/* Table Body */}
-          <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={false}>
-            <FlatList
-              data={currentAllocations}
-              renderItem={renderTableRow}
-              keyExtractor={item => item._id || Math.random().toString()}
-              scrollEnabled={false}
-            />
-          </ScrollView>
+        <View style={styles.cardsContainer}>
+          <FlatList
+            data={currentAllocations}
+            renderItem={renderAllocationCard}
+            keyExtractor={item => item._id || Math.random().toString()}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.cardsList}
+          />
         </View>
       )}
 
@@ -961,108 +1019,182 @@ const createStyles = (theme) => StyleSheet.create({
     textAlign: 'center'
   },
 
-  // Table-based Design
-  tableContainer: {
-    backgroundColor: '#ffffff',
+  // Modern Card-based Design
+  cardsContainer: {
+    flex: 1,
     marginHorizontal: 16,
+  },
+  cardsList: {
+    paddingBottom: 20,
+  },
+  allocationCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     marginBottom: 16,
-    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 3,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
-  tableHeader: {
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 20,
+    paddingBottom: 16,
     backgroundColor: '#f8fafc',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  tableHeaderCell: {
-    fontSize: 12,
+  cardHeaderLeft: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#374151',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  unitNameHeader: {
-    flex: 1.5,
-  },
-  tableBody: {
-    maxHeight: 400, // Limit height for scrolling
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-  },
-  evenRow: {
-    backgroundColor: '#f9fafb',
-  },
-  tableCell: {
-    fontSize: 14,
-    color: '#374151',
-    textAlign: 'center',
-    flex: 1,
-    paddingHorizontal: 4,
-  },
-  unitNameCell: {
-    fontWeight: '600',
     color: '#1f2937',
-    flex: 1.5,
-    textAlign: 'left',
+    marginBottom: 4,
   },
-  tableCellStatus: {
-    flex: 1,
-    alignItems: 'center',
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    minWidth: 70,
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  tableActions: {
+  cardBody: {
+    padding: 20,
+    paddingTop: 16,
+  },
+  cardRow: {
     flexDirection: 'row',
+    marginBottom: 16,
+    gap: 16,
+  },
+  cardField: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  fieldValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  unassignedText: {
+    color: '#ef4444',
+    fontStyle: 'italic',
+  },
+  routeInfo: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#22c55e',
+  },
+  routeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  routeDetails: {
     gap: 4,
   },
-  editBtn: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginHorizontal: 2,
+  routePoint: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
-  deleteBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginHorizontal: 2,
-  },
-  actionBtnText: {
-    color: '#fff',
-    fontWeight: '600',
+  routeDistance: {
     fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  customerInfo: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  customerLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#d97706',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  customerDetails: {
+    gap: 2,
+  },
+  customerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  customerEmail: {
+    fontSize: 13,
+    color: '#a16207',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  cardActionBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+  },
+  cardActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  editActionBtn: {
+    backgroundColor: '#eff6ff',
+  },
+  editActionText: {
+    color: '#2563eb',
+  },
+  deleteActionBtn: {
+    backgroundColor: '#fef2f2',
+    borderRightWidth: 0,
+  },
+  deleteActionText: {
+    color: '#dc2626',
   },
 
   // Pagination

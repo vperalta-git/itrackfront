@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -20,11 +20,14 @@ import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
+import { ThemeContext } from '../context/ThemeContext';
 import AdminMapsView from '../components/AdminMapsView';
 import ImprovedMapsView from '../components/ImprovedMapsView';
 
 function SupervisorDashboard() {
   const navigation = useNavigation();
+  const { theme } = useContext(ThemeContext);
+  const styles = createStyles(theme);
 
   // State management - Same as AdminDashboard
   const [allocations, setAllocations] = useState([]);
@@ -44,7 +47,6 @@ function SupervisorDashboard() {
   const [selectedStock, setSelectedStock] = useState(null);
   const [newStock, setNewStock] = useState({
     unitName: "",
-    conductionNumber: "",
     bodyColor: "",
     variation: "",
   });
@@ -572,7 +574,7 @@ function SupervisorDashboard() {
           <View style={styles.inventoryItem}>
             <View style={styles.inventoryInfo}>
               <Text style={styles.inventoryTitle}>{item.unitName}</Text>
-              <Text style={styles.inventoryDetails}>VIN: {item.conductionNumber}</Text>
+              <Text style={styles.inventoryDetails}>VIN: {item.vin || item.unitId || 'N/A'}</Text>
               <Text style={styles.inventoryDetails}>Color: {item.bodyColor}</Text>
             </View>
             <View style={[styles.statusBadge, 
@@ -668,64 +670,92 @@ function SupervisorDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#fff' 
+    backgroundColor: theme.surface
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.surface,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: theme.textSecondary,
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#e50914',
-    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   headerLeft: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#e50914',
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#fff',
-    opacity: 0.9,
+    color: theme.textSecondary,
+    fontWeight: '500',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   profileButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#f8f9fa',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
   },
   profileButtonText: {
-    color: '#fff',
+    color: '#333',
     fontSize: 14,
     fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#e50914',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   logoutButtonText: {
     color: '#fff',
@@ -733,9 +763,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 8,
   },
   tabContentContainer: {
     paddingHorizontal: 10,
@@ -743,17 +774,28 @@ const styles = StyleSheet.create({
   tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
     borderRadius: 25,
-    backgroundColor: '#fff',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tabButtonActive: {
     backgroundColor: '#e50914',
     borderColor: '#e50914',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabIcon: {
     fontSize: 16,
@@ -772,10 +814,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
+    marginBottom: 20,
+    color: theme.text,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -785,11 +827,19 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
+    backgroundColor: theme.card,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 16,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   statNumber: {
     fontSize: 28,
@@ -806,39 +856,72 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   formSection: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: theme.card,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    backgroundColor: theme.surface,
     fontSize: 16,
+    color: theme.text,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: theme.text,
   },
   picker: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: theme.surface,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   createButton: {
     backgroundColor: '#e50914',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 12,
+    padding: 18,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   createButtonText: {
     color: '#fff',
@@ -846,23 +929,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   userGroupCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: theme.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e0e0e0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   managerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
+    marginBottom: 16,
+    color: theme.text,
   },
   userItem: {
     flexDirection: 'row',
@@ -903,29 +986,39 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: theme.text,
   },
   userAccount: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    color: theme.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
   },
   userEmail: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+    color: theme.textSecondary,
+    marginTop: 4,
+    opacity: 0.8,
   },
   deleteButton: {
     backgroundColor: '#dc3545',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   deleteButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

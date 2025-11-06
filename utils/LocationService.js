@@ -18,20 +18,21 @@ class LocationService {
     try {
       console.log('🗺️ Requesting location permission...');
       
+      // Check if location services are enabled first
+      const locationServicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!locationServicesEnabled) {
+        console.log('❌ Location services are disabled on this device');
+        this.permissionStatus = 'disabled';
+        return false;
+      }
+      
       // Request foreground permissions
       const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
       
       if (foregroundStatus !== 'granted') {
-        console.log('❌ Foreground location permission denied');
+        console.log('❌ Foreground location permission denied:', foregroundStatus);
         this.permissionStatus = 'denied';
         return false;
-      }
-
-      // For background tracking (optional), request background permission
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      
-      if (backgroundStatus !== 'granted') {
-        console.log('⚠️ Background location permission denied, but foreground is granted');
       }
 
       this.permissionStatus = 'granted';

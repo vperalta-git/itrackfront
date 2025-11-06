@@ -56,6 +56,26 @@ export default function HistoryScreen() {
       
       setUserRole(role);
       setAccountName(name);
+
+      // Quick audit trail API test
+      console.log('🧪 Testing audit trail API directly...');
+      try {
+        const testUrl = buildApiUrl('/api/audit-trail?limit=1');
+        console.log('🧪 Test URL:', testUrl);
+        const testResponse = await fetch(testUrl);
+        console.log('🧪 Test response status:', testResponse.status);
+        if (testResponse.ok) {
+          const testData = await testResponse.json();
+          console.log('🧪 Test data received:', Array.isArray(testData) ? `Array with ${testData.length} items` : typeof testData);
+          if (Array.isArray(testData) && testData.length > 0) {
+            console.log('🧪 Sample audit trail item:', testData[0]);
+          }
+        } else {
+          console.log('🧪 Test failed with status:', testResponse.status, testResponse.statusText);
+        }
+      } catch (testError) {
+        console.log('🧪 Test error:', testError.message);
+      }
       
       await fetchHistoryData(role, name);
     } catch (error) {
@@ -199,6 +219,14 @@ export default function HistoryScreen() {
           
           if (!response.ok) {
             console.warn(`⚠️ Non-OK response from ${url}: ${response.status} ${response.statusText}`);
+            // Try to get error details from response
+            try {
+              const errorData = await response.text();
+              console.warn(`⚠️ Error response body: ${errorData}`);
+            } catch (e) {
+              console.warn(`⚠️ Could not parse error response`);
+            }
+            return [];
           }
           
           const data = await response.json();
@@ -206,23 +234,55 @@ export default function HistoryScreen() {
             isArray: Array.isArray(data),
             length: Array.isArray(data) ? data.length : 'N/A',
             hasSuccess: data.hasOwnProperty('success'),
-            sampleKeys: typeof data === 'object' ? Object.keys(data).slice(0, 5) : []
+            sampleKeys: typeof data === 'object' ? Object.keys(data).slice(0, 5) : [],
+            firstItemKeys: Array.isArray(data) && data.length > 0 ? Object.keys(data[0]).slice(0, 5) : []
           });
           
-          return response.ok ? data : [];
+          return data;
         } catch (error) {
-          console.error(`❌ Error fetching from ${url}:`, error);
+          console.error(`❌ Error fetching from ${url}:`, error.message);
+          console.error(`❌ Full error details:`, error);
           return [];
         }
       };
 
       // Fetch data in parallel from correct MongoDB collections
-      const [allocations, users, auditTrails, releaseHistories] = await Promise.all([
+      let auditTrails = [];
+      
+      // Try both audit trail endpoints
+      try {
+        console.log('🔄 Trying primary audit trail endpoint...');
+        auditTrails = await safeFetch(buildApiUrl('/api/audit-trail?limit=200'));
+        
+        if (!Array.isArray(auditTrails) || auditTrails.length === 0) {
+          console.log('🔄 Primary endpoint failed, trying alternative...');
+          const alternativeResponse = await safeFetch(buildApiUrl('/api/audittrails?limit=200'));
+          if (alternativeResponse?.success && Array.isArray(alternativeResponse.data)) {
+            auditTrails = alternativeResponse.data;
+            console.log('✅ Alternative endpoint returned data');
+          } else {
+            auditTrails = [];
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error fetching audit trails:', error);
+        auditTrails = [];
+      }
+
+      const [allocations, users, releaseHistories] = await Promise.all([
         safeFetch(buildApiUrl('/getAllocation')),
         safeFetch(buildApiUrl('/admin/users')),
-        safeFetch(buildApiUrl('/api/audit-trail')), // Web-compatible audit trail endpoint
         safeFetch(buildApiUrl('/api/releasehistories')), // itrackDB > releasehistories collection
       ]);
+
+      // Enhanced logging for debugging
+      console.log('🔍 API Response Debug:', {
+        allocationsType: typeof allocations,
+        allocationsLength: Array.isArray(allocations) ? allocations.length : 'Not array',
+        auditTrailsType: typeof auditTrails,
+        auditTrailsLength: Array.isArray(auditTrails) ? auditTrails.length : 'Not array',
+        auditTrailsSample: Array.isArray(auditTrails) ? auditTrails.slice(0, 2) : auditTrails
+      });
 
       // Create comprehensive sample data to ensure history always works
       const sampleAllocations = [
@@ -312,22 +372,29 @@ export default function HistoryScreen() {
       }
       
       // Use real audit trails data if available (web format)
-      if (Array.isArray(auditTrails) && auditTrails.length > 0) {
-        console.log(`📊 Processing ${auditTrails.length} audit trails from web endpoint`);
-        
-        const processedAuditTrails = auditTrails.map(trail => ({
-          _id: trail._id || `audit_${Date.now()}_${Math.random()}`,
-          action: getAuditActionDescription(trail.action, trail.resource),
-          description: getAuditDescription(trail),
-          user: trail.performedBy || 'Unknown',
-          timestamp: trail.timestamp || new Date().toISOString(),
-          resource: trail.resource,
-          resourceId: trail.resourceId,
-          details: trail.details,
-          originalTrail: trail
-        }));
-        
-        finalAuditData = processedAuditTrails;
+      if (Array.isArray(auditTrails)) {
+        if (auditTrails.length > 0) {
+          console.log(`📊 Processing ${auditTrails.length} audit trails from web endpoint`);
+          
+          const processedAuditTrails = auditTrails.map(trail => ({
+            _id: trail._id || `audit_${Date.now()}_${Math.random()}`,
+            action: getAuditActionDescription(trail.action, trail.resource),
+            description: getAuditDescription(trail),
+            user: trail.performedBy || 'Unknown',
+            timestamp: trail.timestamp || new Date().toISOString(),
+            resource: trail.resource,
+            resourceId: trail.resourceId,
+            details: trail.details,
+            originalTrail: trail
+          }));
+          
+          finalAuditData = processedAuditTrails;
+          console.log('✅ Successfully processed real audit trail data');
+        } else {
+          console.log('⚠️ Audit trails API returned empty array, using sample data');
+        }
+      } else {
+        console.log('❌ Audit trails API did not return array, using sample data. Received:', typeof auditTrails);
       }
       
       // Use release history data if available
@@ -497,6 +564,48 @@ export default function HistoryScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadUserInfoAndHistory();
+  };
+
+  const testAuditTrailAPI = async () => {
+    try {
+      console.log('🧪 Manual audit trail API test started...');
+      Alert.alert('Debug', 'Testing audit trail API - check console for logs');
+      
+      const testUrl = buildApiUrl('/api/audit-trail?limit=10');
+      console.log('🧪 Testing URL:', testUrl);
+      
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('🧪 Response status:', response.status);
+      console.log('🧪 Response headers:', response.headers);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🧪 Success! Data type:', typeof data);
+        console.log('🧪 Is array:', Array.isArray(data));
+        console.log('🧪 Length:', Array.isArray(data) ? data.length : 'N/A');
+        
+        if (Array.isArray(data) && data.length > 0) {
+          console.log('🧪 Sample item:', data[0]);
+          Alert.alert('Success', `Found ${data.length} audit trail records! Check console for details.`);
+        } else {
+          console.log('🧪 Empty array returned');
+          Alert.alert('Info', 'API returned empty audit trail data');
+        }
+      } else {
+        const errorText = await response.text();
+        console.log('🧪 Error response:', errorText);
+        Alert.alert('Error', `API returned status ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('🧪 Test error:', error);
+      Alert.alert('Error', `Test failed: ${error.message}`);
+    }
   };
 
   const renderUserAvatar = (user) => {
@@ -679,6 +788,9 @@ export default function HistoryScreen() {
         <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
           <Text style={styles.refreshButtonText}>🔄</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={testAuditTrailAPI} style={styles.debugButton}>
+          <Text style={styles.debugButtonText}>🔧</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
@@ -770,6 +882,15 @@ const styles = StyleSheet.create({
   },
 
   refreshButtonText: {
+    fontSize: 18,
+  },
+
+  debugButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+
+  debugButtonText: {
     fontSize: 18,
   },
 

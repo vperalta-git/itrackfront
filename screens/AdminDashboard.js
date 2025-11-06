@@ -20,8 +20,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 import StocksOverview from '../components/StocksOverview';
-import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
-import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
 import UniformLoading from '../components/UniformLoading';
 import Colors from '../constants/Colors';
 import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
@@ -45,7 +43,6 @@ export default function AdminDashboard() {
   const [selectedStock, setSelectedStock] = useState(null);
   const [newStock, setNewStock] = useState({
     unitName: "",
-    conductionNumber: "",
     bodyColor: "",
     variation: "",
   });
@@ -86,9 +83,7 @@ export default function AdminDashboard() {
   const [showReleaseConfirmModal, setShowReleaseConfirmModal] = useState(false);
   const [selectedReleaseVehicle, setSelectedReleaseVehicle] = useState(null);
   
-  // Enhanced modal states
-  const [showDriverCreationModal, setShowDriverCreationModal] = useState(false);
-  const [showVehicleAssignmentModal, setShowVehicleAssignmentModal] = useState(false);
+
   
   // Available processes
   const availableProcesses = [
@@ -274,8 +269,8 @@ export default function AdminDashboard() {
   };
 
   const handleAddStock = async () => {
-    const { unitName, conductionNumber, bodyColor, variation } = newStock;
-    if (!unitName || !conductionNumber || !bodyColor || !variation) {
+    const { unitName, bodyColor, variation } = newStock;
+    if (!unitName || !bodyColor || !variation) {
       Alert.alert("Error", "Please fill in all fields for adding stock.");
       return;
     }
@@ -285,7 +280,7 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unitName,
-          unitId: conductionNumber, // Backend expects unitId
+          unitId: `${unitName.replace(/\s+/g, '')}_${Date.now()}`, // Generate unitId
           bodyColor,
           variation
         }),
@@ -298,7 +293,7 @@ export default function AdminDashboard() {
       }
       
       Alert.alert("Success", "Stock added successfully!");
-      setNewStock({ unitName: "", conductionNumber: "", bodyColor: "", variation: "" });
+      setNewStock({ unitName: "", bodyColor: "", variation: "" });
       setSelectedUnitName("");
       setAvailableVariations([]);
       setShowAddStockModal(false);
@@ -750,65 +745,6 @@ export default function AdminDashboard() {
             onPress={mode === 'stock' ? assignToAgent : assignToDriver}
           >
             <Text style={styles.createAssignmentButtonText}>Create Assignment</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Enhanced Quick Actions */}
-      <View style={styles.quickActionsCard}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
-        <View style={styles.actionButtonsGrid}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryActionButton]}
-            onPress={() => setShowDriverCreationModal(true)}
-          >
-            <Text style={styles.actionButtonIcon}>👤</Text>
-            <Text style={styles.actionButtonText}>Create Driver Account</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryActionButton]}
-            onPress={() => setShowVehicleAssignmentModal(true)}
-          >
-            <Text style={styles.actionButtonIcon}>🚗</Text>
-            <Text style={styles.actionButtonText}>Assign Vehicle</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.tertiaryActionButton]}
-            onPress={() => navigation.navigate('UserManagement')}
-          >
-            <Text style={styles.actionButtonIcon}>👥</Text>
-            <Text style={styles.actionButtonText}>User Management</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.quaternaryActionButton]}
-            onPress={() => navigation.navigate('TestDriveManagementScreen')}
-          >
-            <Text style={styles.actionButtonIcon}>�️</Text>
-            <Text style={styles.actionButtonText}>Test Drive Management</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Quick Navigation Card */}
-      <View style={styles.navigationCard}>
-        <Text style={styles.navigationTitle}>Quick Navigation</Text>
-        <View style={styles.navigationButtons}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigation.navigate('HistoryScreen')}
-          >
-            <Text style={styles.navButtonText}>�️ Maps & Tracking</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigation.navigate('UserManagement')}
-          >
-            <Text style={styles.navButtonText}>👥 User Management</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1814,25 +1750,7 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* Enhanced Driver Creation Modal */}
-      <EnhancedDriverCreation
-        visible={showDriverCreationModal}
-        onClose={() => setShowDriverCreationModal(false)}
-        onDriverCreated={(driverData) => {
-          console.log('✅ Driver created:', driverData);
-          fetchDrivers(); // Refresh driver list
-        }}
-      />
 
-      {/* Enhanced Vehicle Assignment Modal */}
-      <EnhancedVehicleAssignment
-        visible={showVehicleAssignmentModal}
-        onClose={() => setShowVehicleAssignmentModal(false)}
-        onVehicleAssigned={(assignmentData) => {
-          console.log('✅ Vehicle assigned:', assignmentData);
-          fetchAllocations(); // Refresh allocations list
-        }}
-      />
       
       {/* Add Stock Modal */}
       <Modal visible={showAddStockModal} animationType="slide" transparent={true}>
@@ -1852,12 +1770,6 @@ export default function AdminDashboard() {
               ))}
             </Picker>
             
-            <TextInput
-              style={styles.input}
-              placeholder="Conduction Number"
-              value={newStock.conductionNumber}
-              onChangeText={(text) => setNewStock({ ...newStock, conductionNumber: text })}
-            />
             <TextInput
               style={styles.input}
               placeholder="Body Color"
@@ -2030,47 +1942,57 @@ export default function AdminDashboard() {
 
 const createStyles = (theme) => StyleSheet.create({
   container: { 
-    flex: 1, // Changed from flexGrow: 1 for better layout control
-    padding: 8, // Further reduced from 12 to 8 for tighter mobile fit
-    backgroundColor: theme.background,
-    width: '100%', // Changed from minWidth to width for better control
+    flex: 1,
+    backgroundColor: '#f8fafc', // Light gray background for better contrast
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#f8fafc'
   },
   loadingText: {
-    marginTop: 8, // Reduced from 10
-    fontSize: 13, // Reduced from 14
-    color: '#6B7280'
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '500'
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12, // Reduced from 16
-    paddingBottom: 8, // Reduced from 12
-    borderBottomWidth: 2,
-    borderBottomColor: '#e50914'
+    backgroundColor: '#ffffff',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: { 
-    fontSize: 20, // Reduced from 22 for even better mobile fit
-    fontWeight: 'bold', 
-    color: theme.primary,
+    fontSize: 28,
+    fontWeight: '700', 
+    color: '#1a202c',
     flex: 1
   },
   logoutButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 10, // Reduced from 12
-    paddingVertical: 5, // Reduced from 6
-    borderRadius: 6
+    backgroundColor: '#e50914',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   logoutButtonText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: '600',
-    fontSize: 11 // Reduced from 12
+    fontSize: 14
   },
   tabContainer: {
     flexDirection: 'row',
@@ -2199,13 +2121,14 @@ const createStyles = (theme) => StyleSheet.create({
     width: '100%', // Added full width
   },
   sectionTitle: {
-    fontSize: 15, // Reduced from 16
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 10, // Reduced from 12
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-    paddingBottom: 5 // Reduced from 6
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a202c',
+    marginBottom: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: 12,
+    letterSpacing: -0.5,
   },
   label: { 
     fontSize: 13, // Reduced from 14
@@ -2306,101 +2229,117 @@ const createStyles = (theme) => StyleSheet.create({
   // Modern Inventory Management Styles
   inventoryContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-    padding: 12, // Reduced from 16 for better mobile fit
+    backgroundColor: '#f8fafc',
+    padding: 16,
   },
 
   inventoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16, // Reduced from 20
-    paddingHorizontal: 4, // Added to prevent edge overflow
+    backgroundColor: '#ffffff',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 
   inventoryTitle: {
-    fontSize: 20, // Reduced from 24 for better mobile fit
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a202c',
     flex: 1,
-    marginRight: 12, // Space between title and button
+    letterSpacing: -0.5,
   },
 
   addStockButton: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 14, // Reduced from 16
-    paddingVertical: 10, // Reduced from 12
-    borderRadius: 8, // Reduced from 10
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
     shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   addStockButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13, // Reduced from 14
-    textAlign: 'center',
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Search Section
   inventorySearchSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10, // Reduced from 12
-    padding: 12, // Reduced from 16
-    marginBottom: 12, // Reduced from 16
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6, // Reduced from 8
-    elevation: 2, // Reduced from 3
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 
   inventorySearchInput: {
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#6B7280',
-    borderRadius: 8, // Reduced from 10
-    padding: 12, // Reduced from 14
-    fontSize: 14, // Reduced from 16
-    color: '#2D2D2D',
+    backgroundColor: '#f8fafc',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#1a202c',
+    fontWeight: '500',
   },
 
   // Stats Section - Mobile Optimized
   inventoryStatsContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap', // Allow wrapping on smaller screens
-    marginBottom: 12, // Reduced from 16
-    gap: 6, // Reduced from 12
+    flexWrap: 'wrap',
+    marginBottom: 20,
+    gap: 12,
   },
 
   inventoryStatCard: {
     flex: 1,
-    borderRadius: 12,
-    padding: 16,
+    minWidth: '45%',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
   inventoryStatNumber: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 8,
   },
 
   inventoryStatLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
-    opacity: 0.9,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Stock Cards
@@ -2409,16 +2348,18 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   stockCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-    borderLeftWidth: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderLeftWidth: 6,
     borderLeftColor: '#e50914',
   },
 
@@ -2426,19 +2367,23 @@ const createStyles = (theme) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
 
   stockUnitName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a202c',
     flex: 1,
+    letterSpacing: -0.5,
   },
 
   stockStatusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     minWidth: 80,
     alignItems: 'center',
@@ -2446,68 +2391,81 @@ const createStyles = (theme) => StyleSheet.create({
 
   stockStatusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
 
   stockCardContent: {
-    gap: 8,
+    gap: 12,
   },
 
   stockInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
 
   stockInfoLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600',
     flex: 1,
   },
 
   stockInfoValue: {
-    fontSize: 14,
-    color: '#2D2D2D',
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#1a202c',
+    fontWeight: '700',
     flex: 2,
     textAlign: 'right',
   },
 
   stockDivider: {
-    height: 1,
-    backgroundColor: '#F5F5F5',
-    marginVertical: 8,
+    height: 2,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 12,
+    borderRadius: 1,
   },
 
   stockCardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 20,
+    gap: 12,
   },
 
   stockEditBtn: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   stockDeleteBtn: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   stockActionBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
     fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Empty States
@@ -2515,50 +2473,63 @@ const createStyles = (theme) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 60,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
   inventoryEmptyText: {
-    fontSize: 18,
-    color: '#6B7280',
+    fontSize: 24,
+    color: '#374151',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    fontWeight: '700',
   },
 
   inventoryEmptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 18,
+    color: '#64748b',
     textAlign: 'center',
+    fontWeight: '500',
   },
 
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
 
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 32,
+    width: '95%',
+    maxWidth: 420,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a202c',
+    marginBottom: 24,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
 
   picker: {
@@ -2601,292 +2572,318 @@ const createStyles = (theme) => StyleSheet.create({
 
   // Modern Dashboard Styles
   dashboardContainer: {
-    gap: 16,
+    padding: 16,
+    gap: 20,
   },
 
   // Assignment Card Styles
   assignmentCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
+    marginHorizontal: 0,
+    marginVertical: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
   },
 
   assignmentCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
 
   assignmentTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a202c',
+    letterSpacing: -0.5,
   },
 
   assignmentBadge: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
 
   assignmentBadgeText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   assignmentSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
 
   assignmentLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: 16,
   },
 
   modeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 
   modeButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   modeButtonActive: {
     backgroundColor: '#e50914',
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   modeButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#64748b',
   },
 
   modeButtonTextActive: {
-    color: '#fff',
+    color: '#ffffff',
+    fontWeight: '700',
   },
 
   assignmentForm: {
-    gap: 16,
+    gap: 20,
   },
 
   formField: {
-    gap: 8,
+    gap: 12,
   },
 
   fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: 4,
   },
 
   modernPickerContainer: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   modernPicker: {
-    height: 50,
+    height: 56,
+    fontSize: 16,
+    color: '#1a202c',
   },
 
   modernInput: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#1a202c',
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   createAssignmentButton: {
     backgroundColor: '#e50914',
-    paddingVertical: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 16,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   createAssignmentButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  // Navigation Card Styles
-  navigationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-
-  navigationTitle: {
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
-    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
-  navigationButtons: {
-    gap: 12,
-  },
 
-  navButton: {
-    backgroundColor: '#f8fafc',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-
-  navButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
 
   // Allocations Card Styles
   allocationsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
+    marginHorizontal: 0,
+    marginVertical: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
   },
 
   allocationsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
 
   allocationsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a202c',
     flex: 1,
-    minWidth: 150,
+    letterSpacing: -0.5,
   },
 
   allocationsActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
     flexWrap: 'wrap',
   },
 
   allocationNavBtn: {
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: '#e50914',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#e50914',
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   allocationNavBtnText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   allocationsList: {
-    gap: 12,
+    gap: 16,
   },
 
   allocationItem: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   allocationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
 
   allocationUnitName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
     flex: 1,
   },
 
   allocationStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 
   allocationStatusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   allocationDetails: {
-    gap: 4,
+    gap: 8,
   },
 
   allocationDetailText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 16,
+    color: '#4a5568',
+    fontWeight: '500',
   },
 
   viewAllAllocationsBtn: {
     backgroundColor: '#e50914',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 16,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   viewAllAllocationsBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   allocationFooter: {
@@ -2901,18 +2898,24 @@ const createStyles = (theme) => StyleSheet.create({
 
   emptyAllocations: {
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginTop: 8,
   },
 
   emptyAllocationsText: {
-    fontSize: 16,
-    color: '#64748b',
-    marginBottom: 4,
+    fontSize: 20,
+    color: '#374151',
+    marginBottom: 8,
+    fontWeight: '700',
   },
 
   emptyAllocationsSubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 
   // Dispatch Assignment Styles
@@ -3684,64 +3687,7 @@ const createStyles = (theme) => StyleSheet.create({
     marginVertical: 20,
   },
 
-  // Enhanced Quick Actions Styles
-  quickActionsCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
 
-  actionButtonsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-
-  actionButton: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 80,
-    marginBottom: 8,
-  },
-
-  primaryActionButton: {
-    backgroundColor: '#2563eb',
-  },
-
-  secondaryActionButton: {
-    backgroundColor: '#dc2626',
-  },
-
-  tertiaryActionButton: {
-    backgroundColor: '#10b981',
-  },
-
-  quaternaryActionButton: {
-    backgroundColor: '#f59e0b',
-  },
-
-  actionButtonIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-
-  actionButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
 
   releaseVehicleDetails: {
     backgroundColor: '#f8f9fa',

@@ -8,7 +8,8 @@ import {
   Dimensions,
   ScrollView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Linking
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -54,7 +55,16 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
     setLocationError(null);
     
     try {
-      // First, get the current location from API
+      // First, check and request permissions
+      const hasPermission = await requestLocationPermissions();
+      if (!hasPermission) {
+        setLocationError('Location permission denied. Map functionality limited.');
+        setTrackingStatus('denied');
+        setIsLoadingLocation(false);
+        return;
+      }
+
+      // Get the current location from API
       await fetchCurrentLocationFromAPI();
 
       // Then start real-time tracking for admin monitoring
@@ -62,10 +72,41 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
       
     } catch (error) {
       console.error('Error initializing location tracking:', error);
-      setLocationError('Failed to initialize location tracking');
+      setLocationError('Failed to initialize location tracking: ' + error.message);
       setTrackingStatus('error');
     } finally {
       setIsLoadingLocation(false);
+    }
+  };
+
+  const requestLocationPermissions = async () => {
+    try {
+      console.log('🗺️ Requesting location permissions...');
+      
+      // Request foreground location permission
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      
+      if (foregroundStatus !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'This app needs location access to show vehicle tracking. Please enable location permissions in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Location.openAppSettingsAsync() }
+          ]
+        );
+        return false;
+      }
+
+      console.log('✅ Location permission granted');
+      return true;
+    } catch (error) {
+      console.error('❌ Error requesting location permission:', error);
+      Alert.alert(
+        'Permission Error',
+        'Failed to request location permission. Please try again or check your device settings.'
+      );
+      return false;
     }
   };
 
@@ -367,6 +408,24 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                     </View>
                   )}
 
+                  {/* Fallback Map Information */}
+                  {(locationError || trackingStatus === 'denied') && (currentLocation || data?.location) && (
+                    <View style={styles.mapFallback}>
+                      <Text style={styles.fallbackTitle}>📍 Location Information</Text>
+                      <Text style={styles.fallbackText}>
+                        Lat: {(currentLocation?.latitude || data?.location?.latitude || 0).toFixed(6)}
+                      </Text>
+                      <Text style={styles.fallbackText}>
+                        Lng: {(currentLocation?.longitude || data?.location?.longitude || 0).toFixed(6)}
+                      </Text>
+                      {currentLocation?.accuracy && (
+                        <Text style={styles.fallbackAccuracy}>
+                          Accuracy: ±{Math.round(currentLocation.accuracy)}m
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
                   <View style={styles.mapContainer}>
                     <MapView
                       ref={mapRef}
@@ -381,6 +440,11 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                       scrollEnabled={true}
                       loadingEnabled={true}
                       loadingIndicatorColor="#dc2626"
+                      onMapReady={() => console.log('🗺️ Map loaded successfully')}
+                      onError={(error) => {
+                        console.error('🗺️ Map error:', error);
+                        setLocationError('Map failed to load. Please check your internet connection.');
+                      }}
                     >
                       {/* Vehicle Marker */}
                       {(currentLocation || data?.location) && (
@@ -891,6 +955,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  
+  // Map Fallback Styles
+  mapFallback: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 20,
+    margin: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  fallbackTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  fallbackText: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  fallbackAccuracy: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });
 

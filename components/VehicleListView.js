@@ -101,7 +101,7 @@ const VehicleListView = () => {
 
   const filteredVehicles = vehicles.filter(vehicle =>
     vehicle.unitName?.toLowerCase().includes(searchText.toLowerCase()) ||
-    vehicle.conductionNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
+    vehicle.unitId?.toLowerCase().includes(searchText.toLowerCase()) ||
     vehicle.assignedDriverName?.toLowerCase().includes(searchText.toLowerCase())
   );
 
@@ -158,7 +158,7 @@ const VehicleListView = () => {
         <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search vehicles, drivers, or conduction numbers..."
+          placeholder="Search vehicles, drivers, or unit IDs..."
           value={searchText}
           onChangeText={setSearchText}
           placeholderTextColor="#666"
@@ -180,7 +180,7 @@ const VehicleListView = () => {
         <View style={styles.tableHeader}>
           <Text style={[styles.headerText, styles.dateColumn]}>DATE</Text>
           <Text style={[styles.headerText, styles.unitColumn]}>UNIT NAME</Text>
-          <Text style={[styles.headerText, styles.conductionColumn]}>CONDUCTION NUMBER</Text>
+          <Text style={[styles.headerText, styles.conductionColumn]}>UNIT ID</Text>
           <Text style={[styles.headerText, styles.colorColumn]}>BODY COLOR</Text>
           <Text style={[styles.headerText, styles.driverColumn]}>ASSIGNED DRIVER</Text>
           <Text style={[styles.headerText, styles.statusColumn]}>STATUS</Text>
@@ -197,7 +197,7 @@ const VehicleListView = () => {
               {vehicle.unitName || 'N/A'}
             </Text>
             <Text style={[styles.cellText, styles.conductionColumn]}>
-              {vehicle.conductionNumber || 'N/A'}
+              {vehicle.unitId || 'N/A'}
             </Text>
             <Text style={[styles.cellText, styles.colorColumn]}>
               {vehicle.bodyColor || 'N/A'}
