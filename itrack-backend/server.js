@@ -10,19 +10,20 @@ const nodemailer = require('nodemailer');
 const app = express();
 
 // ========== ENVIRONMENT VARIABLE VALIDATION ==========
-console.log('🔍 Validating environment variables...');
+console.log('🔍 Checking environment variables...');
 
-const requiredEnvVars = ['MONGODB_URI', 'SESSION_SECRET'];
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingVars.length > 0) {
-  console.error('❌ Missing required environment variables:');
-  missingVars.forEach(varName => console.error(`   - ${varName}`));
-  console.error('💡 Please set these variables in your .env file or environment');
-  process.exit(1);
+// Check if critical variables are set
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️  MONGODB_URI not set - using fallback connection string');
+  process.env.MONGODB_URI = 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
 }
 
-// Optional but recommended variables
+if (!process.env.SESSION_SECRET) {
+  console.warn('⚠️  SESSION_SECRET not set - using default (NOT SECURE FOR PRODUCTION)');
+  process.env.SESSION_SECRET = 'itrack-mobile-session-secret-key-2025';
+}
+
+// Optional variables
 const optionalVars = ['GOOGLE_MAPS_API_KEY', 'GMAIL_USER', 'GMAIL_APP_PASSWORD'];
 const missingOptional = optionalVars.filter(varName => !process.env[varName]);
 
@@ -32,7 +33,7 @@ if (missingOptional.length > 0) {
   console.warn('💡 Some features may be limited without these variables');
 }
 
-console.log('✅ Environment validation complete\n');
+console.log('✅ Environment check complete\n');
 
 // Session configuration - Updated for production security
 app.use(session({
@@ -227,12 +228,6 @@ async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
 
 // MongoDB URI configuration - Updated to connect to your itrackDB database
 const mongoURI = process.env.MONGODB_URI;
-
-if (!mongoURI) {
-  console.error('❌ MONGODB_URI environment variable is not set!');
-  console.error('💡 Please set MONGODB_URI in your .env file or environment variables');
-  process.exit(1);
-}
 
 // Connect to MongoDB with retry logic
 mongoose.connect(mongoURI)
@@ -1687,14 +1682,7 @@ app.get('/getAllDriverLocations', async (req, res) => {
 app.post('/api/directions/route', async (req, res) => {
   try {
     const { origin, destination } = req.body;
-    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-    
-    if (!GOOGLE_MAPS_API_KEY) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Google Maps API key not configured' 
-      });
-    }
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
     
     console.log('🗺️ Getting route from Google Maps API:', { origin, destination });
 
@@ -1747,14 +1735,7 @@ app.post('/api/directions/route', async (req, res) => {
 app.post('/api/geocode/address', async (req, res) => {
   try {
     const { address } = req.body;
-    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-    
-    if (!GOOGLE_MAPS_API_KEY) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Google Maps API key not configured' 
-      });
-    }
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
     
     console.log('📍 Geocoding address:', address);
 
@@ -1802,14 +1783,7 @@ app.post('/api/geocode/address', async (req, res) => {
 app.post('/api/geocode/reverse', async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
-    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-    
-    if (!GOOGLE_MAPS_API_KEY) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Google Maps API key not configured' 
-      });
-    }
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
     
     console.log('📍 Reverse geocoding:', { latitude, longitude });
 
@@ -1857,14 +1831,7 @@ app.post('/api/geocode/reverse', async (req, res) => {
 app.post('/api/places/search', async (req, res) => {
   try {
     const { query, location } = req.body;
-    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-    
-    if (!GOOGLE_MAPS_API_KEY) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Google Maps API key not configured' 
-      });
-    }
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
     
     console.log('🔍 Searching places:', query);
 
