@@ -510,7 +510,34 @@ export default function AdminDashboard() {
     }
   };
 
-
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all session-related AsyncStorage keys
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userName');
+              await AsyncStorage.removeItem('userRole');
+              await AsyncStorage.removeItem('accountName');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'LoginScreen' }], // Changed from 'Login' to 'LoginScreen'
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Handle release confirmation function
   const handleConfirmRelease = async () => {
@@ -587,37 +614,55 @@ export default function AdminDashboard() {
 
   const renderDashboardContent = () => (
     <View style={styles.dashboardContainer}>
-      {/* Modern Vehicle Assignment Card */}
-      <View style={styles.assignmentCard}>
-        <View style={styles.assignmentCardHeader}>
-          <Text style={styles.assignmentTitle}>Vehicle Assignment</Text>
-          <View style={styles.assignmentBadge}>
-            <Text style={styles.assignmentBadgeText}>Quick Assign</Text>
-          </View>
+      {/* Welcome Section */}
+      <View style={styles.welcomeCard}>
+        <Text style={styles.welcomeTitle}>Welcome to Admin Dashboard</Text>
+        <Text style={styles.welcomeSubtitle}>
+          Manage your fleet operations efficiently. Access all features through the sidebar menu.
+        </Text>
+        
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionBtn}
+            onPress={() => navigation.navigate('DriverAllocation')}
+          >
+            <Text style={styles.quickActionIcon}>🚗</Text>
+            <Text style={styles.quickActionText}>Driver Allocation</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionBtn}
+            onPress={() => navigation.navigate('AdminVehicleTracking')}
+          >
+            <Text style={styles.quickActionIcon}>🗺️</Text>
+            <Text style={styles.quickActionText}>Vehicle Tracking</Text>
+          </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Input Mode Selection */}
-        <View style={styles.assignmentSection}>
-          <Text style={styles.assignmentLabel}>Assignment Mode</Text>
-          <View style={styles.modeSelector}>
-            <TouchableOpacity
-              style={[styles.modeButton, mode === 'stock' && styles.modeButtonActive]}
-              onPress={() => setMode('stock')}
-            >
-              <Text style={[styles.modeButtonText, mode === 'stock' && styles.modeButtonTextActive]}>
-                From Stock
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
-              onPress={() => setMode('manual')}
-            >
-              <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-                Manual Entry
-              </Text>
-            </TouchableOpacity>
-          </View>
+      {/* Dashboard Stats */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{inventory.length}</Text>
+          <Text style={styles.statLabel}>Total Vehicles</Text>
         </View>
+        
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{allocations.length}</Text>
+          <Text style={styles.statLabel}>Active Allocations</Text>
+        </View>
+        
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{drivers.length}</Text>
+          <Text style={styles.statLabel}>Available Drivers</Text>
+        </View>
+        
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{agents.length}</Text>
+          <Text style={styles.statLabel}>Sales Agents</Text>
+        </View>
+      </View>
 
         {mode === 'stock' ? (
           <View style={styles.assignmentForm}>
@@ -666,14 +711,14 @@ export default function AdminDashboard() {
                 placeholder="Vehicle Model (e.g., Isuzu D-Max)"
                 value={manualModel}
                 onChangeText={setManualModel}
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor="#94a3b8"
               />
               <TextInput
                 style={styles.modernInput}
                 placeholder="VIN Number"
                 value={manualVin}
                 onChangeText={setManualVin}
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor="#94a3b8"
               />
             </View>
 
@@ -721,12 +766,10 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         </View>
       </View>
+    </View>
+  );
 
-      {/* Current Allocations Card */}
-      <View style={styles.allocationsCard}>
-        <View style={styles.allocationsHeader}>
-          <Text style={styles.allocationsTitle}>Vehicle Allocations</Text>
-          <View style={styles.allocationsActions}>
+  const renderReleaseContent = () => (
             <TouchableOpacity 
               style={styles.allocationNavBtn}
               onPress={() => navigation.navigate('DriverAllocation')}
@@ -748,11 +791,18 @@ export default function AdminDashboard() {
               <View key={item._id} style={styles.allocationItem}>
                 <View style={styles.allocationHeader}>
                   <Text style={styles.allocationUnitName}>{item.unitName}</Text>
-                  <View style={[styles.allocationStatusBadge, {
-                    backgroundColor: Colors.primary,
-                    opacity: item.status === 'Completed' ? 0.8 : item.status === 'In Transit' ? 0.9 : 1
-                  }]}>
-                    <Text style={[styles.allocationStatusText, {color: '#ffffff'}]}>
+                  <View style={[styles.allocationStatusBadge, 
+                    item.status === 'In Transit' ? {backgroundColor: '#dbeafe'} : 
+                    item.status === 'Completed' ? {backgroundColor: '#d1fae5'} :
+                    item.status === 'Assigned' ? {backgroundColor: '#fef3c7'} :
+                    {backgroundColor: '#fecaca'}
+                  ]}>
+                    <Text style={[styles.allocationStatusText,
+                      item.status === 'In Transit' ? {color: '#1e40af'} : 
+                      item.status === 'Completed' ? {color: '#065f46'} :
+                      item.status === 'Assigned' ? {color: '#92400e'} :
+                      {color: '#dc2626'}
+                    ]}>
                       {item.status}
                     </Text>
                   </View>
@@ -807,12 +857,12 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <View style={styles.releaseStatsContainer}>
-        <View style={[styles.releaseStatCard, { backgroundColor: Colors.primary }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#FF9800' }]}>
           <Text style={styles.releaseStatNumber}>{pendingReleases.length}</Text>
           <Text style={styles.releaseStatLabel}>Pending Release</Text>
         </View>
         
-        <View style={[styles.releaseStatCard, { backgroundColor: Colors.primaryDark }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#4CAF50' }]}>
           <Text style={styles.releaseStatNumber}>{releaseHistory.length}</Text>
           <Text style={styles.releaseStatLabel}>Released Today</Text>
         </View>
@@ -952,22 +1002,22 @@ export default function AdminDashboard() {
       <ScrollView style={styles.reportsContainer}>
         {/* Statistics Cards */}
         <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
             <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#374151' }]}>
             <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
           </View>
@@ -1024,7 +1074,7 @@ export default function AdminDashboard() {
                   <View style={[styles.reportsTableCell, { width: 80 }]}>
                     <View style={[
                       styles.statusBadge, 
-                      { backgroundColor: Colors.primary }
+                      item.status === 'In Transit' ? { backgroundColor: '#3B82F6' } : { backgroundColor: '#EF4444' }
                     ]}>
                       <Text style={styles.statusBadgeText}>
                         {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
@@ -1055,24 +1105,18 @@ export default function AdminDashboard() {
 
     const renderStockCard = ({ item }) => {
       const getStatusStyle = (status) => {
-        // All statuses use primary color with varying opacity for distinction
-        const baseStyle = { 
-          container: { backgroundColor: Colors.primary }, 
-          text: { color: '#ffffff' } 
-        };
-        
         switch (status?.toLowerCase()) {
           case 'available':
-            return { container: { ...baseStyle.container, opacity: 0.7 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#d1fae5' }, text: { color: '#065f46' } };
           case 'in use':
           case 'allocated':
-            return { container: { ...baseStyle.container, opacity: 0.85 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#dbeafe' }, text: { color: '#1e40af' } };
           case 'in dispatch':
-            return { container: { backgroundColor: Colors.primaryDark }, text: baseStyle.text };
+            return '#e50914'; // Red
           case 'maintenance':
-            return { container: { ...baseStyle.container, opacity: 0.9 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#fef3c7' }, text: { color: '#92400e' } };
           default:
-            return { container: { ...baseStyle.container, opacity: 0.7 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#d1fae5' }, text: { color: '#065f46' } };
         }
       };
 
@@ -1162,32 +1206,32 @@ export default function AdminDashboard() {
             placeholder="Search by unit name, ID, color, or variation..."
             value={inventorySearch}
             onChangeText={setInventorySearch}
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor="#94a3b8"
           />
         </View>
 
         {/* Stats Cards */}
         <View style={styles.inventoryStatsContainer}>
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>{inventory.length}</Text>
             <Text style={styles.inventoryStatLabel}>Total Stock</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#8B0000' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => (v.status || 'Available') === 'Available').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>Available</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#2D2D2D' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>In Use</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Dispatch').length}
             </Text>
@@ -1571,9 +1615,12 @@ export default function AdminDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-          {/* Header */}
+          {/* Header with Logout */}
           <View style={styles.headerContainer}>
             <Text style={[styles.header, { color: theme.text }]}>Admin Dashboard</Text>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Main Dashboard Content */}
@@ -1947,6 +1994,22 @@ const createStyles = (theme) => StyleSheet.create({
     color: '#1a202c',
     flex: 1
   },
+  logoutButton: {
+    backgroundColor: '#e50914',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  logoutButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14
+  },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -2102,30 +2165,26 @@ const createStyles = (theme) => StyleSheet.create({
     height: 40, // Reduced from 45
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-    borderRadius: 10,
-    marginBottom: 16,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 6, // Reduced from 8
+    marginBottom: 10, // Reduced from 12
+    fontSize: 13, // Reduced from 14
+    padding: 8, // Reduced from 10
     backgroundColor: '#FFFFFF',
-    color: Colors.textPrimary,
-    minHeight: 52,
-    fontWeight: '500',
+    color: '#2D2D2D',
+    height: 40, // Reduced from 45
   },
   textInput: {
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-    borderRadius: 10,
-    marginBottom: 16,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 6, // Reduced from 8
+    marginBottom: 10, // Reduced from 12
+    fontSize: 13, // Reduced from 14
+    padding: 8, // Reduced from 10
     backgroundColor: '#FFFFFF',
-    color: Colors.textPrimary,
-    minHeight: 52,
-    fontWeight: '500',
+    color: '#2D2D2D',
+    height: 40, // Reduced from 45
   },
   primaryButton: {
     backgroundColor: '#e50914',
@@ -2252,16 +2311,14 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   inventorySearchInput: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    color: Colors.textPrimary,
+    color: '#1a202c',
     fontWeight: '500',
-    minHeight: 52,
   },
 
   // Stats Section - Mobile Optimized
@@ -2668,16 +2725,14 @@ const createStyles = (theme) => StyleSheet.create({
 
   modernInput: {
     backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     fontSize: 16,
-    color: Colors.textPrimary,
-    marginBottom: 16,
-    minHeight: 52,
-    fontWeight: '500',
+    color: '#1a202c',
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -3889,5 +3944,86 @@ const createStyles = (theme) => StyleSheet.create({
   disabledPicker: {
     opacity: 0.5,
     backgroundColor: '#f5f5f5',
+  },
+
+  // Welcome Section Styles
+  welcomeCard: {
+    backgroundColor: '#ffffff',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: 8,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickActionBtn: {
+    flex: 0.48,
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  quickActionIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    textAlign: 'center',
+  },
+
+  // Stats Grid Styles
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: '#ffffff',
+    padding: 16,
+    margin: '1%',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

@@ -1509,29 +1509,40 @@ export default StyleSheet.create({
   },
 
   agentFilterContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingBottom: 16,
+    backgroundColor: '#f5f5f5',
+    marginBottom: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
 
   agentFilterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+    marginRight: 10,
+    borderWidth: 1.5,
+    borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   agentFilterButtonActive: {
-    backgroundColor: '#CB1E2A',
-    borderColor: '#CB1E2A',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
 
   agentFilterText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
   },
 
   agentFilterTextActive: {

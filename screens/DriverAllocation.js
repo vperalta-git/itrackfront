@@ -447,7 +447,7 @@ const DriverAllocation = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.header}>Driver Allocation</Text>
       
       <View style={styles.topSection}>
@@ -495,6 +495,8 @@ const DriverAllocation = () => {
             keyExtractor={item => item._id || Math.random().toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.cardsList}
+            scrollEnabled={false}
+            nestedScrollEnabled={true}
           />
         </View>
       )}
@@ -542,11 +544,31 @@ const DriverAllocation = () => {
           </View>
         </View>
       )}
+      
       {/* Create Modal */}
       <Modal visible={isCreateModalOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Vehicle Assignment</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Vehicle Assignment</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => {
+                  setIsCreateModalOpen(false);
+                  setMode('stock');
+                  setSelectedVin('');
+                  setSelectedAgent('');
+                  setSelectedDriver('');
+                  setManualModel('');
+                  setManualVin('');
+                  setPickupPoint('');
+                  setDropoffPoint('');
+                  setSelectedRoute(null);
+                }}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
             
             {/* Mode Selection */}
             <View style={styles.modeSelector}>
@@ -568,7 +590,12 @@ const DriverAllocation = () => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalForm}>
+            <ScrollView 
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.modalForm}>
               {mode === 'stock' ? (
                 <>
                   {/* Stock Selection Form */}
@@ -771,11 +798,11 @@ const DriverAllocation = () => {
                       <Text style={styles.inputLabel}>Quick Pickup Selection</Text>
                       <View style={styles.locationButtonsContainer}>
                         <TouchableOpacity 
-                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
-                          onPress={() => setPickupPoint('Isuzu Stockyard')}
+                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setPickupPoint('Isuzu Laguna Stockyard')}
                         >
-                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
-                            Stockyard
+                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
+                            Laguna Stockyard
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
@@ -799,11 +826,11 @@ const DriverAllocation = () => {
                       <Text style={[styles.inputLabel, { marginTop: 12 }]}>Quick Drop-off Selection</Text>
                       <View style={styles.locationButtonsContainer}>
                         <TouchableOpacity 
-                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationBtn]}
-                          onPress={() => setDropoffPoint('Isuzu Stockyard')}
+                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setDropoffPoint('Isuzu Laguna Stockyard')}
                         >
-                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Stockyard' && styles.selectedLocationText]}>
-                            Stockyard
+                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
+                            Laguna Stockyard
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
@@ -828,6 +855,7 @@ const DriverAllocation = () => {
                 )}
               </View>
             </View>
+            </ScrollView>
             
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.submitBtn} onPress={handleCreate}>
@@ -936,7 +964,7 @@ const DriverAllocation = () => {
         initialPickup={selectedRoute?.pickup}
         initialDropoff={selectedRoute?.dropoff}
       />
-    </View>
+    </ScrollView>
   );
 };
 
@@ -1250,18 +1278,43 @@ const createStyles = (theme) => StyleSheet.create({
     padding: 24, 
     width: '100%',
     maxWidth: 400,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   modalTitle: { 
     fontSize: 24, 
     fontWeight: '700', 
     color: '#1e293b', 
-    marginBottom: 20, 
-    textAlign: 'center'
+    flex: 1,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalForm: {
+    paddingBottom: 16,
   },
   
   // Mode Selector
@@ -1315,12 +1368,15 @@ const createStyles = (theme) => StyleSheet.create({
   },
   input: { 
     backgroundColor: '#f9fafb',
-    borderWidth: 1, 
+    borderWidth: 1.5, 
     borderColor: '#d1d5db', 
     borderRadius: 10, 
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    color: '#374151'
+    fontWeight: '500',
+    color: '#374151',
+    minHeight: 52
   },
   picker: {
     backgroundColor: '#f9fafb',

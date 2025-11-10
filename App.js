@@ -333,14 +333,14 @@ export default function App() {
         console.log('🔍 App startup check:', { userToken, userRole, userName });
 
         if (userToken === 'authenticated' && userRole && userName) {
-          // Map roles to their respective screens
+          // Map roles to their respective screens - USE UNIFIED DRAWER FOR ALL
           const roleRouteMap = {
-            'Admin': 'AdminDrawer',
-            'Manager': 'ManagerDrawer',
-            'Sales Agent': 'AgentDrawer',
+            'Admin': 'UnifiedDrawer',
+            'Manager': 'UnifiedDrawer',
+            'Sales Agent': 'UnifiedDrawer',
             'Driver': 'DriverDashboard',
-            'Dispatch': 'DispatchDashboard',
-            'Supervisor': 'SupervisorDrawer'
+            'Dispatch': 'UnifiedDrawer',
+            'Supervisor': 'UnifiedDrawer'
           };
 
           const targetRoute = roleRouteMap[userRole] || 'LoginScreen';

@@ -102,15 +102,18 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
   // Update driver location in backend
   const updateDriverLocation = async (latitude, longitude, speed = 0, heading = 0) => {
     try {
-      const response = await fetch(buildApiUrl('/api/tracking/update-location'), {
+      const response = await fetch(buildApiUrl('/updateDriverLocation'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           driverName: userName,
-          latitude,
-          longitude,
-          speed,
-          heading
+          location: {
+            latitude,
+            longitude,
+            speed,
+            heading,
+            timestamp: Date.now()
+          }
         })
       });
 
@@ -175,11 +178,31 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
     }
   }, [userName, userRole]);
 
-  // Get real route using Google Maps API
+  // Get real route using Google Maps API (Direct API call)
   const getRealRoute = async (origin, destination) => {
     try {
       console.log('🛣️ Getting REAL route from Google Maps API...');
       
+      const GOOGLE_API_KEY = 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+      const directUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${GOOGLE_API_KEY}`;
+      
+      // Try direct API call first (works if restrictions allow mobile apps)
+      try {
+        const directResponse = await fetch(directUrl);
+        const directData = await directResponse.json();
+        
+        if (directData.status === 'OK' && directData.routes && directData.routes.length > 0) {
+          const route = directData.routes[0];
+          const decodedCoordinates = decodePolyline(route.overview_polyline.points);
+          setRouteCoordinates(decodedCoordinates);
+          console.log('✅ Real route loaded (direct API):', route.summary);
+          return decodedCoordinates;
+        }
+      } catch (directError) {
+        console.log('Direct API failed, trying backend...', directError.message);
+      }
+      
+      // Fallback to backend endpoint
       const response = await fetch(buildApiUrl('/api/directions/route'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,7 +218,7 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
           // Decode polyline to coordinates
           const decodedCoordinates = decodePolyline(routeData.route.overview_polyline);
           setRouteCoordinates(decodedCoordinates);
-          console.log('✅ Real route loaded:', routeData.summary);
+          console.log('✅ Real route loaded (backend):', routeData.summary);
           return decodedCoordinates;
         }
       }

@@ -12,7 +12,7 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
@@ -51,9 +51,9 @@ const RouteSelectionModal = ({
   // Predefined common locations for the vehicle inventory business
   const commonLocations = [
     {
-      name: 'Isuzu Stockyard - Main',
-      address: 'Isuzu Main Stockyard, Cainta, Rizal',
-      coordinates: { latitude: 14.5995, longitude: 120.9842 },
+      name: 'Isuzu Laguna Stockyard',
+      address: 'Isuzu Stockyard, Santa Rosa, Laguna, Philippines',
+      coordinates: { latitude: 14.3122, longitude: 121.1115 },
       type: 'stockyard'
     },
     {
@@ -427,26 +427,21 @@ const RouteSelectionModal = ({
           <View style={styles.mapContainer}>
             <MapView
               ref={mapRef}
-              provider={PROVIDER_GOOGLE}
+              provider={Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
               style={styles.map}
               region={mapRegion}
               onPress={handleMapPress}
-              showsUserLocation={true}
-              showsMyLocationButton={true}
               onMapReady={() => {
                 console.log('🗺️ RouteSelectionModal: Map loaded successfully');
               }}
               onError={(error) => {
                 console.error('🗺️ RouteSelectionModal: Map error:', error);
-                Alert.alert(
-                  'Map Error',
-                  'Unable to load map. Please check your internet connection and try again.',
-                  [{ text: 'OK' }]
-                );
               }}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
               loadingEnabled={true}
-              loadingIndicatorColor="#dc2626"
-              loadingBackgroundColor="#f3f4f6"
+              loadingIndicatorColor="#007AFF"
+              loadingBackgroundColor="#FFFFFF"
             >
               {/* Pickup Marker */}
               {pickupLocation && (

@@ -293,35 +293,6 @@ export default function DriverDashboard() {
     fetchDriverAllocations();
   };
 
-  // Logout
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userName');
-              await AsyncStorage.removeItem('userRole');
-              await AsyncStorage.removeItem('accountName');
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'LoginScreen' }],
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Render Each Allocation Item
   const renderAllocationItem = ({ item }) => {
     const status = item.status?.toLowerCase() || 'assigned';
@@ -432,9 +403,6 @@ export default function DriverDashboard() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
       </View>
 
       {loading && (
@@ -587,7 +555,7 @@ const styles = StyleSheet.create({
   heading: { 
     fontSize: 24, 
     fontWeight: "bold", 
-    color: "#e50914",
+    color: Colors.primary,
     marginBottom: 4,
   },
   driverNameText: {
@@ -652,17 +620,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginLeft: 4,
-  },
-  logoutBtn: { 
-    backgroundColor: Colors.primary, 
-    paddingHorizontal: 16,
-    paddingVertical: 8, 
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: Colors.textLight,
-    fontWeight: "600",
-    fontSize: 14,
   },
   loadingContainer: {
     alignItems: 'center',

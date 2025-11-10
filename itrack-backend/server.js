@@ -9,13 +9,38 @@ const nodemailer = require('nodemailer');
 
 const app = express();
 
+// ========== ENVIRONMENT VARIABLE VALIDATION ==========
+console.log('🔍 Validating environment variables...');
+
+const requiredEnvVars = ['MONGODB_URI', 'SESSION_SECRET'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:');
+  missingVars.forEach(varName => console.error(`   - ${varName}`));
+  console.error('💡 Please set these variables in your .env file or environment');
+  process.exit(1);
+}
+
+// Optional but recommended variables
+const optionalVars = ['GOOGLE_MAPS_API_KEY', 'GMAIL_USER', 'GMAIL_APP_PASSWORD'];
+const missingOptional = optionalVars.filter(varName => !process.env[varName]);
+
+if (missingOptional.length > 0) {
+  console.warn('⚠️  Optional environment variables not set:');
+  missingOptional.forEach(varName => console.warn(`   - ${varName}`));
+  console.warn('💡 Some features may be limited without these variables');
+}
+
+console.log('✅ Environment validation complete\n');
+
 // Session configuration - Updated for production security
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'itrack-mobile-session-secret-key-2025',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0',
+    mongoUrl: process.env.MONGODB_URI,
     touchAfter: 24 * 3600 // lazy session update
   }),
   cookie: {
@@ -78,14 +103,6 @@ let transporter;
 function initializeEmailService() {
   console.log('📧 Initializing Gmail service...');
   
-  const emailConfig = {
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.GMAIL_APP_PASSWORD || 'your-app-password'
-    }
-  };
-
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     console.log('⚠️  Gmail credentials not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
     console.log('📝 To set up Gmail App Password:');
@@ -96,6 +113,14 @@ function initializeEmailService() {
     console.log('   5. Set GMAIL_APP_PASSWORD=your-16-digit-app-password');
     return;
   }
+
+  const emailConfig = {
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  };
 
   try {
     transporter = nodemailer.createTransporter(emailConfig);
@@ -201,8 +226,13 @@ async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
 }
 
 // MongoDB URI configuration - Updated to connect to your itrackDB database
-const mongoURI = process.env.MONGODB_URI || 
-  'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
+const mongoURI = process.env.MONGODB_URI;
+
+if (!mongoURI) {
+  console.error('❌ MONGODB_URI environment variable is not set!');
+  console.error('💡 Please set MONGODB_URI in your .env file or environment variables');
+  process.exit(1);
+}
 
 // Connect to MongoDB with retry logic
 mongoose.connect(mongoURI)
@@ -247,7 +277,7 @@ const UserSchema = new mongoose.Schema({
   },
   
   // Profile Enhancement Fields (Synced with web)
-  profilePicture: {
+  picture: {
     type: String, // URL or base64 string
     default: null
   },
@@ -392,6 +422,8 @@ const DriverAllocationSchema = new mongoose.Schema({
     latitude: { type: Number, min: -90, max: 90 },
     longitude: { type: Number, min: -180, max: 180 },
     address: String,
+    speed: { type: Number, default: 0 },
+    heading: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now }
   },
   
@@ -1017,7 +1049,7 @@ app.get('/api/getUser/:id', async (req, res) => {
 app.put('/updateProfile/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phoneNumber, personalDetails, profilePicture } = req.body;
+    const { name, phoneNumber, personalDetails, picture } = req.body;
     
     console.log('📱 Updating profile for user ID:', id);
     
@@ -1029,7 +1061,7 @@ app.put('/updateProfile/:id', async (req, res) => {
     if (name !== undefined) updateData.name = name;
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (personalDetails !== undefined) updateData.personalDetails = personalDetails;
-    if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+    if (picture !== undefined) updateData.picture = picture;
     
     const updatedUser = await User.findByIdAndUpdate(
       id, 
@@ -1539,18 +1571,27 @@ app.post('/updateDriverLocation', async (req, res) => {
     await DriverAllocation.updateMany(
       { 
         $or: [
-          { assignedDriverName: driver.name },
-          { assignedDriverName: driver.username },
-          { assignedDriverName: driverName }
+          { assignedDriver: driver.accountName },
+          { assignedDriver: driver.username },
+          { assignedDriver: driverName }
         ]
       },
       { 
         $set: { 
-          'location.latitude': location.latitude,
-          'location.longitude': location.longitude,
-          'location.lastUpdate': new Date(),
-          'location.speed': location.speed || 0,
-          'location.heading': location.heading || 0
+          'currentLocation.latitude': location.latitude,
+          'currentLocation.longitude': location.longitude,
+          'currentLocation.lastUpdated': new Date(),
+          'currentLocation.speed': location.speed || 0,
+          'currentLocation.heading': location.heading || 0
+        },
+        $push: {
+          locationHistory: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: new Date(),
+            speed: location.speed || 0,
+            heading: location.heading || 0
+          }
         }
       }
     );
@@ -1636,6 +1677,240 @@ app.get('/getAllDriverLocations', async (req, res) => {
       success: false, 
       message: 'Failed to get driver locations',
       error: error.message 
+    });
+  }
+});
+
+// ========== GOOGLE MAPS API ENDPOINTS ==========
+
+// Get route directions using Google Maps Directions API
+app.post('/api/directions/route', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    
+    if (!GOOGLE_MAPS_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Google Maps API key not configured' 
+      });
+    }
+    
+    console.log('🗺️ Getting route from Google Maps API:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      
+      res.json({
+        success: true,
+        route: {
+          overview_polyline: route.overview_polyline.points,
+          bounds: route.bounds,
+          legs: route.legs,
+          summary: route.summary,
+          distance: route.legs[0].distance,
+          duration: route.legs[0].duration
+        }
+      });
+    } else {
+      console.warn('⚠️ Google Maps API error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Directions API error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get route directions',
+      error: error.message
+    });
+  }
+});
+
+// Geocode address to coordinates
+app.post('/api/geocode/address', async (req, res) => {
+  try {
+    const { address } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    
+    if (!GOOGLE_MAPS_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Google Maps API key not configured' 
+      });
+    }
+    
+    console.log('📍 Geocoding address:', address);
+
+    if (!address) {
+      return res.status(400).json({
+        success: false,
+        message: 'Address is required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      
+      res.json({
+        success: true,
+        location: result.geometry.location,
+        formatted_address: result.formatted_address,
+        place_id: result.place_id
+      });
+    } else {
+      console.warn('⚠️ Geocoding error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Address not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Geocoding error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to geocode address',
+      error: error.message
+    });
+  }
+});
+
+// Reverse geocode coordinates to address
+app.post('/api/geocode/reverse', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    
+    if (!GOOGLE_MAPS_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Google Maps API key not configured' 
+      });
+    }
+    
+    console.log('📍 Reverse geocoding:', { latitude, longitude });
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      
+      res.json({
+        success: true,
+        address: result.formatted_address,
+        place_id: result.place_id,
+        address_components: result.address_components
+      });
+    } else {
+      console.warn('⚠️ Reverse geocoding error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Location not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Reverse geocoding error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reverse geocode',
+      error: error.message
+    });
+  }
+});
+
+// Search places using Google Places API
+app.post('/api/places/search', async (req, res) => {
+  try {
+    const { query, location } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    
+    if (!GOOGLE_MAPS_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Google Maps API key not configured' 
+      });
+    }
+    
+    console.log('🔍 Searching places:', query);
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    if (location) {
+      url += `&location=${location.latitude},${location.longitude}&radius=5000`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results) {
+      res.json({
+        success: true,
+        places: data.results.map(place => ({
+          place_id: place.place_id,
+          name: place.name,
+          address: place.formatted_address,
+          location: place.geometry.location,
+          types: place.types,
+          rating: place.rating
+        }))
+      });
+    } else {
+      console.warn('⚠️ Places search error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No places found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Places search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search places',
+      error: error.message
     });
   }
 });

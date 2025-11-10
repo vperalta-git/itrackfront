@@ -41,7 +41,7 @@ export default function UserProfile() {
     phoneNumber: '',
     secondaryPhone: '',
     role: '',
-    profilePicture: null,
+    picture: null,
     dateJoined: '',
     lastLogin: '',
     assignedTo: '',
@@ -89,7 +89,7 @@ export default function UserProfile() {
             phoneNumber: currentUser.phoneNumber || '',
             secondaryPhone: currentUser.secondaryPhone || '',
             role: currentUser.role || role,
-            profilePicture: currentUser.profilePicture || null,
+            picture: currentUser.picture || null,
             dateJoined: currentUser.createdAt || new Date().toISOString(),
             lastLogin: currentUser.lastLogin || '',
             assignedTo: currentUser.assignedTo || '',
@@ -127,7 +127,7 @@ export default function UserProfile() {
           email: tempProfile.email,
           phoneNumber: tempProfile.phoneNumber,
           secondaryPhone: tempProfile.secondaryPhone,
-          profilePicture: tempProfile.profilePicture,
+          picture: tempProfile.picture,
           department: tempProfile.department,
           employeeId: tempProfile.employeeId,
           emergencyContact: tempProfile.emergencyContact,
@@ -259,7 +259,7 @@ export default function UserProfile() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera roll permissions to set your profile picture.');
+        Alert.alert('Permission Denied', 'We need camera roll permissions to set your picture.');
         return;
       }
 
@@ -278,7 +278,7 @@ export default function UserProfile() {
         // Update the temporary profile with the new image
         setTempProfile({
           ...tempProfile,
-          profilePicture: `data:image/jpeg;base64,${base64Image}`,
+          picture: `data:image/jpeg;base64,${base64Image}`,
         });
       }
     } catch (error) {
@@ -295,7 +295,7 @@ export default function UserProfile() {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera permissions to take your profile picture.');
+        Alert.alert('Permission Denied', 'We need camera permissions to take your picture.');
         return;
       }
 
@@ -313,7 +313,7 @@ export default function UserProfile() {
         // Update the temporary profile with the new image
         setTempProfile({
           ...tempProfile,
-          profilePicture: `data:image/jpeg;base64,${base64Image}`,
+          picture: `data:image/jpeg;base64,${base64Image}`,
         });
       }
     } catch (error) {
@@ -325,7 +325,7 @@ export default function UserProfile() {
   };
 
   const renderProfileImage = () => {
-    const imageSource = tempProfile.profilePicture || userProfile.profilePicture;
+    const imageSource = tempProfile.picture || userProfile.picture;
     
     if (imageSource) {
       return (
@@ -402,7 +402,7 @@ export default function UserProfile() {
         </View>
       </View>
 
-      {/* Profile Picture Section */}
+      {/* Picture Section */}
       <View style={styles.profilePictureSection}>
         <TouchableOpacity
           onPress={() => editMode && setImagePickerVisible(true)}
@@ -735,7 +735,7 @@ export default function UserProfile() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.imagePickerModal}>
-            <Text style={styles.modalTitle}>Update Profile Picture</Text>
+            <Text style={styles.modalTitle}>Update Picture</Text>
             
             <TouchableOpacity
               style={styles.imagePickerOption}
@@ -753,11 +753,11 @@ export default function UserProfile() {
               <Text style={styles.imagePickerText}>Choose from Gallery</Text>
             </TouchableOpacity>
 
-            {(tempProfile.profilePicture || userProfile.profilePicture) && (
+            {(tempProfile.picture || userProfile.picture) && (
               <TouchableOpacity
                 style={[styles.imagePickerOption, styles.removeOption]}
                 onPress={() => {
-                  setTempProfile({ ...tempProfile, profilePicture: null });
+                  setTempProfile({ ...tempProfile, picture: null });
                   setImagePickerVisible(false);
                 }}
               >

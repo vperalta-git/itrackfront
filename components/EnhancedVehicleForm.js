@@ -153,16 +153,8 @@ export default function EnhancedVehicleForm({
       newErrors.variation = 'Invalid variation for selected unit';
     }
 
-    if (!formData.vin.trim()) {
-      newErrors.vin = 'VIN is required';
-    }
-
     if (!formData.conductionNumber.trim()) {
       newErrors.conductionNumber = 'Conduction Number is required';
-    }
-
-    if (!formData.engineNumber.trim()) {
-      newErrors.engineNumber = 'Engine Number is required';
     }
 
     if (!formData.bodyColor.trim()) {
@@ -304,39 +296,9 @@ export default function EnhancedVehicleForm({
             <Text style={styles.sectionTitle}>Vehicle Details</Text>
             
             {renderInput(
-              'VIN *', 
-              'vin', 
-              'Enter Vehicle Identification Number'
-            )}
-
-            {renderInput(
               'Conduction Number *', 
               'conductionNumber', 
               'Enter Conduction Number'
-            )}
-
-            {renderInput(
-              'Engine Number *', 
-              'engineNumber', 
-              'Enter Engine Number'
-            )}
-
-            {renderInput(
-              'Chassis Number', 
-              'chassisNumber', 
-              'Enter Chassis Number'
-            )}
-
-            {renderInput(
-              'Key Number', 
-              'keyNumber', 
-              'Enter Key Number'
-            )}
-
-            {renderInput(
-              'Plate Number', 
-              'plateNumber', 
-              'Enter Plate Number'
             )}
           </View>
 

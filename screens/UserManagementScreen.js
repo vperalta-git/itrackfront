@@ -227,22 +227,8 @@ export default function UserManagementScreen() {
   };
 
   const getRoleColor = (role) => {
-    switch (role?.toLowerCase()) {
-      case 'admin':
-        return { backgroundColor: theme.primary, color: theme.buttonText };
-      case 'manager':
-        return { backgroundColor: theme.error, color: theme.buttonText };
-      case 'sales agent':
-        return { backgroundColor: theme.textSecondary, color: theme.buttonText };
-      case 'driver':
-        return { backgroundColor: theme.text, color: theme.background };
-      case 'supervisor':
-        return { backgroundColor: theme.primary, color: theme.buttonText };
-      case 'dispatch':
-        return { backgroundColor: theme.error, color: theme.buttonText };
-      default:
-        return { backgroundColor: theme.textTertiary, color: theme.buttonText };
-    }
+    // Use uniform primary color for all roles
+    return { backgroundColor: theme.primary, color: theme.buttonText };
   };
 
   const renderUserCard = ({ item }) => {
@@ -253,12 +239,12 @@ export default function UserManagementScreen() {
       <View style={styles.userCard}>
         <View style={styles.userCardHeader}>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{item.accountName || item.username}</Text>
-            <Text style={styles.userUsername}>@{item.username}</Text>
+            <Text style={styles.userName}>{item.accountName || item.username || 'No Name'}</Text>
+            <Text style={styles.userUsername}>@{item.username || 'no-username'}</Text>
           </View>
           <View style={[styles.roleBadge, roleStyle]}>
             <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>
-              {item.role}
+              {item.role || 'No Role'}
             </Text>
           </View>
         </View>
@@ -363,21 +349,21 @@ export default function UserManagementScreen() {
             <Text style={styles.statLabel}>Total Users</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: theme.success }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase().includes('agent')).length}
             </Text>
             <Text style={styles.statLabel}>Sales Agents</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: theme.warning }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'manager').length}
             </Text>
             <Text style={styles.statLabel}>Managers</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: theme.secondary }]}>
+          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'driver').length}
             </Text>
@@ -419,17 +405,12 @@ export default function UserManagementScreen() {
                 style={styles.modalInput}
                 placeholder="Account Name"
                 value={newUser.accountName}
-                onChangeText={(text) => setNewUser({ ...newUser, accountName: text })}
+                onChangeText={(text) => {
+                  // Auto-generate username from account name (lowercase, no spaces)
+                  const username = text.toLowerCase().replace(/\s+/g, '');
+                  setNewUser({ ...newUser, accountName: text, username: username });
+                }}
                 placeholderTextColor={theme.textTertiary}
-              />
-
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Username"
-                value={newUser.username}
-                onChangeText={(text) => setNewUser({ ...newUser, username: text })}
-                placeholderTextColor={theme.textTertiary}
-                autoCapitalize="none"
               />
 
               <TextInput
@@ -438,7 +419,7 @@ export default function UserManagementScreen() {
                 secureTextEntry
                 value={newUser.password}
                 onChangeText={(text) => setNewUser({ ...newUser, password: text })}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textTertiary}
               />
 
               <Text style={styles.modalLabel}>Role</Text>
@@ -646,13 +627,15 @@ const createStyles = (theme) => StyleSheet.create({
 
   searchInput: {
     backgroundColor: theme.inputBackground,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.border,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 16,
     color: theme.text,
+    minHeight: 52,
+    fontWeight: '500',
   },
 
   // Tab Styles
@@ -792,13 +775,13 @@ const createStyles = (theme) => StyleSheet.create({
 
   userDetailLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
     fontWeight: '500',
   },
 
   userDetailValue: {
     fontSize: 14,
-    color: '#000000',
+    color: theme.text,
     fontWeight: '600',
   },
 
@@ -809,14 +792,14 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   editUserBtn: {
-    backgroundColor: '#e50914',
+    backgroundColor: theme.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
 
   deleteUserBtn: {
-    backgroundColor: '#8B0000',
+    backgroundColor: theme.primaryDark,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -839,14 +822,14 @@ const createStyles = (theme) => StyleSheet.create({
 
   emptyText: {
     fontSize: 18,
-    color: '#6B7280',
+    color: theme.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
   },
 
   emptySubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
 
@@ -888,14 +871,16 @@ const createStyles = (theme) => StyleSheet.create({
 
   modalInput: {
     backgroundColor: theme.inputBackground,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.border,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: theme.text,
     marginBottom: 16,
+    minHeight: 52,
+    fontWeight: '500',
   },
 
   modalLabel: {

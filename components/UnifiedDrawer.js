@@ -21,6 +21,7 @@ import AdminDashboard from '../screens/AdminDashboard';
 import AgentDashboard from '../screens/AgentDashboard';
 import DispatchDashboard from '../screens/DispatchDashboard';
 import DriverDashboard from '../screens/DriverDashboard';
+import DriverAllocation from '../screens/DriverAllocation';
 import VehicleProgressScreen from '../screens/VehicleProgressScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
@@ -33,7 +34,7 @@ import ServiceRequestScreen from '../screens/ServiceRequestScreen';
 import TestDriveScreen from '../screens/TestDriveScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
-import VehicleModelsScreen from '../screens/VehicleModelsScreen';
+import ReleaseScreen from '../screens/ReleaseScreen';
 
 // Import icons (using the same icons as web)
 const dashboardIcon = require('../assets/icons/dashboard.png');
@@ -76,9 +77,9 @@ function CustomDrawerContent(props) {
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
+    { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
-    { name: "Vehicle Models", icon: stocksIcon, screen: "VehicleModels", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
     { name: "Vehicle Tracking", icon: shipmentsIcon, screen: "VehicleTracking", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
@@ -289,8 +290,13 @@ export default function UnifiedDrawer() {
       />
       <Drawer.Screen
         name="DriverAllocation"
-        component={AdminDashboard} // AdminDashboard handles driver allocation
+        component={DriverAllocation}
         options={{ title: 'Driver Allocation' }}
+      />
+      <Drawer.Screen
+        name="Release"
+        component={ReleaseScreen}
+        options={{ title: 'Release' }}
       />
       <Drawer.Screen
         name="TestDrive"
@@ -301,11 +307,6 @@ export default function UnifiedDrawer() {
         name="UserManagement"
         component={UserManagementScreen}
         options={{ title: 'User Management' }}
-      />
-      <Drawer.Screen
-        name="VehicleModels"
-        component={VehicleModelsScreen}
-        options={{ title: 'Vehicle Models' }}
       />
       <Drawer.Screen
         name="Reports"
