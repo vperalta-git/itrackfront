@@ -1,7 +1,7 @@
 // I-Track Application Color Scheme
 // Isuzu Red and Black Theme
 
-export const Colors = {
+const Colors = {
   // Primary Isuzu Colors
   primary: '#DC2626', // Isuzu Red
   primaryDark: '#B91C1C', // Darker Isuzu Red
