@@ -325,7 +325,7 @@ export default function VehicleAssignmentScreen({ navigation }) {
             >
               <Picker.Item label="Select Agent..." value="" />
               {agents.map(a => (
-                <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                <Picker.Item key={a._id} label={a.accountName || a.name || a.username} value={a.accountName || a.name || a.username} />
               ))}
             </Picker>
           </View>
@@ -342,7 +342,7 @@ export default function VehicleAssignmentScreen({ navigation }) {
             >
               <Picker.Item label="Select Driver..." value="" />
               {drivers.map(d => (
-                <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
+                <Picker.Item key={d._id} label={d.accountName || d.name || d.username} value={d.accountName || d.name || d.username} />
               ))}
             </Picker>
           </View>
