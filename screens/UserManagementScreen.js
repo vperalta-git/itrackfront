@@ -91,7 +91,7 @@ export default function UserManagementScreen() {
   const managerMap = {};
   if (Array.isArray(managers)) {
     managers.forEach((m) => {
-      managerMap[m._id] = m.name || 'Unnamed Manager';
+      managerMap[m._id] = m.accountName || m.name || 'Unnamed Manager';
     });
   }
 
@@ -119,10 +119,23 @@ export default function UserManagementScreen() {
     }
     
     try {
+      // Generate username from name (lowercase, no spaces)
+      const username = newUser.name.toLowerCase().replace(/\s+/g, '');
+      
+      // Prepare data for backend (backend expects username and accountName)
+      const userData = {
+        username: username,
+        accountName: newUser.name,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role,
+        assignedTo: newUser.assignedTo,
+      };
+
       const res = await fetch(buildApiUrl('/createUser'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
+        body: JSON.stringify(userData),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to create user');
@@ -140,7 +153,7 @@ export default function UserManagementScreen() {
   const handleEditUser = (user) => {
     setEditUser({
       _id: user._id,
-      name: user.name || '',
+      name: user.accountName || user.name || '',
       email: user.email || '',
       phoneNo: user.phoneNo || '',
       password: user.password || '',
@@ -158,17 +171,20 @@ export default function UserManagementScreen() {
     }
     
     try {
+      // Backend expects accountName instead of name
       const updateData = {
-        name: editUser.name,
+        accountName: editUser.name,
         email: editUser.email,
         phoneNo: editUser.phoneNo,
-        password: editUser.password,
         role: editUser.role,
         assignedTo: editUser.assignedTo,
         picture: editUser.picture,
       };
 
-      const res = await fetch(buildApiUrl(`/admin/users/${editUser._id}`), {
+      // Note: Backend doesn't allow password updates through updateUser endpoint
+      // Password field is removed by backend for security
+
+      const res = await fetch(buildApiUrl(`/updateUser/${editUser._id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
@@ -218,6 +234,7 @@ export default function UserManagementScreen() {
   // Filter users based on search and tab
   const getFilteredUsers = () => {
     let filteredUsers = users.filter(user =>
+      user.accountName?.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.phoneNo?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -251,7 +268,7 @@ export default function UserManagementScreen() {
       <View style={styles.userCard}>
         <View style={styles.userCardHeader}>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{item.name || 'No Name'}</Text>
+            <Text style={styles.userName}>{item.accountName || item.name || 'No Name'}</Text>
             <Text style={styles.userUsername}>{item.email || 'no-email'}</Text>
           </View>
           <View style={[styles.roleBadge, roleStyle]}>
@@ -273,7 +290,7 @@ export default function UserManagementScreen() {
             <View style={styles.userDetailRow}>
               <Text style={styles.userDetailLabel}>Manager:</Text>
               <Text style={styles.userDetailValue}>
-                {assignedManager.name || 'Unnamed Manager'}
+                {assignedManager.accountName || assignedManager.name || 'Unnamed Manager'}
               </Text>
             </View>
           )}
@@ -486,7 +503,7 @@ export default function UserManagementScreen() {
                       {managers.map((manager) => (
                         <Picker.Item 
                           key={manager._id} 
-                          label={manager.name || 'Unnamed Manager'} 
+                          label={manager.accountName || manager.name || 'Unnamed Manager'} 
                           value={manager._id} 
                         />
                       ))}
@@ -599,7 +616,7 @@ export default function UserManagementScreen() {
                       {managers.map((manager) => (
                         <Picker.Item
                           key={manager._id}
-                          label={manager.name || 'Unnamed Manager'}
+                          label={manager.accountName || manager.name || 'Unnamed Manager'}
                           value={manager._id}
                         />
                       ))}

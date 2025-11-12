@@ -284,6 +284,37 @@ export default function DriverDashboard() {
     );
   };
 
+  // Handle accepting allocation
+  const acceptAllocation = (id) => {
+    Alert.alert(
+      "Accept Allocation",
+      "Do you want to accept this allocation?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Accept", 
+          onPress: () => updateAllocationStatus(id, "Accepted")
+        },
+      ]
+    );
+  };
+
+  // Handle rejecting allocation
+  const rejectAllocation = (id) => {
+    Alert.alert(
+      "Reject Allocation",
+      "Are you sure you want to reject this allocation?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Reject", 
+          style: "destructive",
+          onPress: () => updateAllocationStatus(id, "Rejected")
+        },
+      ]
+    );
+  };
+
   const startDelivery = (id) => confirmStatusChange(id, "Out for Delivery");
   const markDelivered = (id) => confirmStatusChange(id, "Delivered");
 
@@ -328,6 +359,24 @@ export default function DriverDashboard() {
         
         <View style={styles.actionContainer}>
           {status === "assigned" && (
+            <View style={styles.actionButtonRow}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.acceptButton]}
+                onPress={() => acceptAllocation(item._id)}
+              >
+                <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.rejectButton]}
+                onPress={() => rejectAllocation(item._id)}
+              >
+                <Ionicons name="close-circle" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {status === "accepted" && (
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => startDelivery(item._id)}
@@ -346,6 +395,11 @@ export default function DriverDashboard() {
           {status === "delivered" && (
             <View style={styles.completedBadge}>
               <Text style={styles.completedText}>✓ Completed</Text>
+            </View>
+          )}
+          {status === "rejected" && (
+            <View style={[styles.completedBadge, styles.rejectedBadge]}>
+              <Text style={styles.rejectedText}>✗ Rejected</Text>
             </View>
           )}
         </View>
@@ -728,12 +782,27 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end", 
     alignItems: "center",
   },
+  actionButtonRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   actionButton: {
     backgroundColor: "#28a745",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
     marginLeft: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  acceptButton: {
+    backgroundColor: "#28a745",
+    marginLeft: 0,
+  },
+  rejectButton: {
+    backgroundColor: "#dc3545",
+    marginLeft: 0,
   },
   deliverButton: {
     backgroundColor: "#007AFF",
@@ -753,6 +822,15 @@ const styles = StyleSheet.create({
   },
   completedText: {
     color: "#155724",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  rejectedBadge: {
+    backgroundColor: "#f8d7da",
+    borderColor: "#f5c6cb",
+  },
+  rejectedText: {
+    color: "#721c24",
     fontWeight: "600",
     fontSize: 14,
   },

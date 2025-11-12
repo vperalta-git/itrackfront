@@ -34,6 +34,7 @@ import TestDriveScreen from '../screens/TestDriveScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ReleaseScreen from '../screens/ReleaseScreen';
+import VehicleAssignmentScreen from '../screens/VehicleAssignmentScreen';
 
 // Import icons (using the same icons as web)
 const dashboardIcon = require('../assets/icons/dashboard.png');
@@ -75,6 +76,7 @@ function CustomDrawerContent(props) {
     { name: "Dashboard", icon: dashboardIcon, screen: "Dashboard", roles: ['all'] },
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
+    { name: "Vehicle Assignment", icon: driverIcon, screen: "VehicleAssignment", roles: ['Admin', 'Manager'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
@@ -286,6 +288,11 @@ export default function UnifiedDrawer() {
         name="ServiceRequest"
         component={ServiceRequestScreen}
         options={{ title: 'Vehicle Preperation' }}
+      />
+      <Drawer.Screen
+        name="VehicleAssignment"
+        component={VehicleAssignmentScreen}
+        options={{ title: 'Vehicle Assignment' }}
       />
       <Drawer.Screen
         name="DriverAllocation"

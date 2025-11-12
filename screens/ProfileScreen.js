@@ -78,7 +78,7 @@ export default function ProfileScreen() {
           const result = await response.json();
           const serverProfile = result.data || result.user || result;
           
-          setUserProfile({
+          const profileData = {
             id: serverProfile._id || userId,
             name: serverProfile.name || userName || 'Unknown User',
             email: serverProfile.email || userEmail || '',
@@ -88,10 +88,12 @@ export default function ProfileScreen() {
             profilePicture: serverProfile.profilePicture || '',
             personalDetails: serverProfile.personalDetails || '',
             isDarkMode: darkMode,
-          });
+          };
+          setUserProfile(profileData);
+          setEditForm({ ...profileData });
         } else {
           // Use AsyncStorage data if server fetch fails
-          setUserProfile({
+          const profileData = {
             id: userId,
             name: userName || 'Unknown User',
             email: userEmail || '',
@@ -101,11 +103,11 @@ export default function ProfileScreen() {
             profilePicture: '',
             personalDetails: '',
             isDarkMode: darkMode,
-          });
+          };
+          setUserProfile(profileData);
+          setEditForm({ ...profileData });
         }
       }
-      
-      setEditForm({ ...userProfile });
       
     } catch (error) {
       console.error('❌ Error loading profile:', error);

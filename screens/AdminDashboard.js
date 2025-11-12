@@ -708,214 +708,47 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* Modern Vehicle Assignment Card */}
-        <View style={styles.assignmentCard}>
-        <View style={styles.assignmentCardHeader}>
-          <Text style={styles.assignmentTitle}>Vehicle Assignment</Text>
-          <View style={styles.assignmentBadge}>
-            <Text style={styles.assignmentBadgeText}>Quick Assign</Text>
-          </View>
-        </View>
-
-        {/* Input Mode Selection */}
-        <View style={styles.assignmentSection}>
-          <Text style={styles.assignmentLabel}>Assignment Mode</Text>
-          <View style={styles.modeSelector}>
-            <TouchableOpacity
-              style={[styles.modeButton, mode === 'stock' && styles.modeButtonActive]}
-              onPress={() => setMode('stock')}
-            >
-              <Text style={[styles.modeButtonText, mode === 'stock' && styles.modeButtonTextActive]}>
-                From Stock
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
-              onPress={() => setMode('manual')}
-            >
-              <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-                Manual Entry
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {mode === 'stock' ? (
-          <View style={styles.assignmentForm}>
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Select Vehicle from Stock</Text>
-              <View style={styles.modernPickerContainer}>
-                <Picker
-                  selectedValue={selectedVin}
-                  onValueChange={val => setSelectedVin(val)}
-                  style={styles.modernPicker}
-                >
-                  <Picker.Item label="Choose Vehicle..." value="" />
-                  {inventory.filter(item => (item.status || 'Available') === 'Available').map(v => (
-                    <Picker.Item 
-                      key={v._id} 
-                      label={`${v.unitName} - ${v.variation} (${v.bodyColor})`} 
-                      value={v.unitId || v._id} 
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Assign to Agent</Text>
-              <View style={styles.modernPickerContainer}>
-                <Picker
-                  selectedValue={selectedAgent}
-                  onValueChange={val => setSelectedAgent(val)}
-                  style={styles.modernPicker}
-                >
-                  <Picker.Item label="Select Agent..." value="" />
-                  {agents.map(a => (
-                    <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.assignmentForm}>
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Vehicle Details</Text>
-              <TextInput
-                style={styles.modernInput}
-                placeholder="Vehicle Model (e.g., Isuzu D-Max)"
-                value={manualModel}
-                onChangeText={setManualModel}
-                placeholderTextColor='#6B7280'
-              />
-              <TextInput
-                style={styles.modernInput}
-                placeholder="VIN Number"
-                value={manualVin}
-                onChangeText={setManualVin}
-                placeholderTextColor='#6B7280'
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Assign to Agent</Text>
-              <View style={styles.modernPickerContainer}>
-                <Picker
-                  selectedValue={selectedAgent}
-                  onValueChange={val => setSelectedAgent(val)}
-                  style={styles.modernPicker}
-                >
-                  <Picker.Item label="Select Agent..." value="" />
-                  {agents.map(a => (
-                    <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Driver Selection */}
-        <View style={styles.assignmentForm}>
-          <View style={styles.formField}>
-            <Text style={styles.fieldLabel}>Assign Driver</Text>
-            <View style={styles.modernPickerContainer}>
-              <Picker
-                selectedValue={selectedDriver}
-                onValueChange={val => setSelectedDriver(val)}
-                style={styles.modernPicker}
-              >
-                <Picker.Item label="Select Driver..." value="" />
-                {drivers.map(d => (
-                  <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
-                ))}
-              </Picker>
-            </View>
-          </View>
-          
-          <TouchableOpacity 
-            style={styles.createAssignmentButton} 
-            onPress={mode === 'stock' ? assignToAgent : assignToDriver}
-          >
-            <Text style={styles.createAssignmentButtonText}>Create Assignment</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Current Allocations Card */}
-      <View style={styles.allocationsCard}>
-        <View style={styles.allocationsHeader}>
-          <Text style={styles.allocationsTitle}>Vehicle Allocations</Text>
-          <View style={styles.allocationsActions}>
+        {/* Quick Actions Card */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Quick Actions</Text>
+          <View style={styles.quickActionsGrid}>
             <TouchableOpacity 
-              style={styles.allocationNavBtn}
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate('VehicleAssignment')}
+            >
+              <Text style={styles.quickActionIcon}>🚗</Text>
+              <Text style={styles.quickActionText}>Vehicle Assignment</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickActionButton}
               onPress={() => navigation.navigate('DriverAllocation')}
             >
-              <Text style={styles.allocationNavBtnText}>📋 All Allocations</Text>
+              <Text style={styles.quickActionIcon}>📋</Text>
+              <Text style={styles.quickActionText}>Driver Allocation</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
-              style={styles.allocationNavBtn}
-              onPress={() => navigation.navigate('AdminVehicleTracking')}
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate('VehicleTracking')}
             >
-              <Text style={styles.allocationNavBtnText}>�️ Maps & Tracking</Text>
+              <Text style={styles.quickActionIcon}>🗺️</Text>
+              <Text style={styles.quickActionText}>Vehicle Tracking</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate('Inventory')}
+            >
+              <Text style={styles.quickActionIcon}>📦</Text>
+              <Text style={styles.quickActionText}>Vehicle Stocks</Text>
             </TouchableOpacity>
           </View>
         </View>
-        
-        {allocations.length > 0 ? (
-          <View style={styles.allocationsList}>
-            {allocations.slice(0, 5).map((item) => (
-              <View key={item._id} style={styles.allocationItem}>
-                <View style={styles.allocationHeader}>
-                  <Text style={styles.allocationUnitName}>{item.unitName}</Text>
-                  <View style={[styles.allocationStatusBadge, {
-                    backgroundColor: '#DC2626',
-                    opacity: item.status === 'Completed' ? 0.8 : item.status === 'In Transit' ? 0.9 : 1
-                  }]}>
-                    <Text style={[styles.allocationStatusText, {color: '#ffffff'}]}>
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.allocationDetails}>
-                  <Text style={styles.allocationDetailText}>
-                    Driver: {item.assignedDriver} • {item.variation}
-                  </Text>
-                  <Text style={styles.allocationDetailText}>
-                    Color: {item.bodyColor} • {new Date(item.createdAt || Date.now()).toLocaleDateString()}
-                  </Text>
-                  {item.assignedAgent && (
-                    <Text style={styles.allocationDetailText}>
-                      Agent: {item.assignedAgent}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))}
-            
-            {allocations.length > 5 && (
-              <TouchableOpacity 
-                style={styles.viewAllAllocationsBtn}
-                onPress={() => navigation.navigate('DriverAllocation')}
-              >
-                <Text style={styles.viewAllAllocationsBtnText}>
-                  View All {allocations.length} Allocations →
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <View style={styles.emptyAllocations}>
-            <Text style={styles.emptyAllocationsText}>No allocations found</Text>
-            <Text style={styles.emptyAllocationsSubtext}>Create your first vehicle assignment</Text>
-          </View>
-        )}
       </View>
-    </View>
     );
   };
+
 
   const renderReleaseContent = () => (
     <View style={styles.releaseContainer}>
@@ -4011,5 +3844,35 @@ const createStyles = (theme) => StyleSheet.create({
   disabledPicker: {
     opacity: 0.5,
     backgroundColor: '#f5f5f5',
+
+    quickActionsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 12,
+  padding: 4,
+},
+quickActionButton: {
+  flex: 1,
+  minWidth: '45%',
+  backgroundColor: '#DC2626',
+  borderRadius: 12,
+  padding: 20,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+quickActionIcon: {
+  fontSize: 32,
+  marginBottom: 8,
+},
+quickActionText: {
+  color: '#fff',
+  fontSize: 14,
+  fontWeight: '600',
+  textAlign: 'center',
+},
   },
 });
