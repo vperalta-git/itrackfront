@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
-import Colors from '../constants/Colors';
 import { 
   VEHICLE_STATUS_OPTIONS,
   BODY_COLOR_OPTIONS 
@@ -240,7 +239,7 @@ export default function EnhancedVehicleForm({
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color={Colors.textPrimary} />
+            <MaterialIcons name="close" size={24} color='#1F2937' />
           </TouchableOpacity>
         </View>
 
@@ -261,7 +260,7 @@ export default function EnhancedVehicleForm({
               <View style={[styles.pickerContainer, errors.variation && styles.inputError]}>
                 {variationsLoading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <ActivityIndicator size="small" color='#DC2626' />
                     <Text style={styles.loadingText}>Loading variations...</Text>
                   </View>
                 ) : (
@@ -357,7 +356,7 @@ export default function EnhancedVehicleForm({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -365,14 +364,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 60,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.cardBorder,
+    borderBottomColor: '#E5E7EB',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: '#1F2937',
   },
   closeButton: {
     padding: 8,
@@ -387,10 +386,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: '#1F2937',
     marginBottom: 15,
     borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    borderBottomColor: '#DC2626',
     paddingBottom: 5,
   },
   inputGroup: {
@@ -399,40 +398,40 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: '#1F2937',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: Colors.error,
+    borderColor: '#DC2626',
   },
   errorText: {
-    color: Colors.error,
+    color: '#DC2626',
     fontSize: 14,
     marginTop: 5,
     marginLeft: 5,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 8,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
   },
   picker: {
     height: 50,
-    color: Colors.textPrimary,
+    color: '#1F2937',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -442,27 +441,27 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: Colors.buttonSecondary,
+    backgroundColor: '#F3F4F6',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
   },
   cancelButtonText: {
-    color: Colors.textSecondary,
+    color: '#6B7280',
     fontSize: 16,
     fontWeight: '600',
   },
   submitButton: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
   },
   submitButtonText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -476,6 +475,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginLeft: 8,
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: '#6B7280',
   },
 });

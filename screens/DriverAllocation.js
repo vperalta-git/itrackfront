@@ -592,8 +592,10 @@ const DriverAllocation = () => {
 
             <ScrollView 
               style={styles.modalScrollView}
+              contentContainerStyle={{ paddingBottom: 10 }}
               showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
             >
               <View style={styles.modalForm}>
               {mode === 'stock' ? (
@@ -1283,7 +1285,7 @@ const createStyles = (theme) => StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 8
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1311,10 +1313,10 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '600',
   },
   modalScrollView: {
-    flex: 1,
+    maxHeight: 500,
   },
   modalForm: {
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   
   // Mode Selector

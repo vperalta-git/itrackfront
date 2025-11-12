@@ -46,7 +46,9 @@ export default function AdminVehicleTracking() {
         throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
       }
       
-      const withLocation = (data.data || []).filter((item) => item.unitId);
+      // Ensure we always have an array
+      const dataArray = Array.isArray(data) ? data : (data?.data ? (Array.isArray(data.data) ? data.data : []) : []);
+      const withLocation = dataArray.filter((item) => item && item.unitId);
       setAllocations(withLocation);
       if (withLocation.length > 0 && !selectedVehicle) {
         setSelectedVehicle(withLocation[0]);
@@ -291,7 +293,7 @@ export default function AdminVehicleTracking() {
                       style={styles.viewButton}
                       onPress={() => handleViewVehicle(item)}
                     >
-                      <Text style={styles.viewButtonText}>� View on Map</Text>
+                      <Text style={styles.viewButtonText}>📍 View on Map</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
-import Colors from '../constants/Colors';
 import UniformLoading from '../components/UniformLoading';
 
 export default function ReleaseScreen() {
@@ -148,12 +147,12 @@ export default function ReleaseScreen() {
 
       {/* Stats */}
       <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: Colors.primary }]}>
+        <View style={[styles.statCard, { backgroundColor: '#DC2626' }]}>
           <Text style={styles.statNumber}>{pendingReleases.length}</Text>
           <Text style={styles.statLabel}>Pending Release</Text>
         </View>
         
-        <View style={[styles.statCard, { backgroundColor: Colors.primary }]}>
+        <View style={[styles.statCard, { backgroundColor: '#DC2626' }]}>
           <Text style={styles.statNumber}>{releaseHistory.length}</Text>
           <Text style={styles.statLabel}>Released Today</Text>
         </View>
@@ -225,7 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     padding: 20,
     paddingTop: 30,
   },
@@ -365,7 +364,7 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
   },
   releaseButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',

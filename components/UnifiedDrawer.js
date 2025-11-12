@@ -14,7 +14,6 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import Colors from '../constants/Colors';
 
 // Import all screens
 import AdminDashboard from '../screens/AdminDashboard';
@@ -83,7 +82,7 @@ function CustomDrawerContent(props) {
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
     { name: "Vehicle Tracking", icon: shipmentsIcon, screen: "VehicleTracking", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "History", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] },
+    { name: "Audit Trail", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] },
     { name: "My Profile", icon: usersIcon, screen: "Profile", roles: ['all'] }
   ];
 
@@ -328,7 +327,7 @@ export default function UnifiedDrawer() {
       <Drawer.Screen
         name="History"
         component={HistoryScreen}
-        options={{ title: 'Release History' }}
+        options={{ title: 'Audit Trail' }}
       />
       <Drawer.Screen
         name="Profile"

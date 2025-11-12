@@ -246,33 +246,34 @@ export default function HistoryScreen() {
         }
       };
 
-      // Fetch data in parallel from correct MongoDB collections
+      // Fetch audit trails directly from the database
       let auditTrails = [];
       
-      // Try both audit trail endpoints
       try {
-        console.log('🔄 Trying primary audit trail endpoint...');
-        auditTrails = await safeFetch(buildApiUrl('/api/audit-trail?limit=200'));
+        console.log('🔄 Fetching audit trails...');
+        const response = await safeFetch(buildApiUrl('/api/audit-trail'));
         
-        if (!Array.isArray(auditTrails) || auditTrails.length === 0) {
-          console.log('🔄 Primary endpoint failed, trying alternative...');
-          const alternativeResponse = await safeFetch(buildApiUrl('/api/audittrails?limit=200'));
-          if (alternativeResponse?.success && Array.isArray(alternativeResponse.data)) {
-            auditTrails = alternativeResponse.data;
-            console.log('✅ Alternative endpoint returned data');
-          } else {
-            auditTrails = [];
-          }
+        // Handle different response formats
+        if (Array.isArray(response)) {
+          auditTrails = response;
+        } else if (response?.success && Array.isArray(response.data)) {
+          auditTrails = response.data;
+        } else {
+          console.warn('⚠️ Unexpected audit trail response format:', typeof response);
+          auditTrails = [];
         }
+        
+        console.log('✅ Fetched', auditTrails.length, 'audit trail entries');
       } catch (error) {
         console.error('❌ Error fetching audit trails:', error);
         auditTrails = [];
       }
 
+      // Fetch additional data for context
       const [allocations, users, releaseHistories] = await Promise.all([
         safeFetch(buildApiUrl('/getAllocation')),
-        safeFetch(buildApiUrl('/admin/users')),
-        safeFetch(buildApiUrl('/api/releasehistories')), // itrackDB > releasehistories collection
+        safeFetch(buildApiUrl('/getUsers')),
+        safeFetch(buildApiUrl('/api/releasehistories')),
       ]);
 
       // Enhanced logging for debugging
@@ -683,46 +684,58 @@ export default function HistoryScreen() {
     }
   };
 
-  const renderHistoryItem = ({ item, index }) => (
-    <View style={styles.historyItem}>
-      <View style={styles.historyItemLeft}>
-        {renderUserAvatar(item.user)}
-        <View style={styles.timelineConnector} />
-      </View>
-      
-      <View style={styles.historyItemRight}>
-        <View style={styles.historyItemHeader}>
-          <View style={styles.historyItemTitleRow}>
-            <Text style={styles.historyItemIcon}>
-              {getTypeIcon(item.type, item.subType)}
-            </Text>
-            <Text style={styles.historyItemTitle}>{item.title}</Text>
-          </View>
-          <Text style={styles.historyItemTime}>
-            {formatTimestamp(item.timestamp)}
-          </Text>
-        </View>
-        
-        <Text style={styles.historyItemDescription}>{item.description}</Text>
-        
-        <View style={styles.historyItemFooter}>
-          <Text style={styles.historyItemUser}>
-            {item.user?.accountName || 'Unknown User'}
-          </Text>
-          <View
-            style={[
-              styles.historyItemTypeBadge,
-              { backgroundColor: getTypeColor(item.type) }
-            ]}
-          >
-            <Text style={styles.historyItemTypeText}>
-              {item.type?.toUpperCase() || 'UNKNOWN'}
-            </Text>
+  const renderHistoryItem = ({ item, index }) => {
+    const timestamp = new Date(item.timestamp);
+    const formattedDate = timestamp.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    const formattedTime = timestamp.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    return (
+      <View style={styles.auditCard}>
+        {/* Timestamp Row */}
+        <View style={styles.auditRow}>
+          <Text style={styles.auditLabel}>TIMESTAMP</Text>
+          <View style={styles.auditValue}>
+            <Text style={styles.auditDateText}>{formattedDate}, {formattedTime}</Text>
           </View>
         </View>
+
+        {/* Action Row */}
+        <View style={styles.auditRow}>
+          <Text style={styles.auditLabel}>ACTION</Text>
+          <Text style={styles.auditText}>{item.action || item.title || 'Unknown Action'}</Text>
+        </View>
+
+        {/* Resource Row */}
+        <View style={styles.auditRow}>
+          <Text style={styles.auditLabel}>RESOURCE</Text>
+          <Text style={styles.auditText}>{item.resource || item.type?.toUpperCase() || 'Unknown'}</Text>
+        </View>
+
+        {/* Performed By Row */}
+        <View style={styles.auditRow}>
+          <Text style={styles.auditLabel}>PERFORMED BY</Text>
+          <Text style={styles.auditText}>{item.user?.accountName || item.user || 'Unknown User'}</Text>
+        </View>
+
+        {/* Details Row */}
+        <View style={styles.auditRow}>
+          <Text style={styles.auditLabel}>DETAILS</Text>
+          <Text style={styles.auditDetailsText} numberOfLines={3}>
+            {item.description || 'No additional details'}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderFilterTabs = () => {
     const filters = [
@@ -784,12 +797,9 @@ export default function HistoryScreen() {
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>History</Text>
+        <Text style={styles.headerTitle}>Audit Trail</Text>
         <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
           <Text style={styles.refreshButtonText}>🔄</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={testAuditTrailAPI} style={styles.debugButton}>
-          <Text style={styles.debugButtonText}>🔧</Text>
         </TouchableOpacity>
       </View>
 
@@ -801,11 +811,11 @@ export default function HistoryScreen() {
         {filteredHistory.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>📝</Text>
-            <Text style={styles.emptyStateTitle}>No history found</Text>
+            <Text style={styles.emptyStateTitle}>No audit trail found</Text>
             <Text style={styles.emptyStateText}>
               {activeFilter === 'all' 
-                ? 'No activity has been recorded yet.' 
-                : `No ${activeFilter} history available.`}
+                ? 'No audit activity has been recorded yet.' 
+                : `No ${activeFilter} audit records available.`}
             </Text>
           </View>
         ) : (
@@ -940,123 +950,57 @@ const styles = StyleSheet.create({
 
   historyList: {
     paddingVertical: 16,
+    paddingHorizontal: 16,
   },
 
-  historyItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    marginHorizontal: 20,
-  },
-
-  historyItemLeft: {
-    alignItems: 'center',
-    marginRight: 12,
-  },
-
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-
-  userAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e50914',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-
-  userAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  timelineConnector: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#E5E7EB',
-    marginTop: 8,
-  },
-
-  historyItemRight: {
-    flex: 1,
+  auditCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
 
-  historyItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-
-  historyItemTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-
-  historyItemIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-
-  historyItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D2D2D',
-    flex: 1,
-  },
-
-  historyItemTime: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-
-  historyItemDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
+  auditRow: {
     marginBottom: 12,
   },
 
-  historyItemFooter: {
+  auditLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+
+  auditValue: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
 
-  historyItemUser: {
-    fontSize: 12,
-    color: '#374151',
+  auditDateText: {
+    fontSize: 14,
+    color: '#1F2937',
     fontWeight: '500',
   },
 
-  historyItemTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  auditText: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
   },
 
-  historyItemTypeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  auditDetailsText: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
   },
 
   emptyState: {

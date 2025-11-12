@@ -16,7 +16,6 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
-import Colors from '../constants/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +25,7 @@ export default function ServiceRequestScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -347,8 +347,8 @@ export default function ServiceRequestScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search and Filters */}
-      <View style={styles.searchContainer}>
+      {/* Search and Filter */}
+      <View style={styles.searchFilterContainer}>
         <View style={styles.searchBox}>
           <MaterialIcons name="search" size={20} color="#666" />
           <TextInput
@@ -358,15 +358,14 @@ export default function ServiceRequestScreen() {
             onChangeText={setSearchTerm}
           />
         </View>
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <Ionicons name="filter" size={20} color="#DC2626" />
+          <Text style={styles.filterButtonText}>Filter</Text>
+        </TouchableOpacity>
       </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-        <FilterButton title="All" value="all" active={filterStatus === 'all'} />
-        <FilterButton title="Pending" value="pending" active={filterStatus === 'pending'} />
-        <FilterButton title="In Progress" value="in progress" active={filterStatus === 'in progress'} />
-        <FilterButton title="Completed" value="completed" active={filterStatus === 'completed'} />
-        <FilterButton title="Cancelled" value="cancelled" active={filterStatus === 'cancelled'} />
-      </ScrollView>
 
       {/* Service Requests List */}
       {loading ? (
@@ -607,6 +606,94 @@ export default function ServiceRequestScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.filterModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <View style={styles.filterModalContent}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filter by Status</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.filterOption, filterStatus === 'all' && styles.filterOptionActive]}
+              onPress={() => {
+                setFilterStatus('all');
+                setShowFilterModal(false);
+              }}
+            >
+              <Text style={[styles.filterOptionText, filterStatus === 'all' && styles.filterOptionTextActive]}>
+                All Requests
+              </Text>
+              {filterStatus === 'all' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.filterOption, filterStatus === 'pending' && styles.filterOptionActive]}
+              onPress={() => {
+                setFilterStatus('pending');
+                setShowFilterModal(false);
+              }}
+            >
+              <Text style={[styles.filterOptionText, filterStatus === 'pending' && styles.filterOptionTextActive]}>
+                Pending
+              </Text>
+              {filterStatus === 'pending' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.filterOption, filterStatus === 'in progress' && styles.filterOptionActive]}
+              onPress={() => {
+                setFilterStatus('in progress');
+                setShowFilterModal(false);
+              }}
+            >
+              <Text style={[styles.filterOptionText, filterStatus === 'in progress' && styles.filterOptionTextActive]}>
+                In Progress
+              </Text>
+              {filterStatus === 'in progress' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.filterOption, filterStatus === 'completed' && styles.filterOptionActive]}
+              onPress={() => {
+                setFilterStatus('completed');
+                setShowFilterModal(false);
+              }}
+            >
+              <Text style={[styles.filterOptionText, filterStatus === 'completed' && styles.filterOptionTextActive]}>
+                Completed
+              </Text>
+              {filterStatus === 'completed' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.filterOption, filterStatus === 'cancelled' && styles.filterOptionActive]}
+              onPress={() => {
+                setFilterStatus('cancelled');
+                setShowFilterModal(false);
+              }}
+            >
+              <Text style={[styles.filterOptionText, filterStatus === 'cancelled' && styles.filterOptionTextActive]}>
+                Cancelled
+              </Text>
+              {filterStatus === 'cancelled' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -621,7 +708,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundcolor: Colors.textLight,
+    backgroundcolor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -633,21 +720,24 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addButtonText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontWeight: '600',
     marginLeft: 4,
   },
-  searchContainer: {
-    padding: 20,
-    backgroundcolor: Colors.textLight,
+  searchFilterContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
   },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
@@ -661,42 +751,79 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: Colors.textPrimary,
+    color: '#1F2937',
     fontWeight: '500',
-    minHeight: 52,
+    minHeight: 40,
   },
-  filterContainer: {
-    paddingHorizontal: 20,
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 16,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 8,
+    borderRadius: 8,
+    gap: 6,
   },
-  filterBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1.5,
-    borderColor: '#ddd',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  filterBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterBtnText: {
-    color: '#333',
+  filterButtonText: {
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
   },
-  filterBtnTextActive: {
-    color: Colors.textLight,
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  filterOptionActive: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+  },
+  filterOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  filterOptionTextActive: {
+    color: '#DC2626',
+    fontWeight: '600',
   },
   listContainer: {
     padding: 20,
@@ -742,7 +869,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -865,13 +992,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     backgroundColor: '#ffffff',
-    color: Colors.textPrimary,
+    color: '#1F2937',
     minHeight: 52,
     fontWeight: '500',
   },
@@ -997,8 +1124,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   serviceOptionActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
   serviceOptionText: {
     color: '#666',
@@ -1032,10 +1159,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
   },
   saveBtnText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   // Details Modal Styles
@@ -1071,7 +1198,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   detailServiceTag: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -1079,7 +1206,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailServiceTagText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
   },

@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl } from '../constants/api';
 import DriverMapsView from '../components/DriverMapsView';
 import UniformLoading from '../components/UniformLoading';
-import Colors from '../constants/Colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -537,7 +536,7 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     padding: 15, 
-    backgroundColor: Colors.backgroundLight 
+    backgroundColor: '#F3F4F6' 
   },
   headerRow: { 
     flexDirection: "row", 
@@ -555,7 +554,7 @@ const styles = StyleSheet.create({
   heading: { 
     fontSize: 24, 
     fontWeight: "bold", 
-    color: Colors.primary,
+    color: '#DC2626',
     marginBottom: 4,
   },
   driverNameText: {
@@ -610,13 +609,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   gpsButtonStart: {
-    backgroundColor: Colors.success,
+    backgroundColor: '#10B981',
   },
   gpsButtonStop: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
   },
   gpsButtonText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: "600",
     marginLeft: 4,
@@ -627,14 +626,14 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: Colors.textSecondary,
+    color: '#6B7280',
     fontSize: 16,
   },
   errorText: { 
-    color: Colors.primary, 
+    color: '#DC2626', 
     textAlign: "center", 
     marginVertical: 10,
-    backgroundColor: Colors.loadingBackground,
+    backgroundColor: '#F3F4F6',
     padding: 10,
     borderRadius: 8,
   },

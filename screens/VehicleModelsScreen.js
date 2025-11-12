@@ -17,7 +17,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
-import Colors from '../constants/Colors';
 
 const VehicleModelsScreen = () => {
   const navigation = useNavigation();
@@ -320,13 +319,13 @@ const VehicleModelsScreen = () => {
 
   const getCategoryColor = (category) => {
     const colors = {
-      'Pickup': Colors.primary,
-      'SUV': Colors.success,
-      'Commercial': Colors.warning,
-      'Truck': Colors.error,
+      'Pickup': '#DC2626',
+      'SUV': '#10B981',
+      'Commercial': '#F59E0B',
+      'Truck': '#DC2626',
       'Heavy Duty': '#9c27b0'
     };
-    return colors[category] || Colors.primary;
+    return colors[category] || '#DC2626';
   };
 
   if (loading && !refreshing) {
@@ -363,7 +362,7 @@ const VehicleModelsScreen = () => {
       {/* Action Buttons */}
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={[styles.initButton, { backgroundColor: Colors.primary }]}
+          style={[styles.initButton, { backgroundColor: '#DC2626' }]}
           onPress={initializeVehicleModels}
         >
           <MaterialIcons name="refresh" size={20} color="white" />
@@ -386,17 +385,17 @@ const VehicleModelsScreen = () => {
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-          <Text style={[styles.statNumber, { color: Colors.primary }]}>{filteredModels.length}</Text>
+          <Text style={[styles.statNumber, { color: '#DC2626' }]}>{filteredModels.length}</Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Models</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-          <Text style={[styles.statNumber, { color: Colors.success }]}>
+          <Text style={[styles.statNumber, { color: '#10B981' }]}>
             {filteredModels.reduce((total, model) => total + (model.variations?.length || 0), 0)}
           </Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Variations</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-          <Text style={[styles.statNumber, { color: Colors.warning }]}>
+          <Text style={[styles.statNumber, { color: '#F59E0B' }]}>
             {new Set(filteredModels.map(model => model.category)).size}
           </Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Categories</Text>
@@ -443,7 +442,7 @@ const VehicleModelsScreen = () => {
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Add Vehicle Model</Text>
             <TouchableOpacity onPress={handleAddModel}>
-              <Text style={[styles.modalSaveText, { color: Colors.primary }]}>Save</Text>
+              <Text style={[styles.modalSaveText, { color: '#DC2626' }]}>Save</Text>
             </TouchableOpacity>
           </View>
 
@@ -516,7 +515,7 @@ const VehicleModelsScreen = () => {
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Vehicle Model</Text>
             <TouchableOpacity onPress={handleEditModel}>
-              <Text style={[styles.modalSaveText, { color: Colors.primary }]}>Save</Text>
+              <Text style={[styles.modalSaveText, { color: '#DC2626' }]}>Save</Text>
             </TouchableOpacity>
           </View>
 
@@ -595,7 +594,7 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
     minWidth: 40,
     alignItems: 'center',
   },
@@ -608,7 +607,7 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: Colors.success,
+    backgroundColor: '#10B981',
     minWidth: 40,
     alignItems: 'center',
   },
@@ -743,10 +742,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   editButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
   },
   deleteButton: {
-    backgroundColor: Colors.error,
+    backgroundColor: '#DC2626',
   },
   actionButtonText: {
     color: 'white',

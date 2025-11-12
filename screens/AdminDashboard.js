@@ -21,7 +21,6 @@ import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 import StocksOverview from '../components/StocksOverview';
 import UniformLoading from '../components/UniformLoading';
-import Colors from '../constants/Colors';
 import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
 
 export default function AdminDashboard() {
@@ -585,10 +584,132 @@ export default function AdminDashboard() {
     </View>
   );
 
-  const renderDashboardContent = () => (
-    <View style={styles.dashboardContainer}>
-      {/* Modern Vehicle Assignment Card */}
-      <View style={styles.assignmentCard}>
+  const renderDashboardContent = () => {
+    // Calculate statistics for dashboard
+    const totalStocks = inventory.length;
+    const finishedVehiclePreparation = allocations.filter(a => a.status === 'Ready for Release').length;
+    const ongoingShipment = allocations.filter(a => a.status === 'In Transit').length;
+    const ongoingVehiclePreparation = allocations.filter(a => a.status === 'Assigned to Dispatch' || a.status === 'In Progress').length;
+
+    // Recent in-progress preparation
+    const recentPreparation = allocations
+      .filter(a => a.status === 'Assigned to Dispatch' || a.status === 'In Progress')
+      .slice(0, 3);
+
+    // Recent assigned shipments  
+    const recentShipments = allocations
+      .filter(a => a.status === 'In Transit' || a.status === 'Pending')
+      .slice(0, 3);
+
+    return (
+      <View style={styles.dashboardContainer}>
+        {/* Statistics Cards */}
+        <View style={styles.reportsStatsGrid}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+            <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
+            <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#374151' }]}>
+            <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
+            <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+            <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
+            <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
+          </View>
+          
+          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
+            <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
+            <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
+          </View>
+        </View>
+
+        {/* Stocks Overview with Pie Charts */}
+        <StocksOverview inventory={inventory} theme={theme} />
+
+        {/* Recent In Progress Vehicle Preparation */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent In Progress Vehicle Preparation</Text>
+          
+          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
+            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>CONDUCTION NO.</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>SERVICE</Text>
+            </View>
+            
+            {recentPreparation.length > 0 ? recentPreparation.map((item, index) => (
+              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitId || 'N/A'}</Text>
+                <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]}>
+                  {item.requestedProcesses && item.requestedProcesses.length > 0 
+                    ? item.requestedProcesses[0].name || 'Processing'
+                    : 'Processing'}
+                </Text>
+              </View>
+            )) : (
+              <View style={styles.reportsTableRow}>
+                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No vehicle preparation in progress</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Recent Assigned Shipments */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={[styles.reportsTable, { backgroundColor: theme.surface, minWidth: '100%' }]}>
+              <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>UNIT NAME</Text>
+                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>DRIVER</Text>
+                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
+              </View>
+              
+              {recentShipments.length > 0 ? recentShipments.map((item, index) => (
+                <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]} numberOfLines={1}>{item.unitName || 'N/A'}</Text>
+                  <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]} numberOfLines={1}>{item.assignedDriver || 'N/A'}</Text>
+                  <View style={[styles.reportsTableCell, { flex: 1 }]}>
+                    <View style={[
+                      styles.statusBadge, 
+                      { backgroundColor: '#DC2626' }
+                    ]}>
+                      <Text style={styles.statusBadgeText}>
+                        {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )) : (
+                <View style={styles.reportsTableRow}>
+                  <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Recent Completed Requests */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Completed Requests</Text>
+          
+          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
+            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>CONDUCTION NO.</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>DATE</Text>
+            </View>
+            
+            <View style={styles.reportsTableRow}>
+              <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No completed requests</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Modern Vehicle Assignment Card */}
+        <View style={styles.assignmentCard}>
         <View style={styles.assignmentCardHeader}>
           <Text style={styles.assignmentTitle}>Vehicle Assignment</Text>
           <View style={styles.assignmentBadge}>
@@ -666,14 +787,14 @@ export default function AdminDashboard() {
                 placeholder="Vehicle Model (e.g., Isuzu D-Max)"
                 value={manualModel}
                 onChangeText={setManualModel}
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor='#6B7280'
               />
               <TextInput
                 style={styles.modernInput}
                 placeholder="VIN Number"
                 value={manualVin}
                 onChangeText={setManualVin}
-                placeholderTextColor={Colors.textSecondary}
+                placeholderTextColor='#6B7280'
               />
             </View>
 
@@ -749,7 +870,7 @@ export default function AdminDashboard() {
                 <View style={styles.allocationHeader}>
                   <Text style={styles.allocationUnitName}>{item.unitName}</Text>
                   <View style={[styles.allocationStatusBadge, {
-                    backgroundColor: Colors.primary,
+                    backgroundColor: '#DC2626',
                     opacity: item.status === 'Completed' ? 0.8 : item.status === 'In Transit' ? 0.9 : 1
                   }]}>
                     <Text style={[styles.allocationStatusText, {color: '#ffffff'}]}>
@@ -793,7 +914,8 @@ export default function AdminDashboard() {
         )}
       </View>
     </View>
-  );
+    );
+  };
 
   const renderReleaseContent = () => (
     <View style={styles.releaseContainer}>
@@ -807,12 +929,12 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <View style={styles.releaseStatsContainer}>
-        <View style={[styles.releaseStatCard, { backgroundColor: Colors.primary }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#DC2626' }]}>
           <Text style={styles.releaseStatNumber}>{pendingReleases.length}</Text>
           <Text style={styles.releaseStatLabel}>Pending Release</Text>
         </View>
         
-        <View style={[styles.releaseStatCard, { backgroundColor: Colors.primaryDark }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#B91C1C' }]}>
           <Text style={styles.releaseStatNumber}>{releaseHistory.length}</Text>
           <Text style={styles.releaseStatLabel}>Released Today</Text>
         </View>
@@ -952,22 +1074,22 @@ export default function AdminDashboard() {
       <ScrollView style={styles.reportsContainer}>
         {/* Statistics Cards */}
         <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
             <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
             <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
           </View>
@@ -1024,7 +1146,7 @@ export default function AdminDashboard() {
                   <View style={[styles.reportsTableCell, { width: 80 }]}>
                     <View style={[
                       styles.statusBadge, 
-                      { backgroundColor: Colors.primary }
+                      { backgroundColor: '#DC2626' }
                     ]}>
                       <Text style={styles.statusBadgeText}>
                         {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
@@ -1057,7 +1179,7 @@ export default function AdminDashboard() {
       const getStatusStyle = (status) => {
         // All statuses use primary color with varying opacity for distinction
         const baseStyle = { 
-          container: { backgroundColor: Colors.primary }, 
+          container: { backgroundColor: '#DC2626' }, 
           text: { color: '#ffffff' } 
         };
         
@@ -1068,7 +1190,7 @@ export default function AdminDashboard() {
           case 'allocated':
             return { container: { ...baseStyle.container, opacity: 0.85 }, text: baseStyle.text };
           case 'in dispatch':
-            return { container: { backgroundColor: Colors.primaryDark }, text: baseStyle.text };
+            return { container: { backgroundColor: '#B91C1C' }, text: baseStyle.text };
           case 'maintenance':
             return { container: { ...baseStyle.container, opacity: 0.9 }, text: baseStyle.text };
           default:
@@ -1162,32 +1284,32 @@ export default function AdminDashboard() {
             placeholder="Search by unit name, ID, color, or variation..."
             value={inventorySearch}
             onChangeText={setInventorySearch}
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor='#6B7280'
           />
         </View>
 
         {/* Stats Cards */}
         <View style={styles.inventoryStatsContainer}>
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.inventoryStatNumber}>{inventory.length}</Text>
             <Text style={styles.inventoryStatLabel}>Total Stock</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#B91C1C' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => (v.status || 'Available') === 'Available').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>Available</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primary }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>In Use</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: Colors.primaryDark }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#B91C1C' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Dispatch').length}
             </Text>
@@ -2103,27 +2225,27 @@ const createStyles = (theme) => StyleSheet.create({
   },
   input: {
     borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 10,
     marginBottom: 16,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    color: Colors.textPrimary,
+    color: '#1F2937',
     minHeight: 52,
     fontWeight: '500',
   },
   textInput: {
     borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 10,
     marginBottom: 16,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    color: Colors.textPrimary,
+    color: '#1F2937',
     minHeight: 52,
     fontWeight: '500',
   },
@@ -2254,12 +2376,12 @@ const createStyles = (theme) => StyleSheet.create({
   inventorySearchInput: {
     backgroundColor: '#ffffff',
     borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: Colors.textPrimary,
+    color: '#1F2937',
     fontWeight: '500',
     minHeight: 52,
   },
@@ -2669,12 +2791,12 @@ const createStyles = (theme) => StyleSheet.create({
   modernInput: {
     backgroundColor: '#ffffff',
     borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
+    borderColor: '#E5E7EB',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: Colors.textPrimary,
+    color: '#1F2937',
     marginBottom: 16,
     minHeight: 52,
     fontWeight: '500',

@@ -1535,8 +1535,8 @@ export default StyleSheet.create({
   },
 
   agentFilterButtonActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
 
   agentFilterText: {

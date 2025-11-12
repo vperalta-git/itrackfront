@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { PieChart } from 'react-native-gifted-charts';
 
 const { width } = Dimensions.get('window');
 
 const StocksOverview = ({ inventory = [], theme }) => {
+  const isLargeScreen = width > 1024;
+
   // Process inventory data to create chart data
   const processInventoryData = () => {
     if (!inventory || inventory.length === 0) {
@@ -20,13 +22,13 @@ const StocksOverview = ({ inventory = [], theme }) => {
 
     // Convert to chart format with colors
     const colors = [
-      '#e50914', // Red (Isuzu red)
+      '#DC2626', // Red (Isuzu red)
       '#005d9b', // Blue
       '#231f20', // Dark gray/black
       '#234a5c', // Dark blue
       '#709cb7', // Light blue
       '#00aaff', // Bright blue
-      '#dc2626', // Red variant
+      '#B91C1C', // Red variant
       '#059669', // Green
       '#f59e0b', // Yellow/Orange
       '#8b5cf6', // Purple
@@ -37,56 +39,16 @@ const StocksOverview = ({ inventory = [], theme }) => {
     return Object.entries(unitCounts)
       .map(([name, count], index) => ({
         name: name,
-        population: count,
+        count: count,
+        value: count,
         color: colors[index % colors.length],
-        legendFontColor: theme?.text || '#374151',
-        legendFontSize: 12,
+        focused: index === 0, // Focus on the first (largest) item
       }))
-      .sort((a, b) => b.population - a.population) // Sort by count descending
-      .slice(0, 10); // Limit to top 10 to avoid overcrowding
-  };
-
-  // Process status data for secondary chart
-  const processStatusData = () => {
-    if (!inventory || inventory.length === 0) {
-      return [];
-    }
-
-    const statusCounts = inventory.reduce((acc, item) => {
-      const status = item.status || 'Available';
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
-
-    const statusColors = {
-      'Available': '#059669',
-      'Allocated': '#f59e0b',
-      'In Use': '#3b82f6',
-      'In Dispatch': '#e50914',
-      'Maintenance': '#ef4444',
-      'Reserved': '#8b5cf6',
-      'In Transit': '#dc2626',
-      'Released': '#6b7280'
-    };
-
-    return Object.entries(statusCounts).map(([status, count]) => ({
-      name: status,
-      population: count,
-      color: statusColors[status] || '#6b7280',
-      legendFontColor: theme?.text || '#374151',
-      legendFontSize: 12,
-    }));
+      .sort((a, b) => b.count - a.count); // Sort by count descending
   };
 
   const unitData = processInventoryData();
-  const statusData = processStatusData();
-
-  const chartConfig = {
-    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    strokeWidth: 2,
-    barPercentage: 0.5,
-    useShadowColorFromDataset: false,
-  };
+  const totalUnits = inventory.length;
 
   if (!inventory || inventory.length === 0) {
     return (
@@ -103,119 +65,109 @@ const StocksOverview = ({ inventory = [], theme }) => {
     );
   }
 
+  // Get top 3 models for display
+  const topModels = unitData.slice(0, 3);
+  
   return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme?.card || '#ffffff' }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.container, { backgroundColor: theme?.card || '#ffffff' }]}>
       <Text style={[styles.title, { color: theme?.text || '#374151' }]}>
         Stocks Overview
       </Text>
 
-      {/* Vehicle Models Distribution */}
-      <View style={styles.chartSection}>
-        <Text style={[styles.sectionTitle, { color: theme?.text || '#374151' }]}>
-          Vehicle Models Distribution
-        </Text>
-        
-        {unitData.length > 0 && (
+      <View style={styles.row}>
+        {/* Left side - Labels */}
+        <View style={styles.leftContainer}>
+          <Text style={[styles.secondaryText, { color: theme?.textSecondary || '#666666' }]}>
+            Vehicle Models
+          </Text>
+          <View style={styles.labelsContainer}>
+            {topModels.map((item, index) => {
+              const percentage = totalUnits > 0 
+                ? ((item.count / totalUnits) * 100).toFixed(0) 
+                : '0';
+              return (
+                <PieLabelRow
+                  key={item.name}
+                  label={item.name}
+                  count={item.count}
+                  percentage={percentage}
+                  color={item.color}
+                  theme={theme}
+                />
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Separator */}
+        <View style={styles.separator} />
+
+        {/* Right side - Pie Chart */}
+        <View style={[styles.rightContainer, isLargeScreen && styles.rightContainerLarge]}>
           <PieChart
             data={unitData}
-            width={width - 60}
-            height={220}
-            chartConfig={chartConfig}
-            accessor="population"
-            backgroundColor="transparent"
-            paddingLeft="15"
-            center={[10, 0]}
-            hasLegend={true}
-          />
-        )}
-
-        {/* Summary Stats */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme?.text || '#374151' }]}>
-              {inventory.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme?.textSecondary || '#6b7280' }]}>
-              Total Units
-            </Text>
-          </View>
-          
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme?.text || '#374151' }]}>
-              {unitData.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme?.textSecondary || '#6b7280' }]}>
-              Models
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Status Distribution */}
-      {statusData.length > 1 && (
-        <View style={styles.chartSection}>
-          <Text style={[styles.sectionTitle, { color: theme?.text || '#374151' }]}>
-            Status Distribution
-          </Text>
-          
-          <PieChart
-            data={statusData}
-            width={width - 60}
-            height={220}
-            chartConfig={chartConfig}
-            accessor="population"
-            backgroundColor="transparent"
-            paddingLeft="15"
-            center={[10, 0]}
-            hasLegend={true}
-          />
-        </View>
-      )}
-
-      {/* Top Models List */}
-      <View style={styles.chartSection}>
-        <Text style={[styles.sectionTitle, { color: theme?.text || '#374151' }]}>
-          Top Vehicle Models
-        </Text>
-        
-        <View style={styles.modelsList}>
-          {unitData.slice(0, 5).map((item, index) => {
-            const percentage = inventory.length > 0 
-              ? ((item.population / inventory.length) * 100).toFixed(1) 
-              : '0.0';
-            
-            return (
-              <View key={item.name} style={styles.modelItem}>
-                <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-                <Text style={[styles.modelName, { color: theme?.text || '#374151' }]}>
-                  {item.name}
-                </Text>
-                <View style={styles.modelStats}>
-                  <Text style={[styles.modelCount, { color: theme?.text || '#374151' }]}>
-                    {item.population}
+            donut
+            sectionAutoFocus
+            radius={isLargeScreen ? 55 : 65}
+            innerRadius={isLargeScreen ? 35 : 45}
+            innerCircleColor={theme?.card || '#ffffff'}
+            centerLabelComponent={() =>
+              !isLargeScreen ? (
+                <View style={styles.centerLabel}>
+                  <Text style={[styles.centerNumber, { color: theme?.text || '#000000' }]}>
+                    {totalUnits}
                   </Text>
-                  <Text style={[styles.modelPercentage, { color: theme?.textSecondary || '#6b7280' }]}>
-                    ({percentage}%)
+                  <Text style={[styles.centerText, { color: theme?.text || '#000000' }]}>
+                    Total
                   </Text>
                 </View>
-              </View>
-            );
-          })}
+              ) : null
+            }
+          />
+          {isLargeScreen && (
+            <View style={styles.largeScreenLabel}>
+              <Text style={[styles.largeNumber, { color: theme?.text || '#000000' }]}>
+                {totalUnits}
+              </Text>
+              <Text style={[styles.largeText, { color: theme?.text || '#000000' }]}>
+                Total Vehicles
+              </Text>
+            </View>
+          )}
         </View>
       </View>
-    </ScrollView>
+    </View>
+  );
+};
+
+const PieLabelRow = ({ label, count, percentage, color, theme }) => {
+  return (
+    <View style={styles.labelRow}>
+      <View style={styles.labelContent}>
+        <View style={[styles.colorDot, { backgroundColor: color }]} />
+        <Text style={[styles.labelText, { color: theme?.text || '#000000' }]} numberOfLines={1}>
+          {label}:
+        </Text>
+      </View>
+      <View style={styles.labelStats}>
+        <Text style={[styles.countText, { color: theme?.text || '#000000' }]}>
+          {count}
+        </Text>
+        <Text style={[styles.percentageText, { color: theme?.text || '#000000' }]}>
+          ({percentage}%)
+        </Text>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    margin: 16,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -232,78 +184,108 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
-  chartSection: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  statsGrid: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    paddingVertical: 20,
   },
-  statItem: {
-    alignItems: 'center',
+  leftContainer: {
+    width: '50%',
+    paddingLeft: 20,
+    paddingRight: 10,
+    justifyContent: 'center',
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#374151',
+  secondaryText: {
+    color: '#666666',
+    fontSize: 16,
+    marginBottom: 20,
+    fontWeight: '600',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  modelsList: {
+  labelsContainer: {
+    flex: 1,
+    justifyContent: 'center',
     gap: 12,
   },
-  modelItem: {
+  separator: {
+    width: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  rightContainer: {
+    width: '50%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
+    justifyContent: 'center',
+    padding: 15,
+    gap: 16,
   },
-  colorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
+  rightContainerLarge: {
+    justifyContent: 'flex-start',
+    paddingVertical: 15,
+    paddingHorizontal: 15,
   },
-  modelName: {
-    flex: 1,
+  centerLabel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  centerText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    color: '#000000',
   },
-  modelStats: {
+  largeScreenLabel: {
+    justifyContent: 'center',
+  },
+  largeNumber: {
+    fontSize: 35,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  largeText: {
+    fontSize: 18,
+    color: '#000000',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  labelContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+    marginRight: 8,
   },
-  modelCount: {
+  colorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  labelText: {
+    fontSize: 14,
+    color: '#000000',
+    flex: 1,
+  },
+  labelStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  countText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
+    fontWeight: '600',
+    color: '#000000',
   },
-  modelPercentage: {
-    fontSize: 12,
-    color: '#6b7280',
+  percentageText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
   },
   emptyState: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,

@@ -26,18 +26,23 @@ export default function UserManagementScreen() {
   const [userSearch, setUserSearch] = useState('');
   const [currentTab, setCurrentTab] = useState('all'); // 'all', 'agents', 'others'
   const [newUser, setNewUser] = useState({
-    username: '',
+    name: '',
+    email: '',
+    phoneNo: '',
     password: '',
     role: 'Sales Agent',
     assignedTo: '',
-    accountName: '',
+    picture: '',
   });
   const [editUser, setEditUser] = useState({
     _id: '',
-    username: '',
+    name: '',
+    email: '',
+    phoneNo: '',
+    password: '',
     role: 'Sales Agent',
     assignedTo: '',
-    accountName: '',
+    picture: '',
   });
 
   const fetchUsers = async () => {
@@ -86,7 +91,7 @@ export default function UserManagementScreen() {
   const managerMap = {};
   if (Array.isArray(managers)) {
     managers.forEach((m) => {
-      managerMap[m._id] = m.accountName || m.username;
+      managerMap[m._id] = m.name || 'Unnamed Manager';
     });
   }
 
@@ -108,8 +113,8 @@ export default function UserManagementScreen() {
   }
 
   const handleCreateUser = async () => {
-    if (!newUser.username || !newUser.password || !newUser.accountName) {
-      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      Alert.alert('Missing Fields', 'Please fill in name, email, and password.');
       return;
     }
     
@@ -123,7 +128,7 @@ export default function UserManagementScreen() {
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to create user');
       
       Alert.alert('Success', 'User created successfully!');
-      setNewUser({ username: '', password: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+      setNewUser({ name: '', email: '', phoneNo: '', password: '', role: 'Sales Agent', assignedTo: '', picture: '' });
       setShowAddUserModal(false);
       fetchUsers();
       fetchManagers();
@@ -135,26 +140,32 @@ export default function UserManagementScreen() {
   const handleEditUser = (user) => {
     setEditUser({
       _id: user._id,
-      username: user.username,
+      name: user.name || '',
+      email: user.email || '',
+      phoneNo: user.phoneNo || '',
+      password: user.password || '',
       role: user.role || 'Sales Agent',
       assignedTo: user.assignedTo || '',
-      accountName: user.accountName || '',
+      picture: user.picture || '',
     });
     setShowEditUserModal(true);
   };
 
   const handleUpdateUser = async () => {
-    if (!editUser.username || !editUser.accountName) {
-      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+    if (!editUser.name || !editUser.email) {
+      Alert.alert('Missing Fields', 'Please fill in name and email.');
       return;
     }
     
     try {
       const updateData = {
-        username: editUser.username,
+        name: editUser.name,
+        email: editUser.email,
+        phoneNo: editUser.phoneNo,
+        password: editUser.password,
         role: editUser.role,
         assignedTo: editUser.assignedTo,
-        accountName: editUser.accountName,
+        picture: editUser.picture,
       };
 
       const res = await fetch(buildApiUrl(`/admin/users/${editUser._id}`), {
@@ -167,7 +178,7 @@ export default function UserManagementScreen() {
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to update user');
       
       Alert.alert('Success', 'User updated successfully!');
-      setEditUser({ _id: '', username: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+      setEditUser({ _id: '', name: '', email: '', phoneNo: '', password: '', role: 'Sales Agent', assignedTo: '', picture: '' });
       setShowEditUserModal(false);
       fetchUsers();
       fetchManagers();
@@ -176,10 +187,10 @@ export default function UserManagementScreen() {
     }
   };
 
-  const handleDeleteUser = async (id, username) => {
+  const handleDeleteUser = async (id, name) => {
     Alert.alert(
       'Delete User',
-      `Are you sure you want to delete user "${username}"?`,
+      `Are you sure you want to delete user "${name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -207,8 +218,9 @@ export default function UserManagementScreen() {
   // Filter users based on search and tab
   const getFilteredUsers = () => {
     let filteredUsers = users.filter(user =>
-      user.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.accountName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.phoneNo?.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.role?.toLowerCase().includes(userSearch.toLowerCase())
     );
 
@@ -239,8 +251,8 @@ export default function UserManagementScreen() {
       <View style={styles.userCard}>
         <View style={styles.userCardHeader}>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{item.accountName || item.username || 'No Name'}</Text>
-            <Text style={styles.userUsername}>@{item.username || 'no-username'}</Text>
+            <Text style={styles.userName}>{item.name || 'No Name'}</Text>
+            <Text style={styles.userUsername}>{item.email || 'no-email'}</Text>
           </View>
           <View style={[styles.roleBadge, roleStyle]}>
             <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>
@@ -250,11 +262,18 @@ export default function UserManagementScreen() {
         </View>
 
         <View style={styles.userCardContent}>
+          {item.phoneNo && (
+            <View style={styles.userDetailRow}>
+              <Text style={styles.userDetailLabel}>Phone:</Text>
+              <Text style={styles.userDetailValue}>{item.phoneNo}</Text>
+            </View>
+          )}
+
           {assignedManager && (
             <View style={styles.userDetailRow}>
               <Text style={styles.userDetailLabel}>Manager:</Text>
               <Text style={styles.userDetailValue}>
-                {assignedManager.accountName || assignedManager.username}
+                {assignedManager.name || 'Unnamed Manager'}
               </Text>
             </View>
           )}
@@ -276,7 +295,7 @@ export default function UserManagementScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.deleteUserBtn}
-            onPress={() => handleDeleteUser(item._id, item.username)}
+            onPress={() => handleDeleteUser(item._id, item.name)}
           >
             <Text style={styles.userActionBtnText}>Delete</Text>
           </TouchableOpacity>
@@ -403,14 +422,29 @@ export default function UserManagementScreen() {
 
               <TextInput
                 style={styles.modalInput}
-                placeholder="Account Name"
-                value={newUser.accountName}
-                onChangeText={(text) => {
-                  // Auto-generate username from account name (lowercase, no spaces)
-                  const username = text.toLowerCase().replace(/\s+/g, '');
-                  setNewUser({ ...newUser, accountName: text, username: username });
-                }}
+                placeholder="Name"
+                value={newUser.name}
+                onChangeText={(text) => setNewUser({ ...newUser, name: text })}
                 placeholderTextColor={theme.textTertiary}
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Email"
+                value={newUser.email}
+                onChangeText={(text) => setNewUser({ ...newUser, email: text })}
+                placeholderTextColor={theme.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Phone Number"
+                value={newUser.phoneNo}
+                onChangeText={(text) => setNewUser({ ...newUser, phoneNo: text })}
+                placeholderTextColor={theme.textTertiary}
+                keyboardType="phone-pad"
               />
 
               <TextInput
@@ -452,7 +486,7 @@ export default function UserManagementScreen() {
                       {managers.map((manager) => (
                         <Picker.Item 
                           key={manager._id} 
-                          label={manager.accountName || manager.username} 
+                          label={manager.name || 'Unnamed Manager'} 
                           value={manager._id} 
                         />
                       ))}
@@ -472,7 +506,7 @@ export default function UserManagementScreen() {
                   style={[styles.modalButton, styles.modalButtonCancel]}
                   onPress={() => {
                     setShowAddUserModal(false);
-                    setNewUser({ username: '', password: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+                    setNewUser({ name: '', email: '', phoneNo: '', password: '', role: 'Sales Agent', assignedTo: '', picture: '' });
                   }}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>
@@ -498,21 +532,44 @@ export default function UserManagementScreen() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Edit User</Text>
 
-              <Text style={styles.modalLabel}>Account Name</Text>
+              <Text style={styles.modalLabel}>Name</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Enter account name"
-                value={editUser.accountName}
-                onChangeText={(text) => setEditUser({ ...editUser, accountName: text })}
+                placeholder="Enter name"
+                value={editUser.name}
+                onChangeText={(text) => setEditUser({ ...editUser, name: text })}
+                placeholderTextColor={theme.textTertiary}
               />
 
-              <Text style={styles.modalLabel}>Username</Text>
+              <Text style={styles.modalLabel}>Email</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Enter username"
-                value={editUser.username}
-                onChangeText={(text) => setEditUser({ ...editUser, username: text })}
+                placeholder="Enter email"
+                value={editUser.email}
+                onChangeText={(text) => setEditUser({ ...editUser, email: text })}
+                placeholderTextColor={theme.textTertiary}
+                keyboardType="email-address"
                 autoCapitalize="none"
+              />
+
+              <Text style={styles.modalLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter phone number"
+                value={editUser.phoneNo}
+                onChangeText={(text) => setEditUser({ ...editUser, phoneNo: text })}
+                placeholderTextColor={theme.textTertiary}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.modalLabel}>Password</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter password (leave blank to keep current)"
+                value={editUser.password}
+                onChangeText={(text) => setEditUser({ ...editUser, password: text })}
+                placeholderTextColor={theme.textTertiary}
+                secureTextEntry
               />
 
               <Text style={styles.modalLabel}>Role</Text>
@@ -542,7 +599,7 @@ export default function UserManagementScreen() {
                       {managers.map((manager) => (
                         <Picker.Item
                           key={manager._id}
-                          label={manager.accountName || manager.username}
+                          label={manager.name || 'Unnamed Manager'}
                           value={manager._id}
                         />
                       ))}
@@ -556,7 +613,7 @@ export default function UserManagementScreen() {
                   style={[styles.modalButton, styles.modalButtonCancel]}
                   onPress={() => {
                     setShowEditUserModal(false);
-                    setEditUser({ _id: '', username: '', role: 'Sales Agent', assignedTo: '', accountName: '' });
+                    setEditUser({ _id: '', name: '', email: '', phoneNo: '', password: '', role: 'Sales Agent', assignedTo: '', picture: '' });
                   }}
                 >
                   <Text style={styles.modalButtonText}>Cancel</Text>

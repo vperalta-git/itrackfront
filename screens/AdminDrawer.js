@@ -9,7 +9,7 @@ import DispatchDashboard from './DispatchDashboard';
 import VehicleProgressScreen from './VehicleProgressScreen';
 import HistoryScreen from './HistoryScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
-import VehicleListView from '../components/VehicleListView';
+import AdminVehicleTracking from './AdminVehicleTracking';
 import ProfileScreen from './ProfileScreen';
 // ❌ Removed UserManagementScreen import
 
@@ -88,7 +88,7 @@ export default function AdminDrawer() {
       />
       <Drawer.Screen
         name="AdminVehicleTracking"
-        component={VehicleListView}
+        component={AdminVehicleTracking}
         options={{
           title: 'Vehicle Tracking',
           drawerIcon: ({ color, size }) => (
