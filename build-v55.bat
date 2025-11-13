@@ -62,6 +62,8 @@ dir "I-Track-v55.0.0-%timestamp%.apk" | find "apk"
 echo.
 echo 🎯 What's New in v55.0.0:
 echo    ✅ BUG FIX: ProfileScreen now properly loads account details for editing
+echo    ✅ BUG FIX: Vehicle Assignment now uses accountName instead of username
+echo    ✅ BUG FIX: Driver allocations now properly match and display correctly
 echo    ✅ FEATURE: Driver can now Accept or Reject allocations before delivery
 echo    ✅ UI: Accept (green) and Reject (red) buttons for assigned allocations
 echo    ✅ UI: Status badges for Accepted and Rejected allocations

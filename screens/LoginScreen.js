@@ -137,10 +137,13 @@ export default function LoginScreen() {
       const userRole = user?.role;
       const userName = user?.accountName || user?.name || '';
       const userEmail = user?.email || '';
+      const userId = user?._id || user?.id || '';
+      const userPhone = user?.phoneNumber || user?.phoneNo || '';
       
       console.log('✅ Login successful for user:', userName);
       console.log('🔍 User role:', userRole);
       console.log('📧 User email:', userEmail);
+      console.log('🆔 User ID:', userId);
 
       if (!userRole) {
         console.error('❌ No role information in response');
@@ -152,12 +155,15 @@ export default function LoginScreen() {
       await AsyncStorage.multiSet([
         ['userToken', 'authenticated'],
         ['accountName', userName],
-        ['role', userRole],
-        ['email', userEmail],
         ['userName', userName],
-        ['userRole', userRole]
+        ['userRole', userRole],
+        ['role', userRole],
+        ['userEmail', userEmail],
+        ['email', userEmail],
+        ['userId', userId],
+        ['userPhone', userPhone]
       ]);
-      console.log('💾 User data saved to storage');
+      console.log('💾 User data saved to storage:', { userName, userRole, userId });
 
       if (rememberMe) {
         await AsyncStorage.setItem('rememberedUsername', username);

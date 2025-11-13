@@ -39,10 +39,22 @@ export default function DriverDashboard() {
   useEffect(() => {
     const getDriverName = async () => {
       try {
-        const name = await AsyncStorage.getItem('userName') || await AsyncStorage.getItem('accountName');
-        setDriverName(name || 'Unknown Driver');
+        console.log('🔍 Loading driver information...');
+        const userName = await AsyncStorage.getItem('userName');
+        const accountName = await AsyncStorage.getItem('accountName');
+        const userId = await AsyncStorage.getItem('userId');
+        
+        console.log('📋 AsyncStorage values:');
+        console.log('  - userName:', userName);
+        console.log('  - accountName:', accountName);
+        console.log('  - userId:', userId);
+        
+        // Priority: accountName > userName > 'Unknown Driver'
+        const name = accountName || userName || 'Unknown Driver';
+        setDriverName(name);
+        console.log('✅ Driver name set to:', name);
       } catch (error) {
-        console.error('Error getting driver name:', error);
+        console.error('❌ Error getting driver name:', error);
         setDriverName('Unknown Driver');
       }
     };
@@ -203,23 +215,46 @@ export default function DriverDashboard() {
 
   // Fetch Driver Allocations
   const fetchDriverAllocations = useCallback(async () => {
-    if (!driverName || driverName === 'Unknown Driver') return;
+    if (!driverName || driverName === 'Unknown Driver') {
+      console.log('⚠️  Cannot fetch allocations: driverName is', driverName);
+      return;
+    }
     
     setLoading(true);
     setError(null);
     try {
+      console.log('📡 Fetching allocations from /getAllocation...');
       const res = await fetch(buildApiUrl('/getAllocation'));
       const data = await res.json();
       
-      console.log('📋 Allocation API response:', data); // Debug log
+      console.log('📋 Raw API response:', JSON.stringify(data, null, 2));
+      console.log('📊 Response type:', typeof data);
+      console.log('📊 Is array?', Array.isArray(data));
       
       // Filter allocations for current driver
       const allocationsArray = data.data || data.allocation || data || [];
-      const driverAllocations = allocationsArray.filter(allocation => 
-        allocation.assignedDriver === driverName
-      );
+      console.log(`📦 Total allocations in database: ${allocationsArray.length}`);
+      console.log(`🔍 Filtering for driver: "${driverName}"`);
       
-      console.log(`🚛 Found ${driverAllocations.length} allocations for driver: ${driverName}`); // Debug log
+      // Log first 3 allocations to see assignedDriver values
+      if (allocationsArray.length > 0) {
+        console.log('📝 Sample allocations:');
+        allocationsArray.slice(0, 3).forEach((allocation, index) => {
+          console.log(`  ${index + 1}. ${allocation.unitName} - assignedDriver: "${allocation.assignedDriver}"`);
+        });
+      }
+      
+      const driverAllocations = allocationsArray.filter(allocation => {
+        const matches = allocation.assignedDriver === driverName;
+        if (!matches && allocation.assignedDriver) {
+          console.log(`  ❌ Skipping: "${allocation.assignedDriver}" !== "${driverName}"`);
+        } else if (matches) {
+          console.log(`  ✅ Match found: "${allocation.assignedDriver}" === "${driverName}"`);
+        }
+        return matches;
+      });
+      
+      console.log(`🚛 Found ${driverAllocations.length} allocations for driver: ${driverName}`);
       
       setDriverAllocations(driverAllocations);
       
@@ -228,7 +263,7 @@ export default function DriverDashboard() {
       }
     } catch (err) {
       console.error('❌ Error fetching allocations:', err);
-      console.error('📋 Driver name:', driverName);
+      console.error('📋 Driver name was:', driverName);
       setError(err.message || "Failed to load allocations");
       setDriverAllocations([]); // Set empty array on error
     } finally {
