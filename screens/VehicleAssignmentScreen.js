@@ -97,18 +97,9 @@ export default function VehicleAssignmentScreen({ navigation }) {
   };
 
   const assignFromStock = async () => {
-    if (!selectedVin || !selectedAgent || !selectedDriver) {
-      Alert.alert('Missing Info', 'Please select vehicle, agent, and driver.');
+    if (!selectedVin || !selectedAgent) {
+      Alert.alert('Missing Info', 'Please select vehicle and agent.');
       return;
-    }
-
-    let processesToAssign = selectedProcesses;
-    if (processesToAssign.length === 0) {
-      processesToAssign = [
-        'delivery_to_isuzu_pasig',
-        'stock_integration',
-        'documentation_check'
-      ];
     }
 
     try {
@@ -123,11 +114,9 @@ export default function VehicleAssignmentScreen({ navigation }) {
         unitId: selectedVehicle.unitId || selectedVehicle._id,
         bodyColor: selectedVehicle.bodyColor,
         variation: selectedVehicle.variation,
-        assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Assigned',
+        status: 'Pending',
         allocatedBy: 'Admin',
-        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -140,16 +129,8 @@ export default function VehicleAssignmentScreen({ navigation }) {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign vehicle');
 
-      await fetch(buildApiUrl(`/updateStock/${selectedVehicle._id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...selectedVehicle,
-          status: 'Allocated'
-        }),
-      });
-
-      Alert.alert('Success', `Vehicle assigned successfully with ${processesToAssign.length} process(es)`);
+      // Status automatically updated to 'Pending' by backend
+      Alert.alert('Success', 'Vehicle assigned successfully to agent!');
       resetForm();
       await fetchInventory();
     } catch (err) {
@@ -164,15 +145,6 @@ export default function VehicleAssignmentScreen({ navigation }) {
       return;
     }
 
-    let processesToAssign = selectedProcesses;
-    if (processesToAssign.length === 0) {
-      processesToAssign = [
-        'delivery_to_isuzu_pasig',
-        'stock_integration',
-        'documentation_check'
-      ];
-    }
-
     try {
       const allocationPayload = {
         unitName: manualModel,
@@ -181,9 +153,8 @@ export default function VehicleAssignmentScreen({ navigation }) {
         variation: 'Manual Entry',
         assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Assigned',
+        status: 'Pending',
         allocatedBy: 'Admin',
-        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -196,7 +167,7 @@ export default function VehicleAssignmentScreen({ navigation }) {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign');
 
-      Alert.alert('Success', `Vehicle assigned with ${processesToAssign.length} process(es)`);
+      Alert.alert('Success', 'Vehicle assigned successfully!');
       resetForm();
     } catch (err) {
       console.error('Assign manual error:', err);
@@ -232,49 +203,11 @@ export default function VehicleAssignmentScreen({ navigation }) {
       >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.card }]}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Vehicle Assignment</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>QUICK ASSIGN</Text>
-          </View>
-        </View>
-
-        {/* Assignment Mode */}
-        <View style={[styles.section, { backgroundColor: theme.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Assignment Mode</Text>
-          <View style={styles.modeSelector}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                mode === 'stock' && { backgroundColor: theme.primary }
-              ]}
-              onPress={() => setMode('stock')}
-            >
-              <Text style={[
-                styles.modeButtonText,
-                mode === 'stock' && styles.modeButtonTextActive
-              ]}>
-                From Stock
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                mode === 'manual' && { backgroundColor: theme.primary }
-              ]}
-              onPress={() => setMode('manual')}
-            >
-              <Text style={[
-                styles.modeButtonText,
-                mode === 'manual' && styles.modeButtonTextActive
-              ]}>
-                Manual Entry
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Vehicle Allocation</Text>
         </View>
 
         {/* Vehicle Selection */}
-        {mode === 'stock' ? (
+        {
           <View style={[styles.section, { backgroundColor: theme.card }]}>
             <Text style={[styles.fieldLabel, { color: theme.text }]}>Select Vehicle from Stock</Text>
             <View style={[styles.pickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
@@ -284,37 +217,23 @@ export default function VehicleAssignmentScreen({ navigation }) {
                 style={styles.picker}
               >
                 <Picker.Item label="Choose Vehicle..." value="" />
-                {inventory.filter(item => (item.status || 'Available') === 'Available').map(v => (
+                {inventory.filter(item => {
+                  const status = item.status || 'In Stockyard';
+                  // Only show vehicles that are not already allocated
+                  return (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                }).map(v => (
                   <Picker.Item 
                     key={v._id} 
-                    label={`${v.unitName} - ${v.variation} (${v.bodyColor})`} 
+                    label={`${v.unitName} - ${v.variation} (${v.bodyColor}) - ${v.status || 'In Stockyard'}`} 
                     value={v.unitId || v._id} 
                   />
                 ))}
               </Picker>
             </View>
           </View>
-        ) : (
-          <View style={[styles.section, { backgroundColor: theme.card }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Vehicle Details</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }]}
-              placeholder="Vehicle Model (e.g., Isuzu D-Max)"
-              placeholderTextColor={theme.textSecondary}
-              value={manualModel}
-              onChangeText={setManualModel}
-            />
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }]}
-              placeholder="VIN Number"
-              placeholderTextColor={theme.textSecondary}
-              value={manualVin}
-              onChangeText={setManualVin}
-            />
-          </View>
-        )}
+        }
 
-        {/* Agent Selection */}
+        {/* Agent Selection - For Sales Agents Only */}
         <View style={[styles.section, { backgroundColor: theme.card }]}>
           <Text style={[styles.fieldLabel, { color: theme.text }]}>Assign to Agent</Text>
           <View style={[styles.pickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
@@ -326,23 +245,6 @@ export default function VehicleAssignmentScreen({ navigation }) {
               <Picker.Item label="Select Agent..." value="" />
               {agents.map(a => (
                 <Picker.Item key={a._id} label={a.accountName || a.name || a.username} value={a.accountName || a.name || a.username} />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
-        {/* Driver Selection */}
-        <View style={[styles.section, { backgroundColor: theme.card }]}>
-          <Text style={[styles.fieldLabel, { color: theme.text }]}>Assign Driver</Text>
-          <View style={[styles.pickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
-            <Picker
-              selectedValue={selectedDriver}
-              onValueChange={val => setSelectedDriver(val)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Driver..." value="" />
-              {drivers.map(d => (
-                <Picker.Item key={d._id} label={d.accountName || d.name || d.username} value={d.accountName || d.name || d.username} />
               ))}
             </Picker>
           </View>

@@ -270,16 +270,15 @@ export default function HistoryScreen() {
       }
 
       // Fetch additional data for context
-      const [allocations, users, releaseHistories] = await Promise.all([
+      const [allocationsData, users] = await Promise.all([
         safeFetch(buildApiUrl('/getAllocation')),
         safeFetch(buildApiUrl('/getUsers')),
-        safeFetch(buildApiUrl('/api/releasehistories')),
       ]);
 
       // Enhanced logging for debugging
       console.log('🔍 API Response Debug:', {
-        allocationsType: typeof allocations,
-        allocationsLength: Array.isArray(allocations) ? allocations.length : 'Not array',
+        allocationsType: typeof allocationsData,
+        allocationsLength: Array.isArray(allocationsData) ? allocationsData.length : 'Not array',
         auditTrailsType: typeof auditTrails,
         auditTrailsLength: Array.isArray(auditTrails) ? auditTrails.length : 'Not array',
         auditTrailsSample: Array.isArray(auditTrails) ? auditTrails.slice(0, 2) : auditTrails
@@ -368,8 +367,8 @@ export default function HistoryScreen() {
       let finalAuditData = [...sampleSystemActivities]; // Fallback sample data
       
       // Use real allocation data if available
-      if (Array.isArray(allocations) && allocations.length > 0) {
-        finalAllocations = allocations;
+      if (Array.isArray(allocationsData) && allocationsData.length > 0) {
+        finalAllocations = allocationsData;
       }
       
       // Use real audit trails data if available (web format)
@@ -398,25 +397,8 @@ export default function HistoryScreen() {
         console.log('❌ Audit trails API did not return array, using sample data. Received:', typeof auditTrails);
       }
       
-      // Use release history data if available
-      if (Array.isArray(releaseHistories) && releaseHistories.length > 0) {
-        const processedReleases = releaseHistories.map(release => ({
-          _id: release._id || `release_${Date.now()}_${Math.random()}`,
-          action: 'Vehicle Released',
-          description: `${release.unitName || 'Vehicle'} released to customer`,
-          user: release.releasedBy || 'Admin',
-          timestamp: release.releaseDate || release.createdAt || new Date().toISOString(),
-          vehicleDetails: {
-            unitName: release.unitName,
-            unitId: release.unitId,
-            assignedTo: release.assignedTo,
-            releasedTo: release.releasedTo
-          }
-        }));
-        finalAuditData = [...finalAuditData, ...processedReleases];
-      }
-      
-      allocations = finalAllocations;
+      // Use finalAllocations for processing
+      const allocations = finalAllocations;
 
       // Create user map for profile pictures and names
       const userMap = {};
@@ -684,6 +666,79 @@ export default function HistoryScreen() {
     }
   };
 
+  const renderDetailsContent = (item) => {
+    const { action, details, originalTrail } = item;
+    
+    if (!details && !originalTrail) {
+      return <Text style={styles.auditDetailsText}>{item.description || 'No additional details'}</Text>;
+    }
+
+    const trail = originalTrail || item;
+    const changes = getChanges(trail.details?.before, trail.details?.after);
+
+    // CASE 1: Only profile picture changed
+    if (
+      action?.toLowerCase().includes('update') &&
+      changes.length === 1 &&
+      changes[0].field === 'picture'
+    ) {
+      return <Text style={styles.auditDetailsText}>Profile picture changed</Text>;
+    }
+
+    // CASE 2: Multiple fields changed → show list
+    if (action?.toLowerCase().includes('update') && changes.length > 0) {
+      return (
+        <View style={styles.changesContainer}>
+          {changes.map((c, i) => (
+            <View key={i} style={styles.changeItem}>
+              <Text style={styles.changeFieldText}>
+                {c.field.charAt(0).toUpperCase() + c.field.slice(1)}:
+              </Text>
+              <View style={styles.changeValuesRow}>
+                <Text style={styles.changeBeforeText}>
+                  {typeof c.before === 'object' ? JSON.stringify(c.before) : String(c.before || 'N/A')}
+                </Text>
+                <Text style={styles.changeArrowText}> → </Text>
+                <Text style={styles.changeAfterText}>
+                  {typeof c.after === 'object' ? JSON.stringify(c.after) : String(c.after || 'N/A')}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    // CASE 3: Create
+    if (action?.toLowerCase().includes('create') && trail.details?.after) {
+      const data = trail.details.after;
+      const displayText = data.unitName || data.name || data.username || JSON.stringify(data);
+      return (
+        <Text style={[styles.auditDetailsText, { color: '#059669' }]}>
+          Created: {displayText}
+        </Text>
+      );
+    }
+
+    // CASE 4: Delete
+    if (action?.toLowerCase().includes('delete') && trail.details?.before) {
+      const data = trail.details.before;
+      const displayText = data.unitName || data.name || data.username || JSON.stringify(data);
+      return (
+        <Text style={[styles.auditDetailsText, { color: '#e50914' }]}>
+          Deleted: {displayText}
+        </Text>
+      );
+    }
+
+    // CASE 5: Fallback
+    return (
+      <Text style={styles.auditDetailsText}>
+        {item.description || trail.details?.summary || 'Activity performed'}
+      </Text>
+    );
+  };
+
   const renderHistoryItem = ({ item, index }) => {
     const timestamp = new Date(item.timestamp);
     const formattedDate = timestamp.toLocaleDateString('en-US', {
@@ -729,9 +784,7 @@ export default function HistoryScreen() {
         {/* Details Row */}
         <View style={styles.auditRow}>
           <Text style={styles.auditLabel}>DETAILS</Text>
-          <Text style={styles.auditDetailsText} numberOfLines={3}>
-            {item.description || 'No additional details'}
-          </Text>
+          {renderDetailsContent(item)}
         </View>
       </View>
     );
@@ -1001,6 +1054,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4B5563',
     lineHeight: 18,
+  },
+
+  changesContainer: {
+    marginTop: 4,
+  },
+
+  changeItem: {
+    marginBottom: 8,
+  },
+
+  changeFieldText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 2,
+  },
+
+  changeValuesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+
+  changeBeforeText: {
+    fontSize: 12,
+    color: '#e50914',
+    fontWeight: '500',
+  },
+
+  changeArrowText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginHorizontal: 4,
+  },
+
+  changeAfterText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
   },
 
   emptyState: {

@@ -121,7 +121,6 @@ class LocationService {
       this.watchPositionSubscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 5000, // Check every 5 seconds
           distanceInterval: distanceInterval, // Only update if moved 10+ meters
         },
         (location) => {
@@ -350,7 +349,6 @@ class LocationService {
 
       const defaultOptions = {
         accuracy: Location.Accuracy.High,
-        timeInterval: 5000, // Check every 5 seconds
         distanceInterval: 10, // Only update if moved 10+ meters
       };
 

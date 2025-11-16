@@ -32,7 +32,7 @@ export default function ReleaseScreen() {
 
   const fetchPendingReleases = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/dispatch-assignments'));
+      const response = await fetch(buildApiUrl('/api/dispatch/assignments'));
       const data = await response.json();
 
       if (data.success) {

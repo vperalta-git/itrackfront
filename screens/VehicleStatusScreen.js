@@ -17,24 +17,7 @@ export default function VehicleStatusScreen() {
     }
   };
 
-  const updateStatus = async (vin, stage) => {
-    try {
-      const res = await fetch(`https://itrack-backend-1.onrender.com/vehicles/${vin}/update-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchVehicles(); // Refresh data
-      } else {
-        Alert.alert('Error', 'Failed to update vehicle.');
-      }
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Server error.');
-    }
-  };
+
 
   useEffect(() => {
     fetchVehicles();
@@ -46,20 +29,15 @@ export default function VehicleStatusScreen() {
       <Text style={styles.status}>Current Status: {item.current_status || 'N/A'}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.buttonsRow}>
         {Object.keys(item.preparation_status).map((stage) => (
-          <TouchableOpacity
+          <View
             key={stage}
             style={[
               styles.stageButton,
               item.preparation_status[stage] ? styles.completed : styles.incomplete,
             ]}
-            onPress={() => {
-              if (!item.preparation_status[stage]) {
-                updateStatus(item.vin, stage);
-              }
-            }}
           >
             <Text style={styles.buttonText}>{stage.replace('_', ' ')}</Text>
-          </TouchableOpacity>
+          </View>
         ))}
       </ScrollView>
     </View>

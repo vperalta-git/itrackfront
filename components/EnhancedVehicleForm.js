@@ -15,7 +15,10 @@ import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { 
   VEHICLE_STATUS_OPTIONS,
-  BODY_COLOR_OPTIONS 
+  BODY_COLOR_OPTIONS,
+  getAddVehicleStatusOptions,
+  getAllowedStatusTransitions,
+  isValidStatusTransition
 } from '../constants/VehicleModels';
 import { useVehicleModels } from '../hooks/useVehicleModels';
 
@@ -26,7 +29,7 @@ export default function EnhancedVehicleForm({
   onClose, 
   onSubmit, 
   initialData = null,
-  title = "Add Vehicle"
+  mode = "add" // "add" or "edit"
 }) {
   const {
     unitNames,
@@ -41,7 +44,6 @@ export default function EnhancedVehicleForm({
   const [formData, setFormData] = useState({
     unitName: '',
     variation: '',
-    vin: '',
     conductionNumber: '',
     engineNumber: '',
     chassisNumber: '',
@@ -49,12 +51,17 @@ export default function EnhancedVehicleForm({
     plateNumber: '',
     bodyColor: '',
     status: 'Available',
+    assignedAgent: '',
     notes: ''
   });
 
   const [availableVariations, setAvailableVariations] = useState([]);
   const [errors, setErrors] = useState({});
   const [variationsLoading, setVariationsLoading] = useState(false);
+  const [agents, setAgents] = useState([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  
+  const title = mode === "edit" ? "Edit Vehicle" : "Add Vehicle";
 
   useEffect(() => {
     if (initialData) {
@@ -65,7 +72,31 @@ export default function EnhancedVehicleForm({
     } else {
       resetForm();
     }
-  }, [initialData, visible]);
+    
+    // Fetch agents only in edit mode
+    if (mode === 'edit' && visible) {
+      fetchAgents();
+    }
+  }, [initialData, visible, mode]);
+  
+  // Fetch agents from API
+  const fetchAgents = async () => {
+    setAgentsLoading(true);
+    try {
+      const { buildApiUrl } = await import('../constants/api');
+      const response = await fetch(buildApiUrl('/getUsers'));
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data)) {
+        const agentList = result.data.filter(user => user.role === 'Sales Agent');
+        setAgents(agentList);
+      }
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+    } finally {
+      setAgentsLoading(false);
+    }
+  };
 
   // Load variations for selected unit
   const loadVariationsForUnit = async (unitName) => {
@@ -91,14 +122,13 @@ export default function EnhancedVehicleForm({
     setFormData({
       unitName: '',
       variation: '',
-      vin: '',
       conductionNumber: '',
       engineNumber: '',
       chassisNumber: '',
       keyNumber: '',
       plateNumber: '',
       bodyColor: '',
-      status: 'Available',
+      status: 'In Stockyard', // Default status for new vehicles
       notes: ''
     });
     setAvailableVariations([]);
@@ -150,6 +180,14 @@ export default function EnhancedVehicleForm({
       newErrors.variation = 'Variation is required';
     } else if (!availableVariations.includes(formData.variation)) {
       newErrors.variation = 'Invalid variation for selected unit';
+    }
+    
+    // Validate status for new vehicles
+    if (!initialData) {
+      const allowedStatuses = getAddVehicleStatusOptions();
+      if (!allowedStatuses.includes(formData.status)) {
+        newErrors.status = 'Invalid status for new vehicle. Must be "In Stockyard" or "Available"';
+      }
     }
 
     if (!formData.conductionNumber.trim()) {
@@ -313,12 +351,61 @@ export default function EnhancedVehicleForm({
             )}
             
             {renderPicker(
-              'Status', 
+              'Status *', 
               'status', 
-              VEHICLE_STATUS_OPTIONS, 
+              initialData ? VEHICLE_STATUS_OPTIONS : getAddVehicleStatusOptions(), 
               "Select Status"
             )}
+            {!initialData && (
+              <Text style={styles.hintText}>
+                Default: In Stockyard. Select "Available" only if vehicle is already at Isuzu Pasig.
+              </Text>
+            )}
           </View>
+
+          {/* Assign to Agent - Only show in Edit mode */}
+          {mode === 'edit' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Assign to Agent</Text>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Sales Agent</Text>
+                <View style={[styles.pickerContainer, errors.assignedAgent && styles.inputError]}>
+                  {agentsLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color='#DC2626' />
+                      <Text style={styles.loadingText}>Loading agents...</Text>
+                    </View>
+                  ) : (
+                    <Picker
+                      selectedValue={formData.assignedAgent || ''}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, assignedAgent: value }));
+                        if (errors.assignedAgent) {
+                          setErrors(prev => ({ ...prev, assignedAgent: null }));
+                        }
+                      }}
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="No Agent Assigned" value="" />
+                      {agents.map((agent) => (
+                        <Picker.Item 
+                          key={agent._id} 
+                          label={agent.accountName || agent.username} 
+                          value={agent.username} 
+                        />
+                      ))}
+                    </Picker>
+                  )}
+                </View>
+                {formData.assignedAgent && (
+                  <Text style={styles.hintText}>
+                    Vehicle can be assigned to both an agent and a driver simultaneously
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
 
           {/* Additional Information */}
           <View style={styles.section}>
@@ -476,5 +563,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     color: '#6B7280',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginTop: 5,
+    paddingHorizontal: 5,
   },
 });

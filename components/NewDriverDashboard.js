@@ -32,17 +32,71 @@ export default function NewDriverDashboard() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [activeTab, setActiveTab] = useState('assignments'); // 'assignments', 'route', 'map'
 
+  const [userEmail, setUserEmail] = useState('');
+  
   // Get driver name from storage
   useEffect(() => {
     const getDriverName = async () => {
       try {
-        const username = await AsyncStorage.getItem('currentUsername');
-        if (username) {
-          setDriverName(username);
-          console.log('🚗 Driver Dashboard: Loaded driver -', username);
+        console.log('🔍 Loading driver information...');
+        const userName = await AsyncStorage.getItem('userName');
+        const accountName = await AsyncStorage.getItem('accountName');
+        const email = await AsyncStorage.getItem('userEmail');
+        const userId = await AsyncStorage.getItem('userId');
+        
+        console.log('📋 AsyncStorage values:');
+        console.log('  - userName:', userName);
+        console.log('  - accountName:', accountName);
+        console.log('  - userEmail:', email);
+        console.log('  - userId:', userId);
+        
+        // Always fetch from database to get latest info
+        if (email) {
+          try {
+            console.log('🌐 Fetching user from database...');
+            const response = await fetch(buildApiUrl('/getUsers'));
+            if (response.ok) {
+              const result = await response.json();
+              const users = result.data || [];
+              const currentUser = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+              
+              if (currentUser) {
+                const userDisplayName = currentUser.accountName || currentUser.name || currentUser.username;
+                console.log('✅ Found user in database:', userDisplayName);
+                
+                await AsyncStorage.multiSet([
+                  ['userId', currentUser._id],
+                  ['accountName', userDisplayName],
+                  ['userName', userDisplayName],
+                  ['userEmail', currentUser.email]
+                ]);
+                
+                setDriverName(userDisplayName);
+                setUserEmail(currentUser.email);
+              } else {
+                const name = accountName || userName || 'Unknown Driver';
+                setDriverName(name);
+                setUserEmail(email);
+              }
+            } else {
+              const name = accountName || userName || 'Unknown Driver';
+              setDriverName(name);
+              setUserEmail(email || '');
+            }
+          } catch (fetchError) {
+            console.error('❌ Error fetching user:', fetchError.message);
+            const name = accountName || userName || 'Unknown Driver';
+            setDriverName(name);
+            setUserEmail(email || '');
+          }
+        } else {
+          const name = accountName || userName || 'Unknown Driver';
+          setDriverName(name);
+          setUserEmail('');
         }
       } catch (error) {
-        console.error('Error getting driver name:', error);
+        console.error('❌ Error getting driver name:', error);
+        setDriverName('Unknown Driver');
       }
     };
     getDriverName();
@@ -70,51 +124,88 @@ export default function NewDriverDashboard() {
     requestLocationPermission();
   }, []);
 
-  // Fetch driver assignments
-  const fetchDriverAssignments = useCallback(async () => {
-    if (!driverName || driverName === 'Unknown Driver') return;
+  // Fetch driver allocations (not assignments)
+  const fetchDriverAllocations = useCallback(async () => {
+    if ((!driverName || driverName === 'Unknown Driver') && !userEmail) {
+      console.log('⚠️  Cannot fetch allocations: no driver name or email');
+      return;
+    }
     
     setLoading(true);
     try {
-      console.log('🔄 Fetching assignments for driver:', driverName);
+      console.log('📡 Fetching allocations from /getAllocation...');
+      console.log('  - Driver name:', driverName);
+      console.log('  - Driver email:', userEmail);
       
       const response = await fetch(buildApiUrl('/getAllocation'));
       if (response.ok) {
         const data = await response.json();
         const allAllocations = data.data || data.allocations || data || [];
+        console.log(`📊 Total allocations in database: ${allAllocations.length}`);
         
-        // Filter allocations for this driver
-        const driverAllocations = allAllocations.filter(allocation => 
-          allocation.assignedDriver === driverName
-        );
+        // Filter allocations using EMAIL-FIRST matching
+        const driverAllocations = allAllocations.filter(allocation => {
+          const assignedDriver = allocation.assignedDriver || '';
+          const normalizedAssigned = assignedDriver.toLowerCase().trim();
+          const normalizedDriverName = (driverName || '').toLowerCase().trim();
+          
+          // PRIORITY 1: Email matching (most reliable)
+          const emailMatch = allocation.assignedDriverEmail && userEmail && 
+                            allocation.assignedDriverEmail.toLowerCase() === userEmail.toLowerCase();
+          
+          // PRIORITY 2: Exact name matching
+          const exactMatch = normalizedAssigned === normalizedDriverName;
+          
+          // PRIORITY 3: Partial name matching
+          const containsMatch = normalizedDriverName.length > 3 && (
+            normalizedAssigned.includes(normalizedDriverName) || 
+            normalizedDriverName.includes(normalizedAssigned)
+          );
+          
+          const matches = emailMatch || exactMatch || containsMatch;
+          
+          if (matches) {
+            const matchType = emailMatch ? 'EMAIL' : exactMatch ? 'EXACT NAME' : 'PARTIAL NAME';
+            console.log(`  ✅ [${matchType}] Match: "${allocation.assignedDriver}" ${allocation.assignedDriverEmail || ''} ↔️ "${driverName}" ${userEmail}`);
+          }
+          
+          return matches;
+        });
         
         setDriverAllocations(driverAllocations);
-        console.log(`✅ Found ${driverAllocations.length} assignments for ${driverName}`);
+        console.log(`🚛 Found ${driverAllocations.length} allocations for ${driverName}`);
         
         if (driverAllocations.length === 0) {
-          console.log('ℹ️  No assignments found for this driver');
+          console.log('⚠️  No allocations found for this driver');
+          console.log('  Check if:');
+          console.log('  1. Allocations exist in database with assignedDriverEmail');
+          console.log('  2. Driver name/email matches allocation data');
         }
       } else {
-        console.error('❌ Failed to fetch assignments:', response.status);
+        console.error('❌ Failed to fetch allocations:', response.status);
       }
     } catch (error) {
-      console.error('❌ Error fetching assignments:', error);
+      console.error('❌ Error fetching allocations:', error);
       Alert.alert('Error', 'Unable to load assignments. Please check your connection.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [driverName]);
+  }, [driverName, userEmail]);
 
   // Initial load and refresh handler
   useEffect(() => {
-    fetchDriverAssignments();
-  }, [fetchDriverAssignments]);
+    if (driverName && driverName !== 'Unknown Driver') {
+      fetchDriverAllocations();
+    } else if (userEmail) {
+      fetchDriverAllocations();
+    }
+  }, [driverName, userEmail, fetchDriverAllocations]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchDriverAssignments();
-  }, [fetchDriverAssignments]);
+    fetchDriverAllocations();
+  }, [fetchDriverAllocations]);
 
   // Profile handler
   const handleProfile = () => {
@@ -131,8 +222,16 @@ export default function NewDriverDashboard() {
         {
           text: "Logout",
           onPress: async () => {
-            await AsyncStorage.removeItem('currentUsername');
-            await AsyncStorage.removeItem('currentRole');
+            // Clear all user data
+            await AsyncStorage.multiRemove([
+              'userToken',
+              'accountName',
+              'userName',
+              'userEmail',
+              'userId',
+              'userRole',
+              'userPhone'
+            ]);
             navigation.navigate('LoginScreen');
           },
         },
@@ -196,25 +295,25 @@ export default function NewDriverDashboard() {
   );
 
   // Render assignments tab
-  const renderAssignmentsTab = () => (
+  const renderAllocationsTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>My Assignments</Text>
+        <Text style={styles.summaryTitle}>My Allocations</Text>
         <Text style={styles.summaryCount}>{driverAllocations.length}</Text>
         <Text style={styles.summarySubtext}>
-          {driverAllocations.length === 0 ? 'No assignments yet' : 'Active assignments'}
+          {driverAllocations.length === 0 ? 'No allocations yet' : 'Active allocations'}
         </Text>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#ff1e1e" />
-          <Text style={styles.loadingText}>Loading assignments...</Text>
+          <Text style={styles.loadingText}>Loading allocations...</Text>
         </View>
       ) : driverAllocations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>No assignments found</Text>
-          <Text style={styles.emptyText}>You don't have any vehicle assignments yet.</Text>
+          <Text style={styles.emptyTitle}>No allocations found</Text>
+          <Text style={styles.emptyText}>You don't have any vehicle allocations yet.</Text>
           <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
             <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
           </TouchableOpacity>
@@ -288,6 +387,23 @@ export default function NewDriverDashboard() {
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Driver Dashboard</Text>
           <Text style={styles.headerSubtitle}>Welcome, {driverName}</Text>
+          {userEmail && (
+            <Text style={styles.emailText}>📧 {userEmail}</Text>
+          )}
+          <TouchableOpacity 
+            style={styles.debugButton}
+            onPress={async () => {
+              const keys = await AsyncStorage.getAllKeys();
+              const stores = await AsyncStorage.multiGet(keys);
+              console.log('🔍 ALL AsyncStorage:');
+              stores.forEach(([key, value]) => {
+                console.log(`  ${key}: ${value}`);
+              });
+              Alert.alert('Debug', 'AsyncStorage logged to console. Check Metro bundler for details.');
+            }}
+          >
+            <Text style={styles.debugButtonText}>🐛 Debug</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfile}>
@@ -306,7 +422,7 @@ export default function NewDriverDashboard() {
           onPress={() => setActiveTab('assignments')}
         >
           <Text style={[styles.tabText, activeTab === 'assignments' && styles.activeTabText]}>
-            📋 Assignments
+            📋 Allocations
           </Text>
         </TouchableOpacity>
         
@@ -330,7 +446,7 @@ export default function NewDriverDashboard() {
       </View>
 
       {/* Tab Content */}
-      {activeTab === 'assignments' && renderAssignmentsTab()}
+      {activeTab === 'assignments' && renderAllocationsTab()}
       {activeTab === 'route' && renderRouteTab()}
       {activeTab === 'map' && renderMapTab()}
     </SafeAreaView>
@@ -367,6 +483,25 @@ const styles = StyleSheet.create({
     color: '#FFE5E5',
     fontSize: 14,
     marginTop: 2,
+  },
+  emailText: {
+    color: '#FFE5E5',
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  debugButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  debugButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   headerActions: {
     flexDirection: 'row',

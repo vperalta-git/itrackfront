@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     minHeight: 300,
   },
   leftContainer: {
-    width: '50%',
-    paddingLeft: 20,
-    paddingRight: 10,
+    width: '45%',
+    paddingLeft: 16,
+    paddingRight: 8,
     justifyContent: 'flex-start',
   },
   leftContainerLarge: {
@@ -325,8 +325,8 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     color: '#666666',
-    fontSize: 16,
-    marginBottom: 16,
+    fontSize: 14,
+    marginBottom: 12,
     fontWeight: '600',
   },
   labelsScrollContainer: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   labelsContainer: {
-    gap: 10,
+    gap: 8,
     paddingBottom: 10,
   },
   separator: {
@@ -342,11 +342,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
   },
   rightContainer: {
-    width: '50%',
+    width: '55%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
     gap: 16,
   },
   rightContainerLarge: {
@@ -384,36 +384,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 4,
+    minHeight: 28,
   },
   labelContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   colorDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    flexShrink: 0,
   },
   labelText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#000000',
     flex: 1,
   },
   labelStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   countText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#000000',
   },
   percentageText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#000000',
   },

@@ -1,9 +1,11 @@
 // RealTimeTrackingMapsView.js - Real GPS tracking with no mock data
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
+
+const TRUCK_ICON = require('../assets/icons/truck1.png');
 
 const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -58,8 +60,7 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
           locationSubscription.current = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.High,
-              timeInterval: 10000, // Update every 10 seconds
-              distanceInterval: 50, // Update every 50 meters
+              distanceInterval: 10, // Update only when moved 10 meters
             },
             async (newLocation) => {
               const coords = {
@@ -356,14 +357,20 @@ const RealTimeTrackingMapsView = ({ userRole, userName, style }) => {
         loadingEnabled={true}
         loadingIndicatorColor="#ff1e1e"
       >
-        {/* User's Real Location */}
+        {/* User's Real Location with Truck Icon */}
         {currentLocation && (
           <Marker
             coordinate={currentLocation}
             title="Your Live Location"
             description={`${userRole}: ${userName} (GPS Active)`}
-            pinColor={getMarkerColor(null, 'user')}
-          />
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <Image
+              source={TRUCK_ICON}
+              style={styles.truckIcon}
+              resizeMode="contain"
+            />
+          </Marker>
         )}
 
         {/* Isuzu Pasig Dealership - REAL DESTINATION */}
@@ -515,6 +522,10 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     fontFamily: 'monospace',
+  },
+  truckIcon: {
+    width: 40,
+    height: 40,
   },
   selectedText: {
     fontSize: 12,

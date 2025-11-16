@@ -25,7 +25,9 @@ export const useVehicleModels = () => {
     
     try {
       // Try to fetch from API first
-      const response = await fetch(buildApiUrl('/getVehicleModels'));
+      const response = await fetch(buildApiUrl('/getVehicleModels'), {
+        headers: { 'Content-Type': 'application/json' }
+      });
       
       if (response.ok) {
         const result = await response.json();
@@ -42,20 +44,27 @@ export const useVehicleModels = () => {
           setIsOnline(true);
           
           console.log('✅ Vehicle models loaded from API');
-        } else {
-          throw new Error('Invalid API response format');
+          return; // Successfully loaded from API
         }
-      } else {
-        throw new Error(`API request failed: ${response.status}`);
       }
-    } catch (err) {
-      console.warn('⚠️ Failed to load vehicle models from API, using local data:', err.message);
       
-      // Fallback to local data
+      // If we get here, API failed or returned invalid data - use local fallback silently
       setVehicleModels(VEHICLE_MODELS);
       setUnitNames(getUnitNames());
       setIsOnline(false);
-      setError('Using offline data - some features may be limited');
+      // Only log in development, not as a warning
+      if (__DEV__) {
+        console.log('ℹ️ Using local vehicle models data');
+      }
+    } catch (err) {
+      // Silently fallback to local data - this is expected behavior
+      setVehicleModels(VEHICLE_MODELS);
+      setUnitNames(getUnitNames());
+      setIsOnline(false);
+      // Only log in development
+      if (__DEV__) {
+        console.log('ℹ️ Using local vehicle models data');
+      }
     } finally {
       setLoading(false);
     }

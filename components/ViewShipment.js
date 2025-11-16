@@ -14,8 +14,6 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
-import LocationService from '../utils/LocationService';
-
 const { width, height } = Dimensions.get('window');
 
 const ViewShipment = ({ isOpen, onClose, data }) => {
@@ -26,14 +24,14 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState('inactive');
   const mapRef = useRef(null);
-  const locationTrackingId = useRef(null);
+  const locationSubscription = useRef(null);
 
   useEffect(() => {
     if (!isOpen || !data?._id) {
       // Cleanup when modal is closed
-      if (locationTrackingId.current) {
-        LocationService.stopLocationTracking(locationTrackingId.current);
-        locationTrackingId.current = null;
+      if (locationSubscription.current) {
+        locationSubscription.current.remove();
+        locationSubscription.current = null;
       }
       return;
     }
@@ -43,9 +41,9 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
     // Cleanup function
     return () => {
-      if (locationTrackingId.current) {
-        LocationService.stopLocationTracking(locationTrackingId.current);
-        locationTrackingId.current = null;
+      if (locationSubscription.current) {
+        locationSubscription.current.remove();
+        locationSubscription.current = null;
       }
     };
   }, [isOpen, data?._id]);
@@ -148,8 +146,8 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
       setTrackingStatus('requesting');
       
       // Request permission first
-      const hasPermission = await LocationService.requestLocationPermission();
-      if (!hasPermission) {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
         setLocationError('Location permission denied');
         setTrackingStatus('denied');
         return;
@@ -157,15 +155,19 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
       setTrackingStatus('active');
 
-      // Start location tracking with callback
-      locationTrackingId.current = await LocationService.startLocationTracking(
-        (location) => {
-          handleLocationUpdate(location);
-        },
+      // Start location tracking with expo-location directly
+      locationSubscription.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 3000, // Update every 3 seconds
-          distanceInterval: 5, // Update when moved 5 meters
+          distanceInterval: 5, // Update only when moved 5 meters
+        },
+        (location) => {
+          handleLocationUpdate({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            accuracy: location.coords.accuracy,
+            timestamp: location.timestamp,
+          });
         }
       );
 
@@ -190,7 +192,21 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
       });
 
       // Update vehicle location in backend
-      await LocationService.updateVehicleLocation(data._id, location);
+      try {
+        await fetch(buildApiUrl(`/updateAllocation/${data._id}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            driverLocation: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              lastUpdated: new Date()
+            }
+          })
+        });
+      } catch (err) {
+        console.error('Failed to update vehicle location:', err);
+      }
 
       // Optionally animate map to new position
       if (mapRef.current) {

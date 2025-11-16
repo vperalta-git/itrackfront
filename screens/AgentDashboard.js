@@ -180,11 +180,31 @@ export default function AgentDashboard() {
       // Filter allocations for this agent
       if (allocationsResponse?.success && allocationsResponse?.data) {
         const currentAgentName = await AsyncStorage.getItem("accountName");
-        const agentSpecificAllocations = allocationsResponse.data.filter(allocation => 
-          allocation.allocatedBy === currentAgentName || 
-          allocation.assignedTo === currentAgentName ||
-          allocation.assignedDriver === currentAgentName
-        );
+        const agentEmail = await AsyncStorage.getItem("userEmail");
+        const normalizedAgentName = (currentAgentName || '').toLowerCase().trim();
+        
+        const agentSpecificAllocations = allocationsResponse.data.filter(allocation => {
+          // Exact match checks
+          if (allocation.allocatedBy === currentAgentName || 
+              allocation.assignedTo === currentAgentName ||
+              allocation.assignedDriver === currentAgentName) {
+            return true;
+          }
+          
+          // Flexible matching for better compatibility
+          const checkFlexibleMatch = (fieldValue) => {
+            if (!fieldValue) return false;
+            const normalized = fieldValue.toLowerCase().trim();
+            const exactMatch = normalized === normalizedAgentName;
+            const containsMatch = normalized.includes(normalizedAgentName) || 
+                                 normalizedAgentName.includes(normalized);
+            return exactMatch || (containsMatch && normalizedAgentName.length > 3);
+          };
+          
+          return checkFlexibleMatch(allocation.allocatedBy) ||
+                 checkFlexibleMatch(allocation.assignedTo) ||
+                 checkFlexibleMatch(allocation.assignedDriver);
+        });
         setAgentAllocations(agentSpecificAllocations);
         
         // Load vehicle locations for agent's vehicles

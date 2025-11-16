@@ -31,7 +31,7 @@ export default function InventoryScreen() {
     validateUnitVariationPair,
     loading: vehicleModelsLoading,
     error: vehicleModelsError,
-    refreshData: refreshVehicleModels
+    refresh: refreshVehicleModels
   } = useVehicleModels();
 
   const [vehicles, setVehicles] = useState([]);
@@ -99,9 +99,20 @@ export default function InventoryScreen() {
 
   // Add new vehicle to inventory
   const handleAddVehicle = async (vehicleData) => {
-    if (!vehicleData.unitName || !vehicleData.variation || !vehicleData.vin || 
-        !vehicleData.conductionNumber || !vehicleData.engineNumber) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    console.log('📦 Adding vehicle - Received data:', {
+      unitName: vehicleData.unitName || '(empty)',
+      variation: vehicleData.variation || '(empty)',
+      conductionNumber: vehicleData.conductionNumber || '(empty)',
+      bodyColor: vehicleData.bodyColor || '(empty)',
+      engineNumber: vehicleData.engineNumber || '(empty)',
+      status: vehicleData.status || '(empty)'
+    });
+    
+    // Validate required fields (matching EnhancedVehicleForm validation)
+    if (!vehicleData.unitName || !vehicleData.variation || 
+        !vehicleData.conductionNumber || !vehicleData.bodyColor) {
+      console.log('❌ Validation failed - Missing required fields');
+      Alert.alert('Error', 'Please fill in all required fields (Unit Name, Variation, Conduction Number, Body Color)');
       return;
     }
 
@@ -200,34 +211,6 @@ export default function InventoryScreen() {
     }
   };
 
-  // Update vehicle status
-  const updateVehicleStatus = async (vehicleId, newStatus) => {
-    try {
-      const response = await fetch(buildApiUrl(`/updateInventoryItem/${vehicleId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          lastUpdatedBy: await AsyncStorage.getItem('accountName') || 'System'
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        Alert.alert('Success', `Vehicle status updated to ${newStatus}`);
-        fetchVehicles();
-      } else {
-        Alert.alert('Error', data.message || 'Failed to update vehicle');
-      }
-    } catch (error) {
-      console.error('Error updating vehicle:', error);
-      Alert.alert('Error', 'Failed to update vehicle status');
-    }
-  };
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -236,11 +219,61 @@ export default function InventoryScreen() {
     ]);
   }, [fetchVehicles, refreshVehicleModels]);
 
+  // Delete vehicle from inventory with validation
+  const handleDeleteVehicle = async (vehicle) => {
+    // Validation: Check if vehicle is allocated or in process
+    if (vehicle.status && (
+        vehicle.status.toLowerCase() === 'allocated' || 
+        vehicle.status.toLowerCase() === 'in process' ||
+        vehicle.status.toLowerCase() === 'in transit'
+    )) {
+      Alert.alert(
+        'Cannot Delete',
+        `This vehicle is currently ${vehicle.status}. You cannot delete vehicles that are allocated or in process. Please update the status first.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete Vehicle',
+      `Are you sure you want to delete this vehicle?\n\nUnit: ${vehicle.unitName}\nID: ${vehicle.unitId}\nColor: ${vehicle.bodyColor}\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(buildApiUrl(`/deleteInventoryItem/${vehicle._id}`), {
+                method: 'DELETE',
+              });
+
+              const data = await response.json();
+
+              if (data.success) {
+                Alert.alert('Success', 'Vehicle deleted successfully');
+                fetchVehicles(); // Refresh the list
+              } else {
+                throw new Error(data.message || 'Failed to delete vehicle');
+              }
+            } catch (error) {
+              console.error('Delete vehicle error:', error);
+              Alert.alert('Error', error.message || 'Failed to delete vehicle');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Calculate age in storage
-  const calculateAgeInStorage = (addedDate) => {
-    if (!addedDate) return 'N/A';
+  const calculateAgeInStorage = (vehicle) => {
+    // Backend stores as 'createdAt' and 'addedDate'
+    const dateField = vehicle.createdAt || vehicle.addedDate;
+    if (!dateField) return 'N/A';
     
-    const added = new Date(addedDate);
+    const added = new Date(dateField);
     const now = new Date();
     const diffTime = Math.abs(now - added);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -290,15 +323,15 @@ export default function InventoryScreen() {
         <View style={styles.detailRow}>
           <MaterialIcons name="access-time" size={16} color="#666" />
           <Text style={styles.detailText}>
-            Age in Storage: {calculateAgeInStorage(item.addedDate)}
+            Age in Storage: {calculateAgeInStorage(item)}
           </Text>
         </View>
 
-        {item.addedDate && (
+        {(item.createdAt || item.addedDate) && (
           <View style={styles.detailRow}>
             <MaterialIcons name="schedule" size={16} color="#666" />
             <Text style={styles.detailText}>
-              Added: {new Date(item.addedDate).toLocaleDateString()}
+              Added: {new Date(item.createdAt || item.addedDate).toLocaleDateString()}
             </Text>
           </View>
         )}
@@ -316,23 +349,11 @@ export default function InventoryScreen() {
           <Text style={styles.actionBtnText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionBtn, styles.editBtn]}
-          onPress={() => {
-            Alert.alert(
-              'Update Status',
-              'Choose new status:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'In Stock', onPress: () => updateVehicleStatus(item._id, 'In Stock') },
-                { text: 'Allocated', onPress: () => updateVehicleStatus(item._id, 'Allocated') },
-                { text: 'In Process', onPress: () => updateVehicleStatus(item._id, 'In Process') },
-                { text: 'Released', onPress: () => updateVehicleStatus(item._id, 'Released') },
-              ]
-            );
-          }}
+          style={[styles.actionBtn, styles.deleteBtn]}
+          onPress={() => handleDeleteVehicle(item)}
         >
-          <MaterialIcons name="update" size={16} color="#007AFF" />
-          <Text style={styles.actionBtnText}>Status</Text>
+          <MaterialIcons name="delete" size={16} color="#DC2626" />
+          <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -745,11 +766,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#007AFF',
   },
+  deleteBtn: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+  },
+  statusBtn: {
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
   actionBtnText: {
     marginLeft: 4,
     fontSize: 14,
     fontWeight: '500',
     color: '#007AFF',
+  },
+  deleteBtnText: {
+    color: '#DC2626',
   },
   emptyContainer: {
     flex: 1,

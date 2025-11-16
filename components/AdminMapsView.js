@@ -8,12 +8,15 @@ import {
   TouchableOpacity, 
   ScrollView,
   RefreshControl,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
 import LocationService from '../utils/LocationService';
+
+const TRUCK_ICON = require('../assets/icons/truck1.png');
 
 const { width, height } = Dimensions.get('window');
 
@@ -381,7 +384,7 @@ const AdminMapsView = ({ selectedVehicle = null }) => {
           />
         )}
 
-        {/* Active Allocation Markers */}
+        {/* Active Allocation Markers with Truck Icons */}
         {allocations.map((allocation, index) => {
           if (!allocation.location?.latitude || !allocation.location?.longitude) return null;
 
@@ -394,9 +397,14 @@ const AdminMapsView = ({ selectedVehicle = null }) => {
                 latitude: allocation.location.latitude,
                 longitude: allocation.location.longitude,
               }}
-              pinColor={getMarkerColor(status)}
+              anchor={{ x: 0.5, y: 0.5 }}
               onPress={() => handleAllocationSelect(allocation)}
             >
+              <Image
+                source={TRUCK_ICON}
+                style={styles.truckIcon}
+                resizeMode="contain"
+              />
               <Callout tooltip={false}>
                 <View style={styles.calloutContainer}>
                   <Text style={styles.calloutTitle}>
@@ -750,6 +758,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#374151',
+  },
+  truckIcon: {
+    width: 40,
+    height: 40,
   },
   
   // Error Handling

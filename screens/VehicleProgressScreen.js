@@ -45,31 +45,67 @@ export default function VehicleProgressScreen() {
     fetchVehicles();
   };
 
-  const renderProcesses = (processes) => {
-    if (!processes || processes.length === 0) {
+  const renderProcesses = (item) => {
+    // Handle processStatus object from backend
+    const processStatus = item.processStatus || {};
+    const requestedProcesses = item.requestedProcesses || [];
+    
+    // If no processStatus and no requestedProcesses, show nothing
+    if (Object.keys(processStatus).length === 0 && requestedProcesses.length === 0) {
       return <Text style={styles.noProcessText}>No processes assigned</Text>;
     }
     
-    return processes.map((process, index) => {
+    // Process names mapping
+    const processNames = {
+      tinting: 'Window Tinting',
+      carwash: 'Car Wash',
+      ceramic_coating: 'Ceramic Coating',
+      accessories: 'Accessories Installation',
+      rust_proof: 'Rust Proofing'
+    };
+    
+    // Render processes from processStatus object
+    if (Object.keys(processStatus).length > 0) {
+      return Object.entries(processStatus).map(([key, completed], index) => (
+        <View key={index} style={[styles.processItem, completed ? styles.done : styles.pending]}>
+          <Text style={styles.processText}>
+            {processNames[key] || key} - {completed ? '✅ Done' : '⏳ Pending'}
+          </Text>
+        </View>
+      ));
+    }
+    
+    // Fallback: render from requestedProcesses array (if processStatus not available)
+    return requestedProcesses.map((process, index) => {
       const isCompleted = process.completed || false;
       return (
         <View key={index} style={[styles.processItem, isCompleted ? styles.done : styles.pending]}>
           <Text style={styles.processText}>
-            {process.name || process.processId || 'Unknown Process'} - {isCompleted ? '✅ Done' : '⏳ Pending'}
+            {process.name || process.processId || process} - {isCompleted ? '✅ Done' : '⏳ Pending'}
           </Text>
-          {process.completedAt && (
-            <Text style={styles.processDate}>
-              Completed: {new Date(process.completedAt).toLocaleDateString()}
-            </Text>
-          )}
         </View>
       );
     });
   };
 
   const renderVehicle = ({ item }) => {
-    const totalProcesses = (item.processes || item.requestedProcesses || []).length;
-    const completedProcesses = (item.processes || item.requestedProcesses || []).filter(p => p.completed).length;
+    // Calculate completion from processStatus object
+    const processStatus = item.processStatus || {};
+    const requestedProcesses = item.requestedProcesses || [];
+    
+    let totalProcesses = 0;
+    let completedProcesses = 0;
+    
+    // Use processStatus if available (backend standard)
+    if (Object.keys(processStatus).length > 0) {
+      totalProcesses = Object.keys(processStatus).length;
+      completedProcesses = Object.values(processStatus).filter(status => status === true).length;
+    } else if (requestedProcesses.length > 0) {
+      // Fallback to requestedProcesses array
+      totalProcesses = requestedProcesses.length;
+      completedProcesses = requestedProcesses.filter(p => p.completed).length;
+    }
+    
     const completionPercentage = totalProcesses > 0 ? Math.round((completedProcesses / totalProcesses) * 100) : 0;
     
     return (
@@ -78,7 +114,7 @@ export default function VehicleProgressScreen() {
           {item.unitName || item.model || 'Unknown Vehicle'}
         </Text>
         <Text style={styles.subtitle}>
-          Unit ID: {item.unitId || item.vin || 'N/A'}
+          Unit ID: {item.unitId || 'N/A'}
         </Text>
         <Text style={styles.subtitle}>
           Driver: {item.assignedDriver || 'Not Assigned'}
@@ -99,7 +135,7 @@ export default function VehicleProgressScreen() {
         
         {/* Processes */}
         <Text style={styles.processesTitle}>Preparation Processes:</Text>
-        {renderProcesses(item.processes || item.requestedProcesses || [])}
+        {renderProcesses(item)}
       </View>
     );
   };
@@ -126,7 +162,7 @@ export default function VehicleProgressScreen() {
       ) : (
         <FlatList
           data={vehicles}
-          keyExtractor={(item, index) => item._id || item.unitId || item.vin || `vehicle-${index}`}
+          keyExtractor={(item, index) => item._id || item.unitId || `vehicle-${index}`}
           renderItem={renderVehicle}
           scrollEnabled={false}
         />

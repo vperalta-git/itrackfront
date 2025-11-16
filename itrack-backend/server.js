@@ -240,7 +240,6 @@ const UserSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     lowercase: true
   },
@@ -408,6 +407,7 @@ const DriverAllocationSchema = new mongoose.Schema({
   bodyColor: String,
   variation: String,
   assignedDriver: String,
+  assignedDriverEmail: String, // For reliable driver matching
   assignedAgent: String,
   status: String,
   allocatedBy: String,
@@ -450,6 +450,18 @@ const DriverAllocationSchema = new mongoose.Schema({
   }],
   
   // ROUTE INFORMATION (From web version)
+  pickupPoint: String, // Human-readable pickup location name
+  dropoffPoint: String, // Human-readable dropoff location name
+  pickupCoordinates: {
+    latitude: Number,
+    longitude: Number
+  },
+  dropoffCoordinates: {
+    latitude: Number,
+    longitude: Number
+  },
+  routeDistance: Number, // in kilometers
+  estimatedTime: Number, // in minutes
   routeInfo: {
     distance: Number, // in meters
     estimatedDuration: Number, // in seconds
@@ -457,6 +469,11 @@ const DriverAllocationSchema = new mongoose.Schema({
     routeStarted: Date,
     routeCompleted: Date
   },
+  
+  // CUSTOMER INFORMATION
+  customerName: String,
+  customerEmail: String,
+  customerPhone: String,
 
   // Vehicle Process Management (From web version)
   requestedProcesses: [{
@@ -1044,9 +1061,10 @@ app.get('/api/getUser/:id', async (req, res) => {
 app.put('/updateProfile/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phoneNumber, personalDetails, picture } = req.body;
+    const { name, phoneNumber, phoneno, personalDetails, picture } = req.body;
     
     console.log('📱 Updating profile for user ID:', id);
+    console.log('📱 Request body:', { name, phoneNumber, phoneno, picture: picture ? 'base64 data' : undefined });
     
     const updateData = {
       updatedAt: new Date()
@@ -1054,7 +1072,9 @@ app.put('/updateProfile/:id', async (req, res) => {
     
     // Only update provided fields
     if (name !== undefined) updateData.name = name;
-    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    // Accept both phoneNumber and phoneno for compatibility
+    if (phoneNumber !== undefined) updateData.phoneno = phoneNumber;
+    if (phoneno !== undefined) updateData.phoneno = phoneno;
     if (personalDetails !== undefined) updateData.personalDetails = personalDetails;
     if (picture !== undefined) updateData.picture = picture;
     
@@ -1131,11 +1151,10 @@ app.post('/change-password', async (req, res) => {
 // Inventory Schema
 const InventorySchema = new mongoose.Schema({
   unitName: { type: String, required: true },
-  unitId: String,
+  unitId: String, // Conduction Number - unique identifier
   bodyColor: String,
   variation: { type: String, required: true },
   conductionNumber: { type: String, required: true },
-  vin: { type: String, required: true, unique: true },
   engineNumber: String,
   keyNumber: String,
   plateNumber: String,
@@ -1165,7 +1184,7 @@ app.get('/getStock', async (req, res) => {
 // Create new stock item
 app.post('/createStock', async (req, res) => {
   try {
-    const { unitName, unitId, bodyColor, variation, conductionNumber, quantity } = req.body;
+    const { unitName, unitId, bodyColor, variation, conductionNumber, quantity, addedBy } = req.body;
     
     const newStock = new Inventory({
       unitName,
@@ -1177,6 +1196,24 @@ app.post('/createStock', async (req, res) => {
     });
     
     await newStock.save();
+    
+    // Log audit trail for inventory creation
+    await logAuditTrail(
+      'create',
+      'Inventory',
+      newStock._id,
+      addedBy || 'System',
+      {
+        after: {
+          unitName: newStock.unitName,
+          unitId: newStock.unitId,
+          variation: newStock.variation,
+          bodyColor: newStock.bodyColor,
+          status: newStock.status
+        }
+      }
+    );
+    
     console.log('✅ Created stock:', newStock.unitName);
     res.json({ success: true, message: 'Stock created successfully', data: newStock });
   } catch (error) {
@@ -1191,10 +1228,37 @@ app.put('/updateStock/:id', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
+    // Get before state for audit logging
+    const beforeState = await Inventory.findById(id);
+    
     const updatedStock = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
     
     if (!updatedStock) {
       return res.status(404).json({ success: false, message: 'Stock item not found' });
+    }
+    
+    // Log audit trail for inventory update
+    if (beforeState) {
+      await logAuditTrail(
+        'update',
+        'Inventory',
+        updatedStock._id,
+        updateData.updatedBy || updateData.lastUpdatedBy || 'System',
+        {
+          before: {
+            unitName: beforeState.unitName,
+            status: beforeState.status,
+            assignedAgent: beforeState.assignedAgent,
+            bodyColor: beforeState.bodyColor
+          },
+          after: {
+            unitName: updatedStock.unitName,
+            status: updatedStock.status,
+            assignedAgent: updatedStock.assignedAgent,
+            bodyColor: updatedStock.bodyColor
+          }
+        }
+      );
     }
     
     console.log('✅ Updated stock:', updatedStock.unitName);
@@ -1215,6 +1279,22 @@ app.delete('/deleteStock/:id', async (req, res) => {
     if (!deletedStock) {
       return res.status(404).json({ success: false, message: 'Stock item not found' });
     }
+    
+    // Log audit trail for inventory deletion
+    await logAuditTrail(
+      'delete',
+      'Inventory',
+      deletedStock._id,
+      'System',
+      {
+        before: {
+          unitName: deletedStock.unitName,
+          unitId: deletedStock.unitId,
+          variation: deletedStock.variation,
+          status: deletedStock.status
+        }
+      }
+    );
     
     console.log('✅ Deleted stock:', deletedStock.unitName);
     res.json({ success: true, message: 'Stock deleted successfully' });
@@ -1247,10 +1327,83 @@ app.post('/createAllocation', async (req, res) => {
     const newAllocation = new DriverAllocation(allocationData);
     await newAllocation.save();
     
+    // Update vehicle status to "Pending" when allocated
+    if (allocationData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: allocationData.unitId },
+        { 
+          status: 'Pending',
+          lastUpdatedBy: 'System - Allocation',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${allocationData.unitId} status to "Pending"`);
+    }
+    
     console.log('✅ Created allocation:', newAllocation.unitName);
     res.json({ success: true, message: 'Allocation created successfully', data: newAllocation });
   } catch (error) {
     console.error('❌ Create allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update allocation
+app.put('/updateAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    console.log(`📋 Updating allocation ${id}:`, updateData);
+    
+    const updatedAllocation = await DriverAllocation.findByIdAndUpdate(
+      id,
+      { $set: updateData, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedAllocation) {
+      return res.status(404).json({ success: false, message: 'Allocation not found' });
+    }
+    
+    console.log('✅ Updated allocation:', updatedAllocation.unitName);
+    res.json({ success: true, message: 'Allocation updated successfully', data: updatedAllocation });
+  } catch (error) {
+    console.error('❌ Update allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete allocation
+app.delete('/deleteAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`📋 Deleting allocation ${id}`);
+    
+    const deletedAllocation = await DriverAllocation.findByIdAndDelete(id);
+    
+    if (!deletedAllocation) {
+      return res.status(404).json({ success: false, message: 'Allocation not found' });
+    }
+    
+    // When allocation is deleted, return vehicle to "Available" status
+    if (deletedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deletedAllocation.unitId },
+        { 
+          status: 'Available',
+          lastUpdatedBy: 'System - Allocation Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Returned vehicle ${deletedAllocation.unitId} status to "Available"`);
+    }
+    
+    console.log('✅ Deleted allocation:', deletedAllocation.unitName);
+    res.json({ success: true, message: 'Allocation deleted successfully', data: deletedAllocation });
+  } catch (error) {
+    console.error('❌ Delete allocation error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1351,6 +1504,36 @@ app.post('/api/dispatch/assignments', async (req, res) => {
     
     const savedAssignment = await newAssignment.save();
     
+    // Update vehicle status to "Preparing" when assigned to dispatch
+    if (assignmentData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: assignmentData.unitId },
+        { 
+          status: 'Preparing',
+          lastUpdatedBy: 'System - Dispatch Assignment',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${assignmentData.unitId} status to "Preparing"`);
+    }
+    
+    // Log audit trail
+    await logAuditTrail(
+      'create',
+      'DispatchAssignment',
+      savedAssignment._id,
+      assignmentData.assignedBy || 'System',
+      {
+        after: {
+          unitName: assignmentData.unitName,
+          unitId: assignmentData.unitId,
+          assignedDriver: assignmentData.assignedDriver,
+          processes: assignmentData.processes,
+          status: 'Assigned to Dispatch'
+        }
+      }
+    );
+    
     console.log('✅ Dispatch assignment created:', savedAssignment._id);
     res.json({ 
       success: true, 
@@ -1425,6 +1608,25 @@ app.put('/api/dispatch/assignments/:id/process', async (req, res) => {
     }
     
     const updatedAssignment = await assignment.save();
+    
+    // Log audit trail for task completion
+    await logAuditTrail(
+      'update',
+      'DispatchTask',
+      assignment._id,
+      completedBy || 'System',
+      {
+        before: { processStatus: { [processId]: !completed } },
+        after: { 
+          processStatus: { [processId]: completed },
+          processName: processId,
+          unitName: assignment.unitName,
+          unitId: assignment.unitId,
+          overallProgress: assignment.overallProgress,
+          status: assignment.status
+        }
+      }
+    );
     
     console.log('✅ Process updated successfully');
     res.json({
@@ -1677,6 +1879,96 @@ app.get('/getAllDriverLocations', async (req, res) => {
 });
 
 // ========== GOOGLE MAPS API ENDPOINTS ==========
+
+// Get route directions using Google Maps Directions API (for mobile)
+app.post('/getRoute', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🗺️ Getting route from Google Maps API:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      
+      // Decode polyline to coordinates array
+      const polyline = decodePolyline(route.overview_polyline.points);
+      
+      res.json({
+        success: true,
+        route: {
+          polyline: polyline,
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+          bounds: route.bounds,
+          summary: route.summary
+        }
+      });
+    } else {
+      console.warn('⚠️ Google Maps API error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Directions API error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get route directions',
+      error: error.message
+    });
+  }
+});
+
+// Polyline decoder function
+function decodePolyline(encoded) {
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+  const points = [];
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const deltaLat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const deltaLng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += deltaLng;
+
+    points.push({
+      latitude: lat / 1E5,
+      longitude: lng / 1E5
+    });
+  }
+  return points;
+}
 
 // Get route directions using Google Maps Directions API
 app.post('/api/directions/route', async (req, res) => {
@@ -2011,6 +2303,23 @@ app.post('/driver-allocations', async (req, res) => {
     console.log('Creating driver allocation:', req.body);
     const newAllocation = new DriverAllocation(req.body);
     await newAllocation.save();
+    
+    // Log audit trail for driver allocation
+    await logAuditTrail(
+      'create',
+      'DriverAllocation',
+      newAllocation._id,
+      req.body.allocatedBy || 'System',
+      {
+        after: {
+          unitName: req.body.unitName,
+          unitId: req.body.unitId,
+          assignedDriver: req.body.assignedDriver,
+          status: req.body.status || 'Pending'
+        }
+      }
+    );
+    
     res.json({ success: true, allocation: newAllocation });
   } catch (err) {
     console.error('Error creating driver allocation:', err);
@@ -2022,8 +2331,60 @@ app.post('/driver-allocations', async (req, res) => {
 app.patch('/driver-allocations/:id', async (req, res) => {
   try {
     console.log(`Updating allocation ${req.params.id} with:`, req.body);
+    
+    // Get before state for audit logging
+    const beforeState = await DriverAllocation.findById(req.params.id);
+    
     const updated = await DriverAllocation.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Allocation not found' });
+    
+    // Update vehicle status based on allocation status changes
+    if (req.body.status && updated.unitId) {
+      let newVehicleStatus = null;
+      
+      if (req.body.status === 'In Transit') {
+        newVehicleStatus = 'In Transit';
+      } else if (req.body.status === 'Delivered' || req.body.status === 'Completed') {
+        // When driver delivers to Isuzu Pasig, set to Available
+        newVehicleStatus = 'Available';
+      }
+      
+      if (newVehicleStatus) {
+        await Inventory.findOneAndUpdate(
+          { unitId: updated.unitId },
+          { 
+            status: newVehicleStatus,
+            lastUpdatedBy: `System - ${req.body.status}`,
+            dateUpdated: new Date()
+          }
+        );
+        console.log(`✅ Updated vehicle ${updated.unitId} status to "${newVehicleStatus}"`);
+      }
+    }
+    
+    // Log audit trail for allocation update (delivery)
+    if (beforeState) {
+      await logAuditTrail(
+        'update',
+        'DriverAllocation',
+        updated._id,
+        req.body.updatedBy || 'System',
+        {
+          before: {
+            status: beforeState.status,
+            unitName: beforeState.unitName,
+            unitId: beforeState.unitId
+          },
+          after: {
+            status: updated.status,
+            unitName: updated.unitName,
+            unitId: updated.unitId,
+            assignedDriver: updated.assignedDriver
+          }
+        }
+      );
+    }
+    
     res.json({ success: true, allocation: updated });
   } catch (err) {
     console.error('Error updating driver allocation:', err);
@@ -2155,6 +2516,25 @@ const AuditTrailSchema = new mongoose.Schema({
 
 const AuditTrail = mongoose.model('AuditTrail', AuditTrailSchema, 'audittrails');
 
+// Helper function to log audit trail
+const logAuditTrail = async (action, resource, resourceId, performedBy, details = {}) => {
+  try {
+    const auditEntry = new AuditTrail({
+      action,
+      resource,
+      resourceId,
+      performedBy,
+      details,
+      timestamp: new Date()
+    });
+    await auditEntry.save();
+    console.log(`📝 Audit logged: ${action} on ${resource} by ${performedBy}`);
+  } catch (error) {
+    console.error('❌ Error logging audit trail:', error);
+    // Don't throw error - audit logging failure shouldn't break the main operation
+  }
+};
+
 // Web-compatible audit trail endpoint (matches web version format)
 app.get('/api/audit-trail', async (req, res) => {
   try {
@@ -2279,6 +2659,36 @@ app.post('/api/releases', async (req, res) => {
       });
     }
     
+    // Update vehicle status in Inventory to "Released"
+    if (updatedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: updatedAllocation.unitId },
+        { 
+          status: 'Released',
+          lastUpdatedBy: releaseData.releasedBy || 'System - Release',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${updatedAllocation.unitId} status to "Released"`);
+    }
+    
+    // Log audit trail for release
+    await logAuditTrail(
+      'create',
+      'VehicleRelease',
+      updatedAllocation._id,
+      releaseData.releasedBy || 'System',
+      {
+        after: {
+          unitName: updatedAllocation.unitName,
+          unitId: updatedAllocation.unitId,
+          assignedDriver: updatedAllocation.assignedDriver,
+          releasedAt: releaseData.releasedAt,
+          status: 'Released'
+        }
+      }
+    );
+    
     console.log('✅ Vehicle released successfully:', updatedAllocation);
     res.json({ 
       success: true, 
@@ -2344,7 +2754,7 @@ app.post('/test/create-sample-data', async (req, res) => {
 // Create TestDriveVehicle model
 const testDriveVehicleSchema = new mongoose.Schema({
   unitName: { type: String, required: true },
-  unitId: { type: String, required: true, unique: true },
+  unitId: { type: String, required: true },
   bodyColor: { type: String, required: true },
   variation: { type: String, required: true },
   status: { type: String, enum: ['Available', 'In Use', 'Maintenance', 'Unavailable'], default: 'Available' },
@@ -3205,11 +3615,31 @@ app.post('/generateReport', async (req, res) => {
 // Get all vehicle models (unit names and variations)
 app.get('/getVehicleModels', async (req, res) => {
   try {
-    const models = await fetch('http://localhost:8000/api/vehicle-models').then(r => r.json());
+    // Try to fetch from external service with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch('http://localhost:8000/api/vehicle-models', {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`External API returned ${response.status}`);
+    }
+    
+    const models = await response.json();
     res.json(models);
   } catch (error) {
-    console.error('❌ Error fetching vehicle models:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch vehicle models' });
+    // Silently fail - client will use local data
+    // Only log in development for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('ℹ️ Vehicle models API unavailable, client will use local data');
+    }
+    res.status(500).json({ 
+      success: false, 
+      message: 'Vehicle models service unavailable' 
+    });
   }
 });
 
@@ -3296,9 +3726,8 @@ app.post('/addToInventory', async (req, res) => {
       unitName,
       variation,
       conductionNumber,
-      vin,
       bodyColor,
-      status = 'Available',
+      status,
       engineNumber,
       keyNumber,
       plateNumber,
@@ -3306,41 +3735,51 @@ app.post('/addToInventory', async (req, res) => {
       notes,
       addedBy
     } = req.body;
+
+    // Validate status for new vehicles - must be "In Stockyard" or "Available"
+    const validAddStatuses = ['In Stockyard', 'Available'];
+    const finalStatus = status && validAddStatuses.includes(status) ? status : 'In Stockyard';
     
-    // Validate required fields
-    if (!unitName || !variation || !conductionNumber || !vin) {
+    if (status && !validAddStatuses.includes(status)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Unit name, variation, conduction number, and VIN are required' 
+        message: `Invalid status for new vehicle. Only "In Stockyard" or "Available" are allowed. Default is "In Stockyard".` 
       });
     }
     
-    // Check if vehicle with same VIN or conduction number exists
+    // Validate required fields
+    if (!unitName || !variation || !conductionNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Unit name, variation, and conduction number are required' 
+      });
+    }
+    
+    // Check for duplicate conduction number (unitId)
     const existingVehicle = await Inventory.findOne({
       $or: [
-        { vin },
-        { conductionNumber }
+        { conductionNumber },
+        { unitId: conductionNumber }
       ]
     });
     
     if (existingVehicle) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Vehicle with this VIN or conduction number already exists' 
+        message: 'Vehicle with this conduction number already exists' 
       });
     }
     
-    // Generate unitId if not provided
-    const unitId = req.body.unitId || `${unitName.replace(/\s+/g, '')}_${Date.now()}`;
+    // Use conductionNumber as unitId
+    const unitId = conductionNumber;
     
     const newInventoryItem = new Inventory({
       unitName,
       unitId,
       variation,
       conductionNumber,
-      vin,
       bodyColor,
-      status,
+      status: finalStatus,
       engineNumber,
       keyNumber,
       plateNumber,
@@ -3368,6 +3807,49 @@ app.post('/addToInventory', async (req, res) => {
 app.put('/updateInventoryItem/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Get current item to validate status transitions
+    const currentItem = await Inventory.findById(id);
+    if (!currentItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+
+    // If status is being updated, validate the transition
+    if (req.body.status && req.body.status !== currentItem.status) {
+      const newStatus = req.body.status;
+      const currentStatus = currentItem.status;
+      
+      // Status transition rules
+      const validTransitions = {
+        'In Stockyard': ['Available'],
+        'Available': ['In Stockyard', 'Pending'], // Pending set by allocation
+        'Pending': ['Available', 'In Transit'], // In Transit when driver accepts
+        'In Transit': ['Available'], // When arrives at Isuzu Pasig
+        'Preparing': ['Released'], // Released only by Release button
+        'Released': [] // Final state
+      };
+
+      // Prevent manual setting of "Released" - must be via Release button endpoint
+      if (newStatus === 'Released') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Status "Released" cannot be set manually. Use the Release button action.' 
+        });
+      }
+
+      // Validate transition
+      const allowedTransitions = validTransitions[currentStatus] || [];
+      if (!allowedTransitions.includes(newStatus)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid status transition from "${currentStatus}" to "${newStatus}". Allowed: ${allowedTransitions.join(', ') || 'None'}` 
+        });
+      }
+    }
+    
     const updateData = {
       ...req.body,
       lastUpdatedBy: req.body.lastUpdatedBy || 'System',
@@ -3379,7 +3861,7 @@ app.put('/updateInventoryItem/:id', async (req, res) => {
       updateData, 
       { new: true, runValidators: true }
     );
-    
+
     if (!updatedItem) {
       return res.status(404).json({ 
         success: false, 

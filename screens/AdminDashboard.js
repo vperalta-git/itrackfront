@@ -21,7 +21,7 @@ import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 import StocksOverview from '../components/StocksOverview';
 import UniformLoading from '../components/UniformLoading';
-import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
+import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit, getAllowedStatusTransitions, VEHICLE_STATUS_RULES } from '../constants/VehicleModels';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -44,6 +44,7 @@ export default function AdminDashboard() {
     unitName: "",
     bodyColor: "",
     variation: "",
+    status: "In Stockyard" // Default status
   });
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [availableVariations, setAvailableVariations] = useState([]);
@@ -268,11 +269,18 @@ export default function AdminDashboard() {
   };
 
   const handleAddStock = async () => {
-    const { unitName, bodyColor, variation } = newStock;
+    const { unitName, bodyColor, variation, status } = newStock;
     if (!unitName || !bodyColor || !variation) {
       Alert.alert("Error", "Please fill in all fields for adding stock.");
       return;
     }
+    
+    // Validate status - only 'In Stockyard' or 'Available' allowed for new vehicles
+    if (status && status !== 'In Stockyard' && status !== 'Available') {
+      Alert.alert("Error", "For new vehicles, only 'In Stockyard' or 'Available' status is allowed.");
+      return;
+    }
+    
     try {
       const response = await fetch(buildApiUrl('/createStock'), {
         method: "POST",
@@ -281,7 +289,8 @@ export default function AdminDashboard() {
           unitName,
           unitId: `${unitName.replace(/\s+/g, '')}_${Date.now()}`, // Generate unitId
           bodyColor,
-          variation
+          variation,
+          status: status || 'In Stockyard' // Default to 'In Stockyard'
         }),
       });
       
@@ -291,8 +300,8 @@ export default function AdminDashboard() {
         throw new Error(result.error || "Failed to add stock.");
       }
       
-      Alert.alert("Success", "Stock added successfully!");
-      setNewStock({ unitName: "", bodyColor: "", variation: "" });
+      Alert.alert("Success", `Stock added successfully with status: ${result.data.status}!`);
+      setNewStock({ unitName: "", bodyColor: "", variation: "", status: "In Stockyard" });
       setSelectedUnitName("");
       setAvailableVariations([]);
       setShowAddStockModal(false);
@@ -344,9 +353,18 @@ export default function AdminDashboard() {
       bodyColor: item.bodyColor || "",
       variation: item.variation || "",
       quantity: item.quantity?.toString() || "1",
-      status: item.status || "Available"
+      status: item.status || "Available",
+      currentStatus: item.status || "Available", // Track original status for validation
+      assignedAgent: item.assignedAgent || ""
     });
     setShowEditStockModal(true);
+  };
+
+  // Helper to get allowed status options for Edit modal based on current status
+  const getAllowedStatusOptions = (currentStatus, hasDriver, driverAccepted, hasLocation) => {
+    const allowed = getAllowedStatusTransitions(currentStatus, hasDriver, driverAccepted, hasLocation);
+    // Add current status as first option (no change)
+    return [currentStatus, ...allowed.filter(status => status !== currentStatus)];
   };
 
   const handleUpdateStock = async () => {
@@ -355,20 +373,63 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Validate status transition if status is being changed
+    if (editStock.status !== editStock.currentStatus) {
+      const hasDriver = !!selectedStock.assignedDriver;
+      const driverAccepted = selectedStock.driverAccepted === true;
+      const hasLocation = !!(selectedStock.location?.latitude && selectedStock.location?.longitude);
+      
+      const allowedTransitions = getAllowedStatusTransitions(
+        editStock.currentStatus, 
+        hasDriver, 
+        driverAccepted, 
+        hasLocation
+      );
+      
+      if (!allowedTransitions.includes(editStock.status)) {
+        const rule = VEHICLE_STATUS_RULES[editStock.currentStatus];
+        Alert.alert(
+          "Invalid Status Change", 
+          `Cannot change status from '${editStock.currentStatus}' to '${editStock.status}'.\n\nRequirements: ${rule?.requirements || 'Unknown'}`
+        );
+        return;
+      }
+
+      // Additional validation for 'Released' status - should only be set via Release button
+      if (editStock.status === 'Released') {
+        Alert.alert(
+          "Invalid Status Change",
+          "Vehicles can only be set to 'Released' status using the Release button after completing all required processes."
+        );
+        return;
+      }
+    }
+
     try {
+      const updatePayload = {
+        unitName: editStock.unitName,
+        unitId: editStock.unitId,
+        bodyColor: editStock.bodyColor,
+        variation: editStock.variation,
+        quantity: parseInt(editStock.quantity) || 1
+      };
+
+      // Only include status in update if it changed and passed validation
+      if (editStock.status !== editStock.currentStatus) {
+        updatePayload.status = editStock.status;
+      }
+
+      // Include assignedAgent in update (can be empty to unassign)
+      if (editStock.assignedAgent !== undefined) {
+        updatePayload.assignedAgent = editStock.assignedAgent || null;
+      }
+
       const response = await fetch(buildApiUrl(`/updateStock/${selectedStock._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          unitName: editStock.unitName,
-          unitId: editStock.unitId,
-          bodyColor: editStock.bodyColor,
-          variation: editStock.variation,
-          quantity: parseInt(editStock.quantity) || 1,
-          status: editStock.status
-        }),
+        body: JSON.stringify(updatePayload),
       });
 
       const result = await response.json();
@@ -378,7 +439,7 @@ export default function AdminDashboard() {
       }
       
       Alert.alert("Success", "Stock updated successfully!");
-      setEditStock({ unitName: "", unitId: "", bodyColor: "", variation: "", quantity: "", status: "" });
+      setEditStock({ unitName: "", unitId: "", bodyColor: "", variation: "", quantity: "", status: "", currentStatus: "" });
       setShowEditStockModal(false);
       setSelectedStock(null);
       await fetchInventory(); // Refresh inventory data
@@ -392,17 +453,6 @@ export default function AdminDashboard() {
     if (!selectedVin || !selectedAgent || !selectedDriver) {
       Alert.alert('Missing Info', 'Please select vehicle, agent, and driver.');
       return;
-    }
-
-    // Auto-assign default delivery processes if none selected
-    let processesToAssign = selectedProcesses;
-    if (processesToAssign.length === 0) {
-      processesToAssign = [
-        'delivery_to_isuzu_pasig',
-        'stock_integration',
-        'documentation_check'
-      ];
-      console.log('No processes selected for stock assignment, using default delivery processes:', processesToAssign);
     }
 
     try {
@@ -419,9 +469,8 @@ export default function AdminDashboard() {
         variation: selectedVehicle.variation,
         assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Assigned',
+        status: 'Pending',
         allocatedBy: 'Admin',
-        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -434,21 +483,11 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign vehicle');
 
-      // Update the inventory item status to "Allocated"
-      await fetch(buildApiUrl(`/updateStock/${selectedVehicle._id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...selectedVehicle,
-          status: 'Allocated'
-        }),
-      });
-
-      Alert.alert('Success', `Vehicle assigned successfully with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
+      // Status automatically updated to 'Pending' by backend
+      Alert.alert('Success', 'Vehicle assigned successfully to driver and agent!');
       setSelectedVin('');
       setSelectedAgent('');
       setSelectedDriver('');
-      setSelectedProcesses([]);
       await Promise.all([fetchAllocations(), fetchInventory()]);
     } catch (err) {
       console.error('Assign to agent error:', err);
@@ -462,17 +501,6 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Auto-assign default delivery processes if none selected
-    let processesToAssign = selectedProcesses;
-    if (processesToAssign.length === 0) {
-      processesToAssign = [
-        'delivery_to_isuzu_pasig',
-        'stock_integration',
-        'documentation_check'
-      ];
-      console.log('No processes selected, using default delivery processes:', processesToAssign);
-    }
-
     try {
       const allocationPayload = {
         unitName: manualModel,
@@ -481,9 +509,8 @@ export default function AdminDashboard() {
         variation: 'Manual Entry',
         assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Assigned',
+        status: 'Pending',
         allocatedBy: 'Admin',
-        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -496,12 +523,11 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign');
 
-      Alert.alert('Success', `Vehicle assigned to driver with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
+      Alert.alert('Success', 'Vehicle assigned successfully to driver and agent!');
       setManualModel('');
       setManualVin('');
       setSelectedDriver('');
       setSelectedAgent('');
-      setSelectedProcesses([]);
       fetchAllocations();
     } catch (err) {
       console.error('Assign to driver error:', err);
@@ -660,36 +686,34 @@ export default function AdminDashboard() {
         <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
           <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={[styles.reportsTable, { backgroundColor: theme.surface, minWidth: '100%' }]}>
-              <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>UNIT NAME</Text>
-                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>DRIVER</Text>
-                <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
-              </View>
-              
-              {recentShipments.length > 0 ? recentShipments.map((item, index) => (
-                <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]} numberOfLines={1}>{item.unitName || 'N/A'}</Text>
-                  <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]} numberOfLines={1}>{item.assignedDriver || 'N/A'}</Text>
-                  <View style={[styles.reportsTableCell, { flex: 1 }]}>
-                    <View style={[
-                      styles.statusBadge, 
-                      { backgroundColor: '#DC2626' }
-                    ]}>
-                      <Text style={styles.statusBadgeText}>
-                        {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
-                      </Text>
-                    </View>
+          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
+            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>UNIT NAME</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>DRIVER</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
+            </View>
+            
+            {recentShipments.length > 0 ? recentShipments.map((item, index) => (
+              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
+                <View style={[styles.reportsTableCell, { flex: 1 }]}>
+                  <View style={[
+                    styles.statusBadge, 
+                    { backgroundColor: '#DC2626' }
+                  ]}>
+                    <Text style={styles.statusBadgeText}>
+                      {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                    </Text>
                   </View>
                 </View>
-              )) : (
-                <View style={styles.reportsTableRow}>
-                  <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
-                </View>
-              )}
-            </View>
-          </ScrollView>
+              </View>
+            )) : (
+              <View style={styles.reportsTableRow}>
+                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Recent Completed Requests */}
@@ -707,48 +731,9 @@ export default function AdminDashboard() {
             </View>
           </View>
         </View>
-
-        {/* Quick Actions Card */}
-        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity 
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate('VehicleAssignment')}
-            >
-              <Text style={styles.quickActionIcon}>🚗</Text>
-              <Text style={styles.quickActionText}>Vehicle Assignment</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate('DriverAllocation')}
-            >
-              <Text style={styles.quickActionIcon}>📋</Text>
-              <Text style={styles.quickActionText}>Driver Allocation</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate('VehicleTracking')}
-            >
-              <Text style={styles.quickActionIcon}>🗺️</Text>
-              <Text style={styles.quickActionText}>Vehicle Tracking</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate('Inventory')}
-            >
-              <Text style={styles.quickActionIcon}>📦</Text>
-              <Text style={styles.quickActionText}>Vehicle Stocks</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     );
   };
-
 
   const renderReleaseContent = () => (
     <View style={styles.releaseContainer}>
@@ -962,38 +947,34 @@ export default function AdminDashboard() {
         <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
           <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={[styles.reportsTable, { backgroundColor: theme.surface, minWidth: 400 }]}>
-              <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>UNIT NAME</Text>
-                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>VARIATION</Text>
-                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>ASSIGNED DRIVER</Text>
-                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>STATUS</Text>
-              </View>
-              
-              {recentShipments.length > 0 ? recentShipments.map((item, index) => (
-                <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
-                  <Text style={[styles.reportsTableCell, { width: 80, color: theme.text }]}>{item.variation || 'N/A'}</Text>
-                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
-                  <View style={[styles.reportsTableCell, { width: 80 }]}>
-                    <View style={[
-                      styles.statusBadge, 
-                      { backgroundColor: '#DC2626' }
-                    ]}>
-                      <Text style={styles.statusBadgeText}>
-                        {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
-                      </Text>
-                    </View>
+          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
+            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>UNIT NAME</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>DRIVER</Text>
+              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
+            </View>
+            
+            {recentShipments.length > 0 ? recentShipments.map((item, index) => (
+              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
+                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
+                <View style={[styles.reportsTableCell, { flex: 1 }]}>
+                  <View style={[
+                    styles.statusBadge, 
+                    { backgroundColor: '#DC2626' }
+                  ]}>
+                    <Text style={styles.statusBadgeText}>
+                      {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                    </Text>
                   </View>
                 </View>
-              )) : (
-                <View style={styles.reportsTableRow}>
-                  <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
-                </View>
-              )}
-            </View>
-          </ScrollView>
+              </View>
+            )) : (
+              <View style={styles.reportsTableRow}>
+                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
     );
@@ -1255,37 +1236,8 @@ export default function AdminDashboard() {
             throw new Error(`Invalid JSON response from dispatch assignment endpoint: ${responseText}`);
           }
 
-          // Update vehicle status in inventory
-          const inventoryUpdateData = {
-            status: 'Assigned to Dispatch'
-          };
-          
-          console.log('📋 Updating inventory with data:', inventoryUpdateData);
-          
-          const inventoryResponse = await fetch(buildApiUrl(`/updateStock/${vehicle._id}`), {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(inventoryUpdateData),
-          });
-
-          console.log('📋 Inventory update status:', inventoryResponse.status);
-
-          if (!inventoryResponse.ok) {
-            const inventoryErrorText = await inventoryResponse.text();
-            console.error('❌ Inventory update failed:', inventoryErrorText);
-            // Don't throw here, just log the error as the dispatch assignment succeeded
-            console.warn('⚠️ Vehicle assigned to dispatch but inventory status not updated');
-          } else {
-            try {
-              const inventoryResult = await inventoryResponse.json();
-              console.log('✅ Inventory updated:', inventoryResult);
-            } catch (jsonError) {
-              console.error('❌ JSON parse error for inventory response:', jsonError);
-              console.warn('⚠️ Inventory update response invalid but likely succeeded');
-            }
-          }
+          // Status automatically updated to 'Preparing' by backend
+          console.log('✅ Vehicle status will be automatically updated to "Preparing" by backend');
         }
 
         Alert.alert(
@@ -1529,6 +1481,12 @@ export default function AdminDashboard() {
           {/* Header */}
           <View style={styles.headerContainer}>
             <Text style={[styles.header, { color: theme.text }]}>Admin Dashboard</Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={initializeData}
+            >
+              <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Main Dashboard Content */}
@@ -1644,13 +1602,7 @@ export default function AdminDashboard() {
                     if (response.ok) {
                       Alert.alert('Success', `${selectedVehicleForServices.unitName} assigned to dispatch successfully!`);
                       
-                      // Update inventory status
-                      await fetch(buildApiUrl(`/updateStock/${selectedVehicleForServices._id}`), {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'Assigned to Dispatch' }),
-                      });
-
+                      // Status automatically updated to 'Preparing' by backend
                       // Close modal and refresh
                       setShowServicesModal(false);
                       setSelectedVehicleForServices(null);
@@ -1717,6 +1669,17 @@ export default function AdminDashboard() {
               ))}
             </Picker>
 
+            {/* Status Dropdown - Only 'In Stockyard' or 'Available' allowed for new vehicles */}
+            <Text style={styles.label}>Initial Status</Text>
+            <Picker
+              selectedValue={newStock.status}
+              onValueChange={(value) => setNewStock({ ...newStock, status: value })}
+              style={styles.picker}
+            >
+              <Picker.Item label="In Stockyard (Default - at warehouse)" value="In Stockyard" />
+              <Picker.Item label="Available (Already at Isuzu Pasig)" value="Available" />
+            </Picker>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleAddStock}>
                 <Text style={styles.modalButtonText}>Add</Text>
@@ -1736,7 +1699,7 @@ export default function AdminDashboard() {
       <Modal visible={showEditStockModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Stock</Text>
+            <Text style={styles.modalTitle}>Edit Vehicle</Text>
 
             <TextInput
               style={styles.input}
@@ -1776,16 +1739,49 @@ export default function AdminDashboard() {
               keyboardType="numeric"
             />
 
+            {/* Status Picker - Shows only allowed transitions based on current status */}
+            <Text style={styles.label}>Vehicle Status</Text>
             <Picker
               selectedValue={editStock.status}
               onValueChange={(value) => setEditStock({ ...editStock, status: value })}
               style={styles.picker}
             >
-              <Picker.Item label="Available" value="Available" />
-              <Picker.Item label="In Use" value="In Use" />
-              <Picker.Item label="Allocated" value="Allocated" />
-              <Picker.Item label="In Dispatch" value="In Dispatch" />
+              {selectedStock && getAllowedStatusOptions(
+                editStock.currentStatus,
+                !!selectedStock.assignedDriver,
+                selectedStock.driverAccepted === true,
+                !!(selectedStock.location?.latitude && selectedStock.location?.longitude)
+              ).map((status) => {
+                const isCurrent = status === editStock.currentStatus;
+                const label = isCurrent ? `${status} (Current)` : status;
+                return <Picker.Item key={status} label={label} value={status} />;
+              })}
             </Picker>
+            {editStock.currentStatus && VEHICLE_STATUS_RULES[editStock.currentStatus] && (
+              <Text style={styles.statusHintText}>
+                Requirements for transitions: {VEHICLE_STATUS_RULES[editStock.currentStatus].requirements}
+              </Text>
+            )}
+
+            {/* Assign to Agent Section */}
+            <View style={styles.assignAgentSection}>
+              <Text style={styles.label}>Assign to Agent</Text>
+              <Picker
+                selectedValue={editStock.assignedAgent || ''}
+                onValueChange={(value) => setEditStock({ ...editStock, assignedAgent: value })}
+                style={styles.picker}
+              >
+                <Picker.Item label="No Agent Assigned" value="" />
+                {agents.map(a => (
+                  <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                ))}
+              </Picker>
+              {selectedStock?.assignedAgent && (
+                <Text style={styles.statusHintText}>
+                  Currently assigned to: {selectedStock.assignedAgent}
+                </Text>
+              )}
+            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleUpdateStock}>
@@ -1901,6 +1897,24 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '700', 
     color: '#1a202c',
     flex: 1
+  },
+  refreshButton: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  refreshButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -3844,35 +3858,51 @@ const createStyles = (theme) => StyleSheet.create({
   disabledPicker: {
     opacity: 0.5,
     backgroundColor: '#f5f5f5',
+  },
 
-    quickActionsGrid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 12,
-  padding: 4,
-},
-quickActionButton: {
-  flex: 1,
-  minWidth: '45%',
-  backgroundColor: '#DC2626',
-  borderRadius: 12,
-  padding: 20,
-  alignItems: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-},
-quickActionIcon: {
-  fontSize: 32,
-  marginBottom: 8,
-},
-quickActionText: {
-  color: '#fff',
-  fontSize: 14,
-  fontWeight: '600',
-  textAlign: 'center',
-},
+  statusHintText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginTop: -8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+
+  assignAgentSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    padding: 4,
+  },
+  quickActionButton: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#DC2626',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  quickActionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

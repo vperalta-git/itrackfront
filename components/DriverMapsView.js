@@ -1,4 +1,4 @@
-// DriverMapsView.js - Direct Maps API for Driver Dashboard
+// DriverMapsView.js - Enhanced route display for Driver Dashboard
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
@@ -6,108 +6,66 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 
-const DriverMapsView = ({ style }) => {
+const DriverMapsView = ({ style, selectedAllocation: propsSelectedAllocation }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [driverAllocations, setDriverAllocations] = useState([]);
-  const [selectedAllocation, setSelectedAllocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
-  const [driverName, setDriverName] = useState('');
+  const [pickupLocation, setPickupLocation] = useState(null);
+  const [dropoffLocation, setDropoffLocation] = useState(null);
 
-  const DESTINATION_COORDS = { latitude: 14.5791, longitude: 121.0655 }; // Isuzu Pasig
-
-  // Get driver name and setup location tracking
+  // Get current location
   useEffect(() => {
-    const setupDriver = async () => {
+    const getLocation = async () => {
       try {
-        // Get driver name
-        const name = await AsyncStorage.getItem('userName') || await AsyncStorage.getItem('accountName');
-        setDriverName(name || 'Unknown Driver');
-
         // Request location permission
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           // Get current location
-          const location = await Location.getCurrentPositionAsync();
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
           setCurrentLocation({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           });
-
-          // Start location tracking
-          const subscription = await Location.watchPositionAsync(
-            {
-              accuracy: Location.Accuracy.High,
-              timeInterval: 15000, // Update every 15 seconds
-              distanceInterval: 100, // Update every 100 meters
-            },
-            (newLocation) => {
-              setCurrentLocation({
-                latitude: newLocation.coords.latitude,
-                longitude: newLocation.coords.longitude,
-              });
-            }
-          );
-
-          return () => subscription?.remove();
         }
       } catch (error) {
-        console.error('❌ Driver Maps: Setup error:', error);
+        console.error('❌ Driver Maps: Location error:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    setupDriver();
+    getLocation();
   }, []);
 
-  // Fetch driver allocations with proper error handling
-  const fetchDriverAllocations = async () => {
-    if (!driverName || driverName === 'Unknown Driver') return;
-
-    try {
-      console.log('🗺️ Driver Maps: Fetching allocations for:', driverName);
-      
-      const response = await fetch(buildApiUrl('/getAllocation'));
-      if (response.ok) {
-        const responseText = await response.text();
-        if (responseText && responseText.trim()) {
-          try {
-            const data = JSON.parse(responseText);
-            const allocationsArray = data.data || data.allocation || data || [];
-            
-            // Filter for current driver
-            const driverAllocations = allocationsArray.filter(allocation => 
-              allocation.assignedDriver === driverName
-            );
-            
-            setDriverAllocations(driverAllocations);
-            console.log(`✅ Driver Maps: Found ${driverAllocations.length} allocations for ${driverName}`);
-            
-            // Auto-select first allocation if none selected
-            if (!selectedAllocation && driverAllocations.length > 0) {
-              setSelectedAllocation(driverAllocations[0]);
-            }
-          } catch (parseError) {
-            console.warn('⚠️ Driver Maps: JSON parse issue, using empty array');
-            setDriverAllocations([]);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Driver Maps: Fetch error:', error);
-      setDriverAllocations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Parse route information from selected allocation
   useEffect(() => {
-    if (driverName && driverName !== 'Unknown Driver') {
-      fetchDriverAllocations();
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchDriverAllocations, 30000);
-      return () => clearInterval(interval);
+    if (propsSelectedAllocation) {
+      console.log('🗺️ Driver Maps: Processing allocation route data');
+      
+      // Parse pickup location
+      if (propsSelectedAllocation.pickupCoordinates) {
+        setPickupLocation(propsSelectedAllocation.pickupCoordinates);
+        console.log('✅ Pickup location:', propsSelectedAllocation.pickupCoordinates);
+      } else if (propsSelectedAllocation.pickupPoint) {
+        // Try to geocode or use default location
+        console.log('⚠️ No pickup coordinates, using pickup point name:', propsSelectedAllocation.pickupPoint);
+      }
+      
+      // Parse dropoff location
+      if (propsSelectedAllocation.dropoffCoordinates) {
+        setDropoffLocation(propsSelectedAllocation.dropoffCoordinates);
+        console.log('✅ Dropoff location:', propsSelectedAllocation.dropoffCoordinates);
+      } else if (propsSelectedAllocation.dropoffPoint) {
+        // Try to geocode or use default location
+        console.log('⚠️ No dropoff coordinates, using dropoff point name:', propsSelectedAllocation.dropoffPoint);
+      }
+    } else {
+      setPickupLocation(null);
+      setDropoffLocation(null);
     }
-  }, [driverName]);
+  }, [propsSelectedAllocation]);
 
   const handleMapReady = () => {
     console.log('✅ Driver Maps: MapView ready');
@@ -120,19 +78,37 @@ const DriverMapsView = ({ style }) => {
   };
 
   const getMapRegion = () => {
+    // If we have route points, show both pickup and dropoff
+    if (pickupLocation && dropoffLocation) {
+      const midLat = (pickupLocation.latitude + dropoffLocation.latitude) / 2;
+      const midLng = (pickupLocation.longitude + dropoffLocation.longitude) / 2;
+      const latDelta = Math.abs(pickupLocation.latitude - dropoffLocation.latitude) * 1.5;
+      const lngDelta = Math.abs(pickupLocation.longitude - dropoffLocation.longitude) * 1.5;
+      
+      return {
+        latitude: midLat,
+        longitude: midLng,
+        latitudeDelta: Math.max(latDelta, 0.05),
+        longitudeDelta: Math.max(lngDelta, 0.05),
+      };
+    }
+    
+    // Otherwise, center on current location
     if (currentLocation) {
       return {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       };
     }
+    
+    // Default to Philippines
     return {
-      latitude: DESTINATION_COORDS.latitude,
-      longitude: DESTINATION_COORDS.longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
+      latitude: 14.5995,
+      longitude: 120.9842,
+      latitudeDelta: 0.5,
+      longitudeDelta: 0.5,
     };
   };
 
@@ -148,14 +124,25 @@ const DriverMapsView = ({ style }) => {
   return (
     <View style={[styles.container, style]}>
       <View style={styles.header}>
-        <Text style={styles.title}>🚛 My Route</Text>
-        <Text style={styles.subtitle}>
-          Driver: {driverName} • {driverAllocations.length} Assignments
-        </Text>
-        {selectedAllocation && (
-          <Text style={styles.selectedText}>
-            Selected: {selectedAllocation.unitName} ({selectedAllocation.unitId})
-          </Text>
+        <Text style={styles.title}>🗺️ Delivery Route</Text>
+        {propsSelectedAllocation ? (
+          <>
+            <Text style={styles.subtitle}>
+              {propsSelectedAllocation.unitName} ({propsSelectedAllocation.unitId})
+            </Text>
+            {propsSelectedAllocation.pickupPoint && propsSelectedAllocation.dropoffPoint && (
+              <Text style={styles.routeText}>
+                📍 {propsSelectedAllocation.pickupPoint} → 🎯 {propsSelectedAllocation.dropoffPoint}
+              </Text>
+            )}
+            {propsSelectedAllocation.routeDistance && (
+              <Text style={styles.distanceText}>
+                Distance: ~{propsSelectedAllocation.routeDistance} km
+              </Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.subtitle}>Select an assignment to view route</Text>
         )}
       </View>
       
@@ -170,31 +157,52 @@ const DriverMapsView = ({ style }) => {
         onMapReady={handleMapReady}
         onError={handleMapError}
       >
-        {/* Destination Marker */}
-        <Marker
-          coordinate={DESTINATION_COORDS}
-          title="Isuzu Pasig Dealership"
-          description="Final delivery destination"
-          pinColor="red"
-        />
+        {/* Pickup Location Marker */}
+        {pickupLocation && (
+          <Marker
+            coordinate={pickupLocation}
+            title="📍 Pickup Location"
+            description={propsSelectedAllocation?.pickupPoint || 'Vehicle pickup point'}
+            pinColor="green"
+          />
+        )}
+        
+        {/* Dropoff Location Marker */}
+        {dropoffLocation && (
+          <Marker
+            coordinate={dropoffLocation}
+            title="🎯 Drop-off Location"
+            description={propsSelectedAllocation?.dropoffPoint || 'Delivery destination'}
+            pinColor="red"
+          />
+        )}
         
         {/* Current Location Marker */}
         {currentLocation && (
           <Marker
             coordinate={currentLocation}
-            title="Your Location"
-            description={`Driver: ${driverName}`}
+            title="🚛 Your Current Location"
+            description="You are here"
             pinColor="blue"
           />
         )}
         
-        {/* Route Line */}
-        {currentLocation && (
+        {/* Planned Route Line (Pickup to Dropoff) */}
+        {pickupLocation && dropoffLocation && (
           <Polyline
-            coordinates={[currentLocation, DESTINATION_COORDS]}
-            strokeColor="#ff1e1e"
+            coordinates={[pickupLocation, dropoffLocation]}
+            strokeColor="#3b82f6"
+            strokeWidth={4}
+            lineDashPattern={[10, 5]}
+          />
+        )}
+        
+        {/* Current Progress Line (Current Location to Dropoff) */}
+        {currentLocation && dropoffLocation && (
+          <Polyline
+            coordinates={[currentLocation, dropoffLocation]}
+            strokeColor="#ef4444"
             strokeWidth={3}
-            lineDashPattern={[5, 5]}
           />
         )}
       </MapView>
@@ -205,15 +213,24 @@ const DriverMapsView = ({ style }) => {
         </View>
       )}
 
-      {/* Location Info */}
-      {currentLocation && (
+      {/* Enhanced Location Info */}
+      {(currentLocation || pickupLocation || dropoffLocation) && (
         <View style={styles.locationInfo}>
-          <Text style={styles.infoText}>
-            📍 Your Location: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-          </Text>
-          <Text style={styles.infoText}>
-            🏭 Destination: Isuzu Pasig Dealership
-          </Text>
+          {currentLocation && (
+            <Text style={styles.infoText}>
+              🚛 Current: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+            </Text>
+          )}
+          {pickupLocation && (
+            <Text style={styles.infoText}>
+              📍 Pickup: {propsSelectedAllocation?.pickupPoint || 'Pickup location'}
+            </Text>
+          )}
+          {dropoffLocation && (
+            <Text style={styles.infoText}>
+              🎯 Dropoff: {propsSelectedAllocation?.dropoffPoint || 'Drop-off location'}
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -235,17 +252,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },
-  selectedText: {
-    fontSize: 12,
-    color: '#007AFF',
+  routeText: {
+    fontSize: 13,
+    color: '#3b82f6',
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
   },
   map: {
     flex: 1,

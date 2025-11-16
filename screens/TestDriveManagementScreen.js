@@ -179,38 +179,7 @@ const TestDriveManagementScreen = ({ navigation }) => {
     });
   };
 
-  const updateVehicleStatus = async (vehicleId, newStatus) => {
-    try {
-      const adminName = await AsyncStorage.getItem('accountName');
-      
-      const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${vehicleId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          status: newStatus,
-          updatedBy: adminName || 'Admin'
-        })
-      });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Status Updated',
-          text2: `Vehicle status updated to ${newStatus}`
-        });
-        fetchTestDriveVehicles();
-      } else {
-        Alert.alert('Error', result.error || 'Failed to update vehicle status');
-      }
-    } catch (error) {
-      console.error('Error updating vehicle status:', error);
-      Alert.alert('Error', 'Failed to update vehicle status');
-    }
-  };
 
   const deleteVehicle = async (vehicleId) => {
     try {
@@ -259,22 +228,7 @@ const TestDriveManagementScreen = ({ navigation }) => {
     return colors[status] || '#9E9E9E';
   };
 
-  const showStatusActionSheet = (vehicle) => {
-    const options = statusOptions.filter(status => status !== 'All');
-    
-    Alert.alert(
-      'Update Vehicle Status',
-      `Current status: ${vehicle.status}`,
-      options.map(status => ({
-        text: status,
-        onPress: () => {
-          if (status !== vehicle.status) {
-            updateVehicleStatus(vehicle._id, status);
-          }
-        }
-      })).concat([{ text: 'Cancel', style: 'cancel' }])
-    );
-  };
+
 
   const renderVehicleCard = ({ item }) => {
     const styles = createStyles(theme);
@@ -302,12 +256,6 @@ const TestDriveManagementScreen = ({ navigation }) => {
             }}
           >
             <Text style={styles.editVehicleButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statusButton}
-            onPress={() => showStatusActionSheet(item)}
-          >
-            <Text style={styles.statusButtonText}>Status</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.deleteButton}

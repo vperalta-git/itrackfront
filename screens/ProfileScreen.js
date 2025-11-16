@@ -32,7 +32,7 @@ export default function ProfileScreen() {
     phoneNumber: '',
     role: '',
     accountName: '',
-    profilePicture: '',
+    picture: '',
     personalDetails: '',
     isDarkMode: false,
   });
@@ -65,49 +65,91 @@ export default function ProfileScreen() {
       
       // Get user data from AsyncStorage
       const userId = await AsyncStorage.getItem('userId');
-      const userName = await AsyncStorage.getItem('userName') || await AsyncStorage.getItem('accountName');
+      const userName = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName');
       const userEmail = await AsyncStorage.getItem('userEmail');
       const userRole = await AsyncStorage.getItem('userRole');
-      const userPhone = await AsyncStorage.getItem('userPhone');
+      const userPhone = await AsyncStorage.getItem('phoneno') || await AsyncStorage.getItem('userPhone');
       const darkMode = await AsyncStorage.getItem('isDarkMode') === 'true';
 
-      if (userId) {
-        // Fetch full profile from server
-        const response = await fetch(buildApiUrl(`/api/getUser/${userId}`));
-        if (response.ok) {
-          const result = await response.json();
-          const serverProfile = result.data || result.user || result;
+      console.log('📊 AsyncStorage data:', { userId, userName, userEmail, userRole, userPhone });
+
+      // Start with AsyncStorage data
+      let profileData = {
+        id: userId || '',
+        name: userName || '',
+        email: userEmail || '',
+        phoneNumber: userPhone || '',
+        role: userRole || '',
+        accountName: userName || '',
+        picture: '',
+        personalDetails: '',
+        isDarkMode: darkMode,
+      };
+
+      // Try to fetch from server - use userId or find by email
+      if (userId || userEmail) {
+        try {
+          let response;
+          if (userId) {
+            response = await fetch(buildApiUrl(`/api/getUser/${userId}`));
+          } else {
+            // If no userId, fetch all users and find by email
+            response = await fetch(buildApiUrl('/getUsers'));
+            if (response.ok) {
+              const usersResult = await response.json();
+              const users = usersResult.data || [];
+              const currentUser = users.find(u => u.email === userEmail);
+              if (currentUser) {
+                // Store the userId for future use
+                await AsyncStorage.setItem('userId', currentUser._id);
+                profileData.id = currentUser._id;
+                // Create a mock response
+                response = {
+                  ok: true,
+                  json: async () => ({ success: true, data: currentUser })
+                };
+              }
+            }
+          }
+          console.log('API response status:', response?.status);
           
-          const profileData = {
-            id: serverProfile._id || userId,
-            name: serverProfile.name || userName || 'Unknown User',
-            email: serverProfile.email || userEmail || '',
-            phoneNumber: serverProfile.phoneNumber || userPhone || '',
-            role: serverProfile.role || userRole || 'User',
-            accountName: serverProfile.accountName || userName || '',
-            profilePicture: serverProfile.profilePicture || '',
-            personalDetails: serverProfile.personalDetails || '',
-            isDarkMode: darkMode,
-          };
-          setUserProfile(profileData);
-          setEditForm({ ...profileData });
-        } else {
-          // Use AsyncStorage data if server fetch fails
-          const profileData = {
-            id: userId,
-            name: userName || 'Unknown User',
-            email: userEmail || '',
-            phoneNumber: userPhone || '',
-            role: userRole || 'User',
-            accountName: userName || '',
-            profilePicture: '',
-            personalDetails: '',
-            isDarkMode: darkMode,
-          };
-          setUserProfile(profileData);
-          setEditForm({ ...profileData });
+          if (response.ok) {
+            const result = await response.json();
+            console.log('Server response:', result);
+            
+            if (result.success && result.data) {
+              const serverProfile = result.data;
+              console.log('Server profile data:', serverProfile);
+              console.log('Phone from server:', serverProfile.phoneno);
+              console.log('Picture from server:', serverProfile.picture ? 'EXISTS' : 'MISSING');
+              
+              // Merge server data with AsyncStorage data (server data takes priority)
+              profileData = {
+                id: serverProfile._id || userId,
+                name: serverProfile.name || userName || '',
+                email: serverProfile.email || userEmail || '',
+                phoneNumber: serverProfile.phoneno || serverProfile.phoneNumber || userPhone || '',
+                role: serverProfile.role || userRole || '',
+                accountName: serverProfile.accountName || userName || '',
+                picture: serverProfile.picture || '',
+                personalDetails: serverProfile.personalDetails || '',
+                isDarkMode: darkMode,
+              };
+              console.log('✅ Using server data');
+              console.log('Profile data phoneNumber:', profileData.phoneNumber);
+              console.log('Profile data picture:', profileData.picture ? 'EXISTS' : 'MISSING');
+            }
+          } else {
+            console.log('\u26a0\ufe0f Server fetch failed, using AsyncStorage data');
+          }
+        } catch (fetchError) {
+          console.log('\u26a0\ufe0f Server fetch error, using AsyncStorage data:', fetchError.message);
         }
       }
+      
+      console.log('Final profile data:', profileData);
+      setUserProfile(profileData);
+      setEditForm({ ...profileData });
       
     } catch (error) {
       console.error('❌ Error loading profile:', error);
@@ -120,10 +162,10 @@ export default function ProfileScreen() {
   // Load other user profiles for viewing
   const loadOtherProfiles = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/getUsers'));
+      const response = await fetch(buildApiUrl('/getUsers'));
       if (response.ok) {
-        const users = await response.json();
-        const usersArray = Array.isArray(users) ? users : (users.data || []);
+        const result = await response.json();
+        const usersArray = result.data || [];
         
         // Filter out current user
         const currentUserId = await AsyncStorage.getItem('userId');
@@ -156,7 +198,7 @@ export default function ProfileScreen() {
 
       if (!result.canceled) {
         const imageUri = result.assets[0].uri;
-        setEditForm(prev => ({ ...prev, profilePicture: imageUri }));
+        setEditForm(prev => ({ ...prev, picture: imageUri }));
       }
     } catch (error) {
       console.error('❌ Error selecting profile picture:', error);
@@ -184,54 +226,51 @@ export default function ProfileScreen() {
     try {
       setSaving(true);
       
+      if (!userProfile.id) {
+        Alert.alert('Error', 'User ID not found. Please try reloading the profile.');
+        setSaving(false);
+        return;
+      }
+      
       const updateData = {
         name: editForm.name,
         phoneNumber: editForm.phoneNumber,
         personalDetails: editForm.personalDetails,
-        profilePicture: editForm.profilePicture,
+        picture: editForm.picture,
       };
 
-      // Use the user management endpoint for updates
-      const response = await fetch(buildApiUrl(`/admin/users/${userProfile.id}`), {
+      console.log('Saving profile for user ID:', userProfile.id);
+      console.log('Update data:', updateData);
+
+      // Use the updateProfile endpoint
+      const response = await fetch(buildApiUrl(`/updateProfile/${userProfile.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(updateData),
       });
-      
-      // Also try alternative endpoint if first fails
-      if (!response.ok) {
-        console.log('Trying alternative endpoint for profile update');
-        const altResponse = await fetch(buildApiUrl('/updateProfile'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...updateData,
-            accountName: userProfile.accountName,
-            email: userProfile.email
-          }),
-        });
-        if (altResponse.ok) {
-          response = altResponse;
-        }
-      }
 
-      if (response.ok) {
+      const result = await response.json();
+      console.log('Update response:', result);
+
+      if (response.ok && result.success) {
         setUserProfile(prev => ({ ...prev, ...updateData }));
         setIsEditing(false);
         Alert.alert('Success', 'Profile updated successfully');
         
         // Update AsyncStorage
-        await AsyncStorage.setItem('userName', updateData.name);
+        if (updateData.name) {
+          await AsyncStorage.setItem('accountName', updateData.name);
+          await AsyncStorage.setItem('userName', updateData.name);
+        }
         if (updateData.phoneNumber) {
+          await AsyncStorage.setItem('phoneno', updateData.phoneNumber);
           await AsyncStorage.setItem('userPhone', updateData.phoneNumber);
         }
         
       } else {
-        Alert.alert('Error', 'Failed to update profile');
+        Alert.alert('Error', result.message || 'Failed to update profile');
       }
       
     } catch (error) {
@@ -347,9 +386,9 @@ export default function ProfileScreen() {
               onPress={isEditing ? handleProfilePictureChange : null}
               disabled={!isEditing}
             >
-              {(editForm.profilePicture || userProfile.profilePicture) ? (
+              {(editForm.picture || userProfile.picture) ? (
                 <Image
-                  source={{ uri: editForm.profilePicture || userProfile.profilePicture }}
+                  source={{ uri: editForm.picture || userProfile.picture }}
                   style={styles.profilePicture}
                 />
               ) : (
@@ -616,8 +655,8 @@ export default function ProfileScreen() {
                 >
                   <View style={styles.userInfo}>
                     <View style={[styles.userAvatar, { backgroundColor: themeColors.border }]}>
-                      {user.profilePicture ? (
-                        <Image source={{ uri: user.profilePicture }} style={styles.userAvatarImage} />
+                      {user.picture ? (
+                        <Image source={{ uri: user.picture }} style={styles.userAvatarImage} />
                       ) : (
                         <Ionicons name="person" size={20} color={themeColors.textSecondary} />
                       )}

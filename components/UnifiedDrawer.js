@@ -14,6 +14,8 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import axios from 'axios';
+import { buildApiUrl } from '../constants/api';
 
 // Import all screens
 import AdminDashboard from '../screens/AdminDashboard';
@@ -51,6 +53,82 @@ const itrackLogo = require('../assets/icons/itrackwhite.png');
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
 
+// Profile Button Component for Header
+function ProfileButton() {
+  const navigation = useNavigation();
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    picture: '',
+    userId: ''
+  });
+
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const name = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName');
+        const userId = await AsyncStorage.getItem('userId');
+        const userEmail = await AsyncStorage.getItem('userEmail');
+        
+        setUserInfo({ name: name || 'User', userId });
+        
+        // Fetch user's profile picture from database
+        if (userId || userEmail) {
+          let userData = null;
+          
+          if (userId) {
+            const response = await axios.get(buildApiUrl(`/api/getUser/${userId}`));
+            if (response.data.success && response.data.data) {
+              userData = response.data.data;
+            }
+          } else if (userEmail) {
+            // If no userId, fetch all users and find by email
+            const response = await axios.get(buildApiUrl('/getUsers'));
+            if (response.data.success) {
+              const users = response.data.data || [];
+              userData = users.find(u => u.email === userEmail);
+              if (userData) {
+                // Store the userId for future use
+                await AsyncStorage.setItem('userId', userData._id);
+              }
+            }
+          }
+          
+          if (userData) {
+            setUserInfo(prev => ({
+              ...prev,
+              picture: userData.picture || '',
+              userId: userData._id
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user info:', error);
+      }
+    };
+    loadUserInfo();
+  }, []);
+
+  return (
+    <TouchableOpacity 
+      style={styles.headerProfileButton}
+      onPress={() => navigation.navigate('Profile')}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
+      {userInfo.picture ? (
+        <Image 
+          source={{ uri: userInfo.picture }} 
+          style={styles.profilePicture}
+        />
+      ) : (
+        <View style={styles.profilePicturePlaceholder}>
+          <MaterialIcons name="person" size={20} color="#fff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 // Custom Drawer Content Component (matching web sidebar)
 function CustomDrawerContent(props) {
   const navigation = useNavigation();
@@ -76,16 +154,13 @@ function CustomDrawerContent(props) {
     { name: "Dashboard", icon: dashboardIcon, screen: "Dashboard", roles: ['all'] },
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
-    { name: "Vehicle Assignment", icon: driverIcon, screen: "VehicleAssignment", roles: ['Admin', 'Manager'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
-    { name: "Vehicle Tracking", icon: shipmentsIcon, screen: "VehicleTracking", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Audit Trail", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] },
-    { name: "My Profile", icon: usersIcon, screen: "Profile", roles: ['all'] }
+    { name: "Audit Trail", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] }
   ];
 
   // Filter menu based on role (matching web logic)
@@ -97,7 +172,7 @@ function CustomDrawerContent(props) {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
         item.roles.includes(userRole) ||
-        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Test Drive', 'My Profile'].includes(item.name)
+        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Test Drive'].includes(item.name)
       );
     }
     
@@ -109,7 +184,7 @@ function CustomDrawerContent(props) {
     // Driver gets limited access
     if (userRole === 'Driver') {
       return menuItems.filter(item => 
-        ['Dashboard', 'My Profile'].includes(item.name)
+        ['Dashboard'].includes(item.name)
       );
     }
     
@@ -118,7 +193,7 @@ function CustomDrawerContent(props) {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
         item.roles.includes('Dispatch') ||
-        ['Dashboard', 'Driver Allocation', 'Vehicle Tracking', 'Vehicle Progress', 'My Profile'].includes(item.name)
+        ['Dashboard', 'Driver Allocation', 'Vehicle Progress'].includes(item.name)
       );
     }
     
@@ -254,6 +329,7 @@ export default function UnifiedDrawer() {
           fontWeight: '700',
           color: '#ffffff',
         },
+        headerRight: () => <ProfileButton />,
       }}
     >
       {/* Dashboard Screens */}
@@ -290,11 +366,6 @@ export default function UnifiedDrawer() {
         options={{ title: 'Vehicle Preperation' }}
       />
       <Drawer.Screen
-        name="VehicleAssignment"
-        component={VehicleAssignmentScreen}
-        options={{ title: 'Vehicle Assignment' }}
-      />
-      <Drawer.Screen
         name="DriverAllocation"
         component={DriverAllocation}
         options={{ title: 'Driver Allocation' }}
@@ -321,11 +392,6 @@ export default function UnifiedDrawer() {
       />
 
       {/* Additional Feature Screens */}
-      <Drawer.Screen
-        name="VehicleTracking"
-        component={VehicleListView}
-        options={{ title: 'Vehicle Tracking' }}
-      />
       <Drawer.Screen
         name="VehicleProgress"
         component={VehicleProgressScreen}
@@ -484,5 +550,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     opacity: 0.9,
+  },
+  headerProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 15,
+    paddingVertical: 8,
+  },
+  welcomeText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 10,
+  },
+  profilePicture: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  profilePicturePlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

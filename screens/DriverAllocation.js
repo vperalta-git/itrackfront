@@ -8,6 +8,7 @@ import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 import ViewShipment from '../components/ViewShipment';
 import RouteSelectionModal from '../components/RouteSelectionModal';
+import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
 
 const DriverAllocation = () => {
   const { theme } = useTheme();
@@ -35,11 +36,7 @@ const DriverAllocation = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('stock'); // 'stock' or 'manual'
   const [selectedVin, setSelectedVin] = useState('');
-  const [selectedAgent, setSelectedAgent] = useState('');
-  const [manualModel, setManualModel] = useState('');
-  const [manualVin, setManualVin] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
   const [pickupPoint, setPickupPoint] = useState('');
   const [dropoffPoint, setDropoffPoint] = useState('');
@@ -124,8 +121,8 @@ const DriverAllocation = () => {
   };
 
   const assignFromStock = async () => {
-    if (!selectedVin || !selectedAgent || !selectedDriver) {
-      Alert.alert('Missing Info', 'Please select vehicle, agent, and driver.');
+    if (!selectedVin || !selectedDriver) {
+      Alert.alert('Missing Info', 'Please select vehicle and driver.');
       return;
     }
 
@@ -141,14 +138,18 @@ const DriverAllocation = () => {
         return;
       }
 
+      // Get the selected driver's email for reliable matching
+      const selectedDriverData = drivers.find(d => (d.accountName || d.username) === selectedDriver);
+      const assignedDriverEmail = selectedDriverData?.email || '';
+      
       const allocationPayload = {
         unitName: selectedVehicle.unitName,
         unitId: selectedVehicle.unitId || selectedVehicle._id,
         bodyColor: selectedVehicle.bodyColor,
         variation: selectedVehicle.variation,
         assignedDriver: selectedDriver,
-        assignedAgent: selectedAgent,
-        status: 'Assigned',
+        assignedDriverEmail: assignedDriverEmail, // Store driver email for reliable matching
+        status: 'Pending',
         allocatedBy: 'Admin',
         pickupPoint: selectedRoute?.pickup?.name || pickupPoint,
         dropoffPoint: selectedRoute?.dropoff?.name || dropoffPoint,
@@ -165,15 +166,9 @@ const DriverAllocation = () => {
       const res = await axios.post(buildApiUrl('/createAllocation'), allocationPayload);
 
       if (res.data.success) {
-        // Update inventory status
-        await axios.put(buildApiUrl(`/updateStock/${selectedVehicle._id}`), {
-          ...selectedVehicle,
-          status: 'Allocated'
-        });
-
+        // Status automatically updated to 'Pending' by backend
         Alert.alert('Success', 'Vehicle assigned successfully from stock!');
         setSelectedVin('');
-        setSelectedAgent('');
         setSelectedDriver('');
         setPickupPoint('');
         setDropoffPoint('');
@@ -184,60 +179,6 @@ const DriverAllocation = () => {
       }
     } catch (err) {
       console.error('Assign from stock error:', err);
-      Alert.alert('Error', err.message || 'Failed to assign vehicle');
-    }
-  };
-
-  const assignManualEntry = async () => {
-    if (!manualModel || !manualVin || !selectedDriver || !selectedAgent) {
-      Alert.alert('Missing Info', 'Please fill in all fields for manual entry.');
-      return;
-    }
-
-    if (!newAllocation.customerName || !newAllocation.customerEmail) {
-      Alert.alert('Missing Customer Info', 'Please provide customer name and email address.');
-      return;
-    }
-
-    try {
-      const allocationPayload = {
-        unitName: manualModel,
-        unitId: manualVin,
-        bodyColor: 'Manual Entry',
-        variation: 'Manual Entry',
-        assignedDriver: selectedDriver,
-        assignedAgent: selectedAgent,
-        status: 'Assigned',
-        allocatedBy: 'Admin',
-        pickupPoint: selectedRoute?.pickup?.name || pickupPoint,
-        dropoffPoint: selectedRoute?.dropoff?.name || dropoffPoint,
-        pickupCoordinates: selectedRoute?.pickup?.coordinates,
-        dropoffCoordinates: selectedRoute?.dropoff?.coordinates,
-        routeDistance: selectedRoute?.distance,
-        estimatedTime: selectedRoute?.estimatedTime,
-        date: new Date().toISOString(),
-        customerName: newAllocation.customerName,
-        customerEmail: newAllocation.customerEmail,
-        customerPhone: newAllocation.customerPhone
-      };
-
-      const res = await axios.post(buildApiUrl('/createAllocation'), allocationPayload);
-
-      if (res.data.success) {
-        Alert.alert('Success', 'Vehicle assigned successfully via manual entry!');
-        setManualModel('');
-        setManualVin('');
-        setSelectedDriver('');
-        setSelectedAgent('');
-        setPickupPoint('');
-        setDropoffPoint('');
-        setIsCreateModalOpen(false);
-        fetchAllocations();
-      } else {
-        throw new Error(res.data.message || 'Failed to assign');
-      }
-    } catch (err) {
-      console.error('Manual assign error:', err);
       Alert.alert('Error', err.message || 'Failed to assign vehicle');
     }
   };
@@ -271,25 +212,47 @@ const DriverAllocation = () => {
       return;
     }
 
-    if (mode === 'stock') {
-      assignFromStock();
-    } else {
-      assignManualEntry();
+    assignFromStock();
+  };
+
+  const handleUpdate = async (id) => {
+    if (!editAllocation) return;
+
+    try {
+      console.log('Updating allocation:', id, editAllocation);
+      const res = await axios.put(buildApiUrl(`/updateAllocation/${id}`), editAllocation);
+      
+      if (res.data.success) {
+        Alert.alert('Success', 'Allocation updated successfully!');
+        setEditAllocation(null);
+        fetchAllocations();
+      } else {
+        throw new Error(res.data.message || 'Failed to update');
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      Alert.alert('Error', err.message || 'Failed to update allocation');
     }
   };
 
-  const handleUpdate = (id) => {
-    // Update functionality not implemented in backend yet
-    Alert.alert('Info', 'Update functionality will be available soon');
-    setEditAllocation(null);
-  };
-
   const handleDelete = (id) => {
-    Alert.alert('Delete', 'Are you sure you want to delete this allocation?', [
+    Alert.alert('Delete Allocation', 'Are you sure you want to delete this allocation? This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
-        // Delete functionality not implemented in backend yet
-        Alert.alert('Info', 'Delete functionality will be available soon');
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          console.log('Deleting allocation:', id);
+          const res = await axios.delete(buildApiUrl(`/deleteAllocation/${id}`));
+          
+          if (res.data.success) {
+            Alert.alert('Success', 'Allocation deleted successfully');
+            fetchAllocations();
+          } else {
+            throw new Error(res.data.message || 'Failed to delete');
+          }
+        } catch (err) {
+          console.error('Delete error:', err);
+          Alert.alert('Error', err.message || 'Failed to delete allocation');
+        }
       }}
     ]);
   };
@@ -297,11 +260,16 @@ const DriverAllocation = () => {
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const filteredAllocations = allocations.filter(item =>
-    item.unitName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.unitId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.assignedDriver.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAllocations = allocations.filter(item => {
+    const searchLower = searchTerm.toLowerCase();
+    const unitName = (item.unitName || '').toLowerCase();
+    const unitId = (item.unitId || '').toLowerCase();
+    const assignedDriver = (item.assignedDriver || '').toLowerCase();
+    
+    return unitName.includes(searchLower) ||
+           unitId.includes(searchLower) ||
+           assignedDriver.includes(searchLower);
+  });
   const currentAllocations = filteredAllocations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAllocations.length / itemsPerPage);
 
@@ -555,12 +523,8 @@ const DriverAllocation = () => {
                 style={styles.closeButton}
                 onPress={() => {
                   setIsCreateModalOpen(false);
-                  setMode('stock');
                   setSelectedVin('');
-                  setSelectedAgent('');
                   setSelectedDriver('');
-                  setManualModel('');
-                  setManualVin('');
                   setPickupPoint('');
                   setDropoffPoint('');
                   setSelectedRoute(null);
@@ -570,26 +534,6 @@ const DriverAllocation = () => {
               </TouchableOpacity>
             </View>
             
-            {/* Mode Selection */}
-            <View style={styles.modeSelector}>
-              <TouchableOpacity
-                style={[styles.modeButton, mode === 'stock' && styles.modeButtonActive]}
-                onPress={() => setMode('stock')}
-              >
-                <Text style={[styles.modeButtonText, mode === 'stock' && styles.modeButtonTextActive]}>
-                  From Stock
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
-                onPress={() => setMode('manual')}
-              >
-                <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-                  Manual Entry
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             <ScrollView 
               style={styles.modalScrollView}
               contentContainerStyle={{ paddingBottom: 10 }}
@@ -598,8 +542,6 @@ const DriverAllocation = () => {
               nestedScrollEnabled={true}
             >
               <View style={styles.modalForm}>
-              {mode === 'stock' ? (
-                <>
                   {/* Stock Selection Form */}
                   <View style={styles.formGroup}>
                     <Text style={styles.inputLabel}>Select Vehicle from Stock</Text>
@@ -609,72 +551,21 @@ const DriverAllocation = () => {
                       onValueChange={val => setSelectedVin(val)}
                     >
                       <Picker.Item label="Choose Vehicle..." value="" />
-                      {inventory.filter(item => (item.status || 'Available') === 'Available').map(v => (
+                      {inventory.filter(item => {
+                        const status = item.status || 'In Stockyard';
+                        // Only show vehicles that are not already allocated
+                        return (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                      }).map(v => (
                         <Picker.Item 
                           key={v._id} 
-                          label={`${v.unitName} - ${v.variation} (${v.bodyColor})`} 
+                          label={`${v.unitName} - ${v.variation} (${v.bodyColor}) - ${v.status || 'In Stockyard'}`} 
                           value={v.unitId || v._id} 
                         />
                       ))}
                     </Picker>
                   </View>
 
-                  <View style={styles.formGroup}>
-                    <Text style={styles.inputLabel}>Assign to Agent</Text>
-                    <Picker
-                      selectedValue={selectedAgent}
-                      style={styles.picker}
-                      onValueChange={val => setSelectedAgent(val)}
-                    >
-                      <Picker.Item label="Select Agent..." value="" />
-                      {agents.map(a => (
-                        <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                      ))}
-                    </Picker>
-                  </View>
-                </>
-              ) : (
-                <>
-                  {/* Manual Entry Form */}
-                  <View style={styles.formGroup}>
-                    <Text style={styles.inputLabel}>Vehicle Model</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Vehicle Model (e.g., Isuzu D-Max)"
-                      value={manualModel}
-                      onChangeText={setManualModel}
-                      placeholderTextColor="#94a3b8"
-                    />
-                  </View>
-
-                  <View style={styles.formGroup}>
-                    <Text style={styles.inputLabel}>VIN Number</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="VIN Number"
-                      value={manualVin}
-                      onChangeText={setManualVin}
-                      placeholderTextColor="#94a3b8"
-                    />
-                  </View>
-
-                  <View style={styles.formGroup}>
-                    <Text style={styles.inputLabel}>Assign to Agent</Text>
-                    <Picker
-                      selectedValue={selectedAgent}
-                      style={styles.picker}
-                      onValueChange={val => setSelectedAgent(val)}
-                    >
-                      <Picker.Item label="Select Agent..." value="" />
-                      {agents.map(a => (
-                        <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                      ))}
-                    </Picker>
-                  </View>
-                </>
-              )}
-
-              {/* Driver Selection (Common for both modes) */}
+              {/* Driver Selection */}
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Assign Driver</Text>
                 <Picker
@@ -865,12 +756,8 @@ const DriverAllocation = () => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => {
                 setIsCreateModalOpen(false);
-                setMode('stock');
                 setSelectedVin('');
-                setSelectedAgent('');
                 setSelectedDriver('');
-                setManualModel('');
-                setManualVin('');
                 setPickupPoint('');
                 setDropoffPoint('');
                 setSelectedRoute(null);
@@ -887,56 +774,93 @@ const DriverAllocation = () => {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Edit Allocation</Text>
             {editAllocation && (
-              <View style={styles.modalForm}>
+              <ScrollView style={styles.modalForm}>
+                <Text style={styles.fieldLabel}>Unit Name</Text>
+                <Picker
+                  selectedValue={editAllocation.unitName || ''}
+                  style={styles.input}
+                  onValueChange={itemValue => {
+                    setEditAllocation({ 
+                      ...editAllocation, 
+                      unitName: itemValue,
+                      variation: '' // Reset variation when unit name changes
+                    });
+                  }}
+                >
+                  <Picker.Item label="Select Unit Name" value="" />
+                  {getUnitNames().map((unitName) => (
+                    <Picker.Item key={unitName} label={unitName} value={unitName} />
+                  ))}
+                </Picker>
+
+                <Text style={styles.fieldLabel}>Unit ID (Conduction Number)</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Unit Name"
-                  value={editAllocation.unitName}
-                  onChangeText={text => setEditAllocation({ ...editAllocation, unitName: text })}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Conduction Number"
-                  value={editAllocation.unitId}
+                  placeholder="Enter Unit ID"
+                  value={editAllocation.unitId || ''}
                   onChangeText={text => setEditAllocation({ ...editAllocation, unitId: text })}
                 />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Body Color"
-                  value={editAllocation.bodyColor}
-                  onChangeText={text => setEditAllocation({ ...editAllocation, bodyColor: text })}
-                />
+
+                <Text style={styles.fieldLabel}>Body Color</Text>
                 <Picker
-                  selectedValue={editAllocation.variation}
+                  selectedValue={editAllocation.bodyColor || ''}
+                  style={styles.input}
+                  onValueChange={itemValue => setEditAllocation({ ...editAllocation, bodyColor: itemValue })}
+                >
+                  <Picker.Item label="Select Color" value="" />
+                  <Picker.Item label="White" value="White" />
+                  <Picker.Item label="Black" value="Black" />
+                  <Picker.Item label="Silver" value="Silver" />
+                  <Picker.Item label="Gray" value="Gray" />
+                  <Picker.Item label="Red" value="Red" />
+                  <Picker.Item label="Blue" value="Blue" />
+                  <Picker.Item label="Orange" value="Orange" />
+                  <Picker.Item label="Green" value="Green" />
+                  <Picker.Item label="Yellow" value="Yellow" />
+                  <Picker.Item label="Brown" value="Brown" />
+                </Picker>
+
+                <Text style={styles.fieldLabel}>Variation</Text>
+                <Picker
+                  selectedValue={editAllocation.variation || ''}
                   style={styles.input}
                   onValueChange={itemValue => setEditAllocation({ ...editAllocation, variation: itemValue })}
+                  enabled={!!editAllocation.unitName}
                 >
-                  <Picker.Item label="Select Variation" value="" />
-                  <Picker.Item label="4x2 LSA" value="4x2 LSA" />
-                  <Picker.Item label="4x4" value="4x4" />
-                  <Picker.Item label="LS-E" value="LS-E" />
-                  <Picker.Item label="LS" value="LS" />
+                  <Picker.Item 
+                    label={editAllocation.unitName ? "Select Variation" : "First select Unit Name"} 
+                    value="" 
+                  />
+                  {editAllocation.unitName && getVariationsForUnit(editAllocation.unitName).map((variation) => (
+                    <Picker.Item key={variation} label={variation} value={variation} />
+                  ))}
                 </Picker>
+
+                <Text style={styles.fieldLabel}>Assigned Driver</Text>
                 <Picker
-                  selectedValue={editAllocation.assignedDriver}
+                  selectedValue={editAllocation.assignedDriver || ''}
                   style={styles.input}
                   onValueChange={itemValue => setEditAllocation({ ...editAllocation, assignedDriver: itemValue })}
                 >
                   <Picker.Item label="Select Driver" value="" />
                   {drivers.map(driver => (
-                    <Picker.Item key={driver._id} label={driver.accountName || driver.username} value={driver.accountName || driver.username} />
+                    <Picker.Item key={driver._id} label={driver.accountName || driver.name || driver.username} value={driver.accountName || driver.name || driver.username} />
                   ))}
                 </Picker>
+
+                <Text style={styles.fieldLabel}>Status</Text>
                 <Picker
-                  selectedValue={editAllocation.status}
+                  selectedValue={editAllocation.status || 'Pending'}
                   style={styles.input}
                   onValueChange={itemValue => setEditAllocation({ ...editAllocation, status: itemValue })}
                 >
                   <Picker.Item label="Pending" value="Pending" />
+                  <Picker.Item label="Assigned" value="Assigned" />
                   <Picker.Item label="In Transit" value="In Transit" />
+                  <Picker.Item label="Delivered" value="Delivered" />
                   <Picker.Item label="Completed" value="Completed" />
                 </Picker>
-              </View>
+              </ScrollView>
             )}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.createBtn} onPress={() => handleUpdate(editAllocation._id)}>

@@ -1,9 +1,11 @@
 // EnhancedAdminMapsView.js - Clean Admin Maps with Google Maps Integration
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import { buildApiUrl } from '../constants/api';
 import { getCurrentLocation, reverseGeocodeCoordinates } from '../utils/mapsApi';
+
+const TRUCK_ICON = require('../assets/icons/truck1.png');
 
 const EnhancedAdminMapsView = ({ style }) => {
   const [vehicles, setVehicles] = useState([]);
@@ -172,24 +174,27 @@ const EnhancedAdminMapsView = ({ style }) => {
           pinColor="red"
         />
         
-        {/* Vehicle Allocation Markers */}
+        {/* Vehicle Allocation Markers with Truck Icons */}
         {allocations.map((allocation, index) => {
-          // Generate mock coordinates around dealership for demo
-          const lat = defaultRegion.latitude + (Math.random() - 0.5) * 0.02;
-          const lng = defaultRegion.longitude + (Math.random() - 0.5) * 0.02;
+          // Use real coordinates if available, otherwise generate mock
+          const hasRealLocation = allocation.currentLocation?.latitude && allocation.currentLocation?.longitude;
+          const lat = hasRealLocation ? allocation.currentLocation.latitude : defaultRegion.latitude + (Math.random() - 0.5) * 0.02;
+          const lng = hasRealLocation ? allocation.currentLocation.longitude : defaultRegion.longitude + (Math.random() - 0.5) * 0.02;
           
           return (
             <Marker
               key={allocation._id || `alloc-${index}`}
               coordinate={{ latitude: lat, longitude: lng }}
               title={`🚗 ${allocation.unitName || 'Vehicle'} (${allocation.unitId || 'N/A'})`}
-              description={`Status: ${allocation.status || 'Unknown'} • Driver: ${allocation.assignedDriver || 'Unassigned'}`}
-              pinColor={
-                allocation.status === 'Delivered' ? 'green' : 
-                allocation.status === 'Out for Delivery' ? 'blue' : 
-                allocation.status === 'In Transit' ? 'orange' : 'gray'
-              }
-            />
+              description={`Status: ${allocation.status || 'Unknown'} • Driver: ${allocation.assignedDriver || 'Unassigned'}${hasRealLocation ? ' (GPS Active)' : ''}`}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <Image
+                source={TRUCK_ICON}
+                style={styles.truckIcon}
+                resizeMode="contain"
+              />
+            </Marker>
           );
         })}
 
@@ -287,6 +292,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#666',
     fontSize: 16,
+  },
+  truckIcon: {
+    width: 40,
+    height: 40,
   },
   loadingText: {
     marginTop: 10,
