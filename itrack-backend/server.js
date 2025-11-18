@@ -2174,6 +2174,242 @@ app.post('/api/places/search', async (req, res) => {
   }
 });
 
+// Get Google Maps API Key
+app.get('/api/maps/api-key', (req, res) => {
+  try {
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    res.json({
+      success: true,
+      apiKey: GOOGLE_MAPS_API_KEY
+    });
+  } catch (error) {
+    console.error('Error fetching API key:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch API key'
+    });
+  }
+});
+
+// Google Maps Routes API - Get optimal route with traffic
+app.post('/api/maps/route', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🗺️  Calculating route:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    // Use Directions API (works with current setup)
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      
+      res.json({
+        success: true,
+        route: {
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+          durationInTraffic: leg.duration_in_traffic?.text || leg.duration.text,
+          startAddress: leg.start_address,
+          endAddress: leg.end_address,
+          startLocation: leg.start_location,
+          endLocation: leg.end_location,
+          polyline: route.overview_polyline.points,
+          steps: leg.steps.map(step => ({
+            distance: step.distance.text,
+            duration: step.duration.text,
+            instruction: step.html_instructions.replace(/<[^>]*>/g, ''),
+            startLocation: step.start_location,
+            endLocation: step.end_location
+          }))
+        }
+      });
+    } else {
+      console.warn('⚠️  Route calculation error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Route calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate route',
+      error: error.message
+    });
+  }
+});
+
+// Google Maps Distance Matrix API - Calculate distances for multiple origins/destinations
+app.post('/api/maps/distance-matrix', async (req, res) => {
+  try {
+    const { origins, destinations } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('📊 Calculating distance matrix');
+
+    if (!origins || !destinations || origins.length === 0 || destinations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origins and destinations arrays are required'
+      });
+    }
+
+    const originsStr = origins.join('|');
+    const destinationsStr = destinations.join('|');
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(originsStr)}&destinations=${encodeURIComponent(destinationsStr)}&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK') {
+      res.json({
+        success: true,
+        matrix: {
+          originAddresses: data.origin_addresses,
+          destinationAddresses: data.destination_addresses,
+          rows: data.rows.map(row => ({
+            elements: row.elements.map(el => ({
+              distance: el.distance?.text,
+              duration: el.duration?.text,
+              durationInTraffic: el.duration_in_traffic?.text,
+              status: el.status
+            }))
+          }))
+        }
+      });
+    } else {
+      console.warn('⚠️  Distance matrix error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Failed to calculate distances',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Distance matrix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate distance matrix',
+      error: error.message
+    });
+  }
+});
+
+// Google Places API - Get place details by place_id
+app.get('/api/places/details/:placeId', async (req, res) => {
+  try {
+    const { placeId } = req.params;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🔍 Getting place details:', placeId);
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,rating,reviews,photos,opening_hours,website&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.result) {
+      res.json({
+        success: true,
+        place: {
+          name: data.result.name,
+          address: data.result.formatted_address,
+          location: data.result.geometry.location,
+          phone: data.result.formatted_phone_number,
+          rating: data.result.rating,
+          reviews: data.result.reviews,
+          photos: data.result.photos,
+          openingHours: data.result.opening_hours,
+          website: data.result.website
+        }
+      });
+    } else {
+      console.warn('⚠️  Place details error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Place not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Place details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get place details',
+      error: error.message
+    });
+  }
+});
+
+// Google Places API - Autocomplete for place searches
+app.get('/api/places/autocomplete', async (req, res) => {
+  try {
+    const { input, location, radius } = req.query;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🔍 Place autocomplete:', input);
+
+    if (!input) {
+      return res.status(400).json({
+        success: false,
+        message: 'Input parameter is required'
+      });
+    }
+
+    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    if (location && radius) {
+      url += `&location=${location}&radius=${radius}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.predictions) {
+      res.json({
+        success: true,
+        predictions: data.predictions.map(pred => ({
+          placeId: pred.place_id,
+          description: pred.description,
+          mainText: pred.structured_formatting.main_text,
+          secondaryText: pred.structured_formatting.secondary_text
+        }))
+      });
+    } else {
+      res.json({
+        success: true,
+        predictions: []
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Place autocomplete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to autocomplete places',
+      error: error.message
+    });
+  }
+});
+
 // API versions for web compatibility
 app.post('/api/updateDriverLocation', async (req, res) => {
   // Redirect to main endpoint

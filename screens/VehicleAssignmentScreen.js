@@ -297,7 +297,7 @@ const createStyles = (theme) => StyleSheet.create({
     marginBottom: 8,
   },
   badge: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,

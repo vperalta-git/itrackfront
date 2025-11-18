@@ -10,8 +10,9 @@
  */
 
 const mongoose = require('mongoose');
+require('dotenv').config({ path: './itrack-backend/.env' });
 
-// MongoDB connection URI (update if different)
+// MongoDB connection URI - Using Atlas connection from .env
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/itrack';
 
 // Driver Allocation Schema

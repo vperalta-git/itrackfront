@@ -148,7 +148,7 @@ export default function VehicleProgressScreen() {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#DC2626']} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e50914']} />
       }
     >
       <Text style={styles.header}>Vehicle Preparation Tracker</Text>
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     borderRadius: 4
   },
   processesTitle: {

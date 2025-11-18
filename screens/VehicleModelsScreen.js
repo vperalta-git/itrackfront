@@ -319,13 +319,13 @@ const VehicleModelsScreen = () => {
 
   const getCategoryColor = (category) => {
     const colors = {
-      'Pickup': '#DC2626',
+      'Pickup': '#e50914',
       'SUV': '#10B981',
       'Commercial': '#F59E0B',
-      'Truck': '#DC2626',
+      'Truck': '#e50914',
       'Heavy Duty': '#9c27b0'
     };
-    return colors[category] || '#DC2626';
+    return colors[category] || '#e50914';
   };
 
   if (loading && !refreshing) {
@@ -362,7 +362,7 @@ const VehicleModelsScreen = () => {
       {/* Action Buttons */}
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={[styles.initButton, { backgroundColor: '#DC2626' }]}
+          style={[styles.initButton, { backgroundColor: '#e50914' }]}
           onPress={initializeVehicleModels}
         >
           <MaterialIcons name="refresh" size={20} color="white" />
@@ -385,7 +385,7 @@ const VehicleModelsScreen = () => {
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-          <Text style={[styles.statNumber, { color: '#DC2626' }]}>{filteredModels.length}</Text>
+          <Text style={[styles.statNumber, { color: '#e50914' }]}>{filteredModels.length}</Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Models</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
@@ -442,7 +442,7 @@ const VehicleModelsScreen = () => {
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Add Vehicle Model</Text>
             <TouchableOpacity onPress={handleAddModel}>
-              <Text style={[styles.modalSaveText, { color: '#DC2626' }]}>Save</Text>
+              <Text style={[styles.modalSaveText, { color: '#e50914' }]}>Save</Text>
             </TouchableOpacity>
           </View>
 
@@ -515,7 +515,7 @@ const VehicleModelsScreen = () => {
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Vehicle Model</Text>
             <TouchableOpacity onPress={handleEditModel}>
-              <Text style={[styles.modalSaveText, { color: '#DC2626' }]}>Save</Text>
+              <Text style={[styles.modalSaveText, { color: '#e50914' }]}>Save</Text>
             </TouchableOpacity>
           </View>
 
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     minWidth: 40,
     alignItems: 'center',
   },
@@ -742,10 +742,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   editButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
   },
   deleteButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
   },
   actionButtonText: {
     color: 'white',

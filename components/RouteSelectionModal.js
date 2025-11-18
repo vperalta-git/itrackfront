@@ -12,9 +12,8 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
@@ -41,71 +40,59 @@ const RouteSelectionModal = ({
   const [dropoffLocation, setDropoffLocation] = useState(initialDropoff);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [recentLocations, setRecentLocations] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeSelection, setActiveSelection] = useState('pickup'); // 'pickup' or 'dropoff'
+  const [googleApiKey, setGoogleApiKey] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   
   const mapRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
-  // Predefined common locations for the vehicle inventory business
-  const commonLocations = [
-    {
-      name: 'Isuzu Laguna Stockyard',
-      address: 'Isuzu Stockyard, Santa Rosa, Laguna, Philippines',
-      coordinates: { latitude: 14.3122, longitude: 121.1115 },
-      type: 'stockyard'
-    },
-    {
-      name: 'Isuzu Pasig Branch',
-      address: 'Isuzu Pasig Dealership, Pasig City',
-      coordinates: { latitude: 14.5764, longitude: 121.0851 },
-      type: 'dealership'
-    },
-    {
-      name: 'Isuzu Quezon City',
-      address: 'Isuzu QC Branch, Quezon City',
-      coordinates: { latitude: 14.6760, longitude: 121.0437 },
-      type: 'dealership'
-    },
-    {
-      name: 'Isuzu Marikina Service',
-      address: 'Isuzu Service Center, Marikina City',
-      coordinates: { latitude: 14.6507, longitude: 121.1029 },
-      type: 'service'
-    },
-    {
-      name: 'Manila Port Area',
-      address: 'Manila Port, Manila City',
-      coordinates: { latitude: 14.5833, longitude: 120.9667 },
-      type: 'port'
-    },
-    {
-      name: 'NLEX Entry Point',
-      address: 'NLEX Balintawak Entry, Quezon City',
-      coordinates: { latitude: 14.6896, longitude: 120.9881 },
-      type: 'highway'
-    },
-    {
-      name: 'SLEX Entry Point',
-      address: 'SLEX Magallanes Entry, Makati City',
-      coordinates: { latitude: 14.5547, longitude: 121.0244 },
-      type: 'highway'
-    },
-    {
-      name: 'Batangas Port',
-      address: 'Batangas International Port, Batangas',
-      coordinates: { latitude: 13.7565, longitude: 121.0583 },
-      type: 'port'
-    }
-  ];
+  // API base URL
+  const API_BASE_URL = 'https://backend.acmobility-uat.com';
 
   useEffect(() => {
     if (isVisible) {
-      loadRecentLocations();
-      requestLocationPermission();
+      fetchGoogleApiKey();
+      // Location permission removed - only drivers need GPS tracking
+      // Saves battery, API calls, and reduces costs
     }
   }, [isVisible]);
+
+  const fetchGoogleApiKey = async () => {
+    // Use direct API key for admin/dispatch - backend might be offline
+    const FALLBACK_KEY = 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${API_BASE_URL}/api/maps/api-key`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.trim()) {
+          const data = JSON.parse(text);
+          if (data.success && data.apiKey) {
+            setGoogleApiKey(data.apiKey);
+            console.log('✓ API key loaded from backend');
+            return;
+          }
+        }
+      }
+      throw new Error('Backend unavailable');
+    } catch (err) {
+      console.log('ℹ Using direct API key (backend offline)');
+      setGoogleApiKey(FALLBACK_KEY);
+    }
+  };
 
   useEffect(() => {
     // Auto-search when query changes
@@ -127,75 +114,9 @@ const RouteSelectionModal = ({
     };
   }, [searchQuery]);
 
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        getCurrentLocation();
-      }
-    } catch (error) {
-      console.error('Error requesting location permission:', error);
-    }
-  };
-
-  const getCurrentLocation = async () => {
-    try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      
-      const currentRegion = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
-      
-      setMapRegion(currentRegion);
-      
-      if (mapRef.current) {
-        mapRef.current.animateToRegion(currentRegion);
-      }
-    } catch (error) {
-      console.error('Error getting current location:', error);
-    }
-  };
-
-  const loadRecentLocations = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('recentRouteLocations');
-      if (stored) {
-        const locations = JSON.parse(stored);
-        setRecentLocations(locations.slice(0, 10)); // Keep only 10 most recent
-      }
-    } catch (error) {
-      console.error('Error loading recent locations:', error);
-    }
-  };
-
-  const saveLocationToRecent = async (location) => {
-    try {
-      const recent = await AsyncStorage.getItem('recentRouteLocations');
-      let locations = recent ? JSON.parse(recent) : [];
-      
-      // Remove if already exists to avoid duplicates
-      locations = locations.filter(loc => loc.name !== location.name);
-      
-      // Add to beginning
-      locations.unshift({
-        ...location,
-        timestamp: Date.now()
-      });
-      
-      // Keep only 20 recent locations
-      locations = locations.slice(0, 20);
-      
-      await AsyncStorage.setItem('recentRouteLocations', JSON.stringify(locations));
-      setRecentLocations(locations.slice(0, 10));
-    } catch (error) {
-      console.error('Error saving recent location:', error);
-    }
-  };
+  // Location tracking removed for admin/dispatch/agent users
+  // Only drivers need GPS tracking for real-time location updates
+  // This reduces API calls, battery usage, and operational costs
 
   const searchLocations = async (query) => {
     if (!query || query.length < 3) {
@@ -203,32 +124,69 @@ const RouteSelectionModal = ({
       return;
     }
 
+    if (!googleApiKey) {
+      console.log('⏳ Waiting for API key...');
+      return;
+    }
+
     setIsSearching(true);
     try {
-      // Note: In a real implementation, you would use Google Places API
-      // For now, we'll simulate search results
-      const mockResults = [
-        {
-          name: query,
-          address: `${query}, Metro Manila, Philippines`,
-          coordinates: {
-            latitude: 14.5995 + (Math.random() - 0.5) * 0.1,
-            longitude: 120.9842 + (Math.random() - 0.5) * 0.1
-          },
-          type: 'search_result'
-        }
-      ];
+      // Use Google Places API directly (no backend needed)
+      const autocompleteUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&location=14.5995,120.9842&radius=50000&key=${googleApiKey}`;
+      
+      const response = await fetch(autocompleteUrl);
+      
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+      
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : { status: 'ERROR' };
 
-      // Also search common locations
-      const commonMatches = commonLocations.filter(location =>
-        location.name.toLowerCase().includes(query.toLowerCase()) ||
-        location.address.toLowerCase().includes(query.toLowerCase())
-      );
+      if (data.status === 'OK' && data.predictions) {
+        // Get detailed place info for each prediction
+        const detailedResults = await Promise.all(
+          data.predictions.slice(0, 5).map(async (prediction) => {
+            try {
+              // Get place details directly from Google
+              const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=name,formatted_address,geometry&key=${googleApiKey}`;
+              const detailsResponse = await fetch(detailsUrl);
+              
+              if (!detailsResponse.ok) return null;
+              
+              const detailsText = await detailsResponse.text();
+              const detailsData = detailsText ? JSON.parse(detailsText) : { status: 'ERROR' };
 
-      setSearchResults([...commonMatches, ...mockResults]);
+              if (detailsData.status === 'OK' && detailsData.result) {
+                const place = detailsData.result;
+                return {
+                  name: place.name || prediction.description,
+                  address: place.formatted_address || prediction.description,
+                  coordinates: {
+                    latitude: place.geometry.location.lat,
+                    longitude: place.geometry.location.lng
+                  },
+                  placeId: prediction.place_id,
+                  type: 'search_result'
+                };
+              }
+            } catch (error) {
+              console.error('Error fetching place details:', error);
+            }
+            return null;
+          })
+        );
+
+        const validResults = detailedResults.filter(result => result !== null);
+        setSearchResults(validResults);
+        console.log(`✓ Found ${validResults.length} locations`);
+      } else {
+        setSearchResults([]);
+        console.log('ℹ No results found');
+      }
     } catch (error) {
-      console.error('Error searching locations:', error);
-      Alert.alert('Error', 'Failed to search locations');
+      console.error('Search error:', error.message);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -237,35 +195,50 @@ const RouteSelectionModal = ({
   const handleMapPress = async (event) => {
     const coordinate = event.nativeEvent.coordinate;
     
-    try {
-      // Reverse geocode to get address
-      const reverseGeocode = await Location.reverseGeocodeAsync(coordinate);
-      let address = 'Unknown Location';
-      
-      if (reverseGeocode && reverseGeocode.length > 0) {
-        const addr = reverseGeocode[0];
-        address = [
-          addr.streetNumber,
-          addr.street,
-          addr.city,
-          addr.region
-        ].filter(Boolean).join(', ');
-      }
+    if (!googleApiKey) {
+      Alert.alert('Error', 'Google Maps API key not loaded');
+      return;
+    }
 
-      const locationData = {
-        name: address,
-        address: address,
-        coordinates: coordinate,
-        type: 'map_selected'
-      };
+    try {
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinate.latitude},${coordinate.longitude}&key=${googleApiKey}`;
+      const response = await fetch(geocodeUrl);
+      
+      if (!response.ok) {
+        throw new Error('Geocoding failed');
+      }
+      
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : { status: 'ERROR' };
+
+      let locationData;
+
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        const place = data.results[0];
+        locationData = {
+          name: place.formatted_address.split(',')[0], // First part as name
+          address: place.formatted_address,
+          coordinates: coordinate,
+          placeId: place.place_id,
+          type: 'map_selected'
+        };
+      } else {
+        // Fallback without address
+        locationData = {
+          name: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+          address: `Coordinates: ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+          coordinates: coordinate,
+          type: 'map_selected'
+        };
+      }
 
       selectLocation(locationData);
     } catch (error) {
       console.error('Error reverse geocoding:', error);
-      // Fallback without address
+      // Fallback
       const locationData = {
         name: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
-        address: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+        address: `Coordinates: ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
         coordinates: coordinate,
         type: 'map_selected'
       };
@@ -282,9 +255,6 @@ const RouteSelectionModal = ({
       setDropoffLocation(location);
     }
 
-    // Save to recent locations
-    saveLocationToRecent(location);
-
     // Clear search
     setSearchQuery('');
     setSearchResults([]);
@@ -298,6 +268,98 @@ const RouteSelectionModal = ({
       });
     }
   };
+
+  // Fetch route from Google Directions API
+  const fetchRoute = async (pickup, dropoff) => {
+    if (!pickup || !dropoff || !googleApiKey) {
+      return;
+    }
+
+    setIsLoadingRoute(true);
+    try {
+      const origin = `${pickup.coordinates.latitude},${pickup.coordinates.longitude}`;
+      const destination = `${dropoff.coordinates.latitude},${dropoff.coordinates.longitude}`;
+      
+      const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${googleApiKey}`;
+      
+      const response = await fetch(directionsUrl);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch route');
+      }
+      
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : { status: 'ERROR' };
+
+      if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const points = decodePolyline(route.overview_polyline.points);
+        setRouteCoordinates(points);
+        
+        // Fit map to show entire route
+        if (mapRef.current && points.length > 0) {
+          mapRef.current.fitToCoordinates(points, {
+            edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
+            animated: true,
+          });
+        }
+        
+        console.log('✓ Route loaded with', points.length, 'points');
+      } else {
+        console.log('ℹ No route found');
+        setRouteCoordinates([]);
+      }
+    } catch (error) {
+      console.error('Route fetch error:', error.message);
+      setRouteCoordinates([]);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  };
+
+  // Decode Google's encoded polyline format
+  const decodePolyline = (encoded) => {
+    const points = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
+
+    while (index < len) {
+      let b, shift = 0, result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
+    }
+
+    return points;
+  };
+
+  // Auto-fetch route when both locations are selected
+  useEffect(() => {
+    if (pickupLocation && dropoffLocation) {
+      fetchRoute(pickupLocation, dropoffLocation);
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [pickupLocation, dropoffLocation, googleApiKey]);
 
   const handleConfirmRoute = () => {
     if (!pickupLocation || !dropoffLocation) {
@@ -339,20 +401,6 @@ const RouteSelectionModal = ({
     const timeInHours = distance / averageSpeed;
     const timeInMinutes = Math.round(timeInHours * 60);
     return timeInMinutes;
-  };
-
-  const LocationTypeIcon = ({ type }) => {
-    const icons = {
-      stockyard: '🏭',
-      dealership: '🏢',
-      service: '🔧',
-      port: '🚢',
-      highway: '🛣️',
-      search_result: '🔍',
-      map_selected: '📍',
-      recent: '🕒'
-    };
-    return <Text style={styles.locationIcon}>{icons[type] || '📍'}</Text>;
   };
 
   return (
@@ -443,6 +491,17 @@ const RouteSelectionModal = ({
               loadingIndicatorColor="#007AFF"
               loadingBackgroundColor="#FFFFFF"
             >
+              {/* Route Polyline */}
+              {routeCoordinates.length > 0 && (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeColor="#007AFF"
+                  strokeWidth={4}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              )}
+
               {/* Pickup Marker */}
               {pickupLocation && (
                 <Marker
@@ -481,76 +540,41 @@ const RouteSelectionModal = ({
                 <Text style={styles.routeSummaryText}>
                   Est. Time: ~{calculateEstimatedTime(pickupLocation.coordinates, dropoffLocation.coordinates)} mins
                 </Text>
+                {isLoadingRoute && (
+                  <View style={styles.routeLoadingContainer}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                    <Text style={styles.routeLoadingText}>Loading route...</Text>
+                  </View>
+                )}
+                {!isLoadingRoute && routeCoordinates.length > 0 && (
+                  <Text style={styles.routeSuccessText}>✓ Route displayed on map</Text>
+                )}
               </View>
             )}
           </View>
 
-          {/* Location Options */}
-          <View style={styles.locationOptions}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <View style={styles.locationSection}>
-                  <Text style={styles.sectionTitle}>🔍 Search Results</Text>
+          {/* Search Results Overlay */}
+          {searchResults.length > 0 && (
+            <View style={styles.searchResultsOverlay}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.searchResultsContainer}>
+                  <Text style={styles.searchResultsTitle}>🔍 Search Results</Text>
                   {searchResults.map((location, index) => (
                     <TouchableOpacity
                       key={`search-${index}`}
-                      style={styles.locationItem}
+                      style={styles.searchResultItem}
                       onPress={() => selectLocation(location)}
                     >
-                      <LocationTypeIcon type={location.type} />
-                      <View style={styles.locationInfo}>
-                        <Text style={styles.locationName}>{location.name}</Text>
-                        <Text style={styles.locationAddress}>{location.address}</Text>
+                      <View style={styles.searchResultInfo}>
+                        <Text style={styles.searchResultName}>{location.name}</Text>
+                        <Text style={styles.searchResultAddress}>{location.address}</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
-
-              {/* Common Locations */}
-              {searchQuery.length === 0 && (
-                <>
-                  <View style={styles.locationSection}>
-                    <Text style={styles.sectionTitle}>⭐ Common Locations</Text>
-                    {commonLocations.map((location, index) => (
-                      <TouchableOpacity
-                        key={`common-${index}`}
-                        style={styles.locationItem}
-                        onPress={() => selectLocation(location)}
-                      >
-                        <LocationTypeIcon type={location.type} />
-                        <View style={styles.locationInfo}>
-                          <Text style={styles.locationName}>{location.name}</Text>
-                          <Text style={styles.locationAddress}>{location.address}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* Recent Locations */}
-                  {recentLocations.length > 0 && (
-                    <View style={styles.locationSection}>
-                      <Text style={styles.sectionTitle}>🕒 Recent Locations</Text>
-                      {recentLocations.map((location, index) => (
-                        <TouchableOpacity
-                          key={`recent-${index}`}
-                          style={styles.locationItem}
-                          onPress={() => selectLocation(location)}
-                        >
-                          <LocationTypeIcon type="recent" />
-                          <View style={styles.locationInfo}>
-                            <Text style={styles.locationName}>{location.name}</Text>
-                            <Text style={styles.locationAddress}>{location.address}</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </>
-              )}
-            </ScrollView>
-          </View>
+              </ScrollView>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -667,7 +691,6 @@ const createStyles = (theme) => StyleSheet.create({
   },
   content: {
     flex: 1,
-    flexDirection: 'row',
   },
   mapContainer: {
     flex: 1,
@@ -716,49 +739,74 @@ const createStyles = (theme) => StyleSheet.create({
     color: theme.textSecondary,
     marginBottom: 4,
   },
-  locationOptions: {
-    width: width * 0.4,
-    backgroundColor: theme.card,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.border,
+  routeLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
-  locationSection: {
+  routeLoadingText: {
+    fontSize: 13,
+    color: theme.textSecondary,
+    marginLeft: 8,
+  },
+  routeSuccessText: {
+    fontSize: 13,
+    color: '#059669',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    fontWeight: '600',
+  },
+  searchResultsOverlay: {
+    position: 'absolute',
+    top: 80,
+    left: 20,
+    right: 20,
+    maxHeight: height * 0.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  searchResultsContainer: {
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
   },
-  sectionTitle: {
+  searchResultsTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: theme.text,
     marginBottom: 12,
   },
-  locationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+  searchResultItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     marginBottom: 8,
     backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
-  locationIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  locationInfo: {
+  searchResultInfo: {
     flex: 1,
   },
-  locationName: {
-    fontSize: 14,
+  searchResultName: {
+    fontSize: 15,
     fontWeight: '600',
     color: theme.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  locationAddress: {
-    fontSize: 12,
+  searchResultAddress: {
+    fontSize: 13,
     color: theme.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
 });
 

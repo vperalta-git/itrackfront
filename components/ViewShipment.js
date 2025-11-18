@@ -16,6 +16,8 @@ import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
 const { width, height } = Dimensions.get('window');
 
+const truckIcon = require('../assets/icons/truck1.png');
+
 const ViewShipment = ({ isOpen, onClose, data }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -23,6 +25,9 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   const [locationError, setLocationError] = useState(null);
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState('inactive');
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [googleApiKey, setGoogleApiKey] = useState('AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo');
   const mapRef = useRef(null);
   const locationSubscription = useRef(null);
 
@@ -49,29 +54,26 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   }, [isOpen, data?._id]);
 
   const initializeLocationTracking = async () => {
+    // Skip location tracking for pending shipments
+    if (data?.status?.toLowerCase() === 'pending') {
+      setTrackingStatus('pending');
+      setIsLoadingLocation(false);
+      return;
+    }
+
     setIsLoadingLocation(true);
     setLocationError(null);
     
     try {
-      // First, check and request permissions
-      const hasPermission = await requestLocationPermissions();
-      if (!hasPermission) {
-        setLocationError('Location permission denied. Map functionality limited.');
-        setTrackingStatus('denied');
-        setIsLoadingLocation(false);
-        return;
-      }
-
-      // Get the current location from API
+      // Only fetch vehicle location from API (no GPS tracking for admin)
+      // Admin viewing shipment doesn't need their own location tracked
       await fetchCurrentLocationFromAPI();
-
-      // Then start real-time tracking for admin monitoring
-      await startRealTimeTracking();
+      setTrackingStatus('monitoring');
       
     } catch (error) {
-      console.error('Error initializing location tracking:', error);
-      setLocationError('Failed to initialize location tracking: ' + error.message);
-      setTrackingStatus('error');
+      // Completely silent - no errors shown for missing location data
+      console.log('ℹ Location not available:', error.message);
+      setTrackingStatus('inactive');
     } finally {
       setIsLoadingLocation(false);
     }
@@ -111,7 +113,24 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   const fetchCurrentLocationFromAPI = async () => {
     try {
       const response = await fetch(buildApiUrl(`/getAllocation/${data._id}`));
-      const result = await response.json();
+      
+      if (!response.ok) {
+        // Silent return for 404 - allocation may not exist yet
+        return;
+      }
+      
+      const text = await response.text();
+      if (!text || !text.trim()) {
+        return; // Silent return for empty response
+      }
+      
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        // Silent return for parse errors
+        return;
+      }
       
       const loc = result.data?.location || result?.location;
       if (loc?.latitude && loc?.longitude) {
@@ -124,6 +143,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
         
         setCurrentLocation(locationData);
         setLastLocationUpdate(new Date(loc.timestamp || Date.now()));
+        console.log('✓ Location loaded from API');
         
         // Center map on vehicle location
         if (mapRef.current) {
@@ -136,8 +156,8 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
         }
       }
     } catch (error) {
-      console.error('Error fetching location from API:', error);
-      throw error;
+      // Silent fail - location from API is not critical
+      console.error('Error fetching location from API:', error.message);
     }
   };
 
@@ -193,7 +213,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
       // Update vehicle location in backend
       try {
-        await fetch(buildApiUrl(`/updateAllocation/${data._id}`), {
+        const response = await fetch(buildApiUrl(`/updateAllocation/${data._id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -204,8 +224,17 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
             }
           })
         });
+        
+        if (response.ok) {
+          const text = await response.text();
+          if (text && text.trim()) {
+            const result = JSON.parse(text);
+            console.log('✓ Vehicle location updated');
+          }
+        }
       } catch (err) {
-        console.error('Failed to update vehicle location:', err);
+        // Silent fail - location update is not critical
+        console.error('Failed to update vehicle location:', err.message);
       }
 
       // Optionally animate map to new position
@@ -225,16 +254,105 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   const fetchLocationHistory = async () => {
     try {
       const response = await fetch(buildApiUrl(`/getAllocation/${data._id}/locationHistory`));
+      
       if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          setLocationHistory(result.data);
+        const text = await response.text();
+        if (text && text.trim()) {
+          const result = JSON.parse(text);
+          if (result.success && result.data) {
+            setLocationHistory(result.data);
+          }
         }
       }
     } catch (error) {
-      console.error('Error fetching location history:', error);
+      // Silent fail - history is not critical
+      console.error('Error fetching location history:', error.message);
     }
   };
+
+  // Fetch route from Google Directions API
+  const fetchRoute = async (pickup, dropoff) => {
+    if (!pickup || !dropoff || !googleApiKey) {
+      return;
+    }
+
+    setIsLoadingRoute(true);
+    try {
+      const origin = `${pickup.latitude},${pickup.longitude}`;
+      const destination = `${dropoff.latitude},${dropoff.longitude}`;
+      
+      const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${googleApiKey}`;
+      
+      const response = await fetch(directionsUrl);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch route');
+      }
+      
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : { status: 'ERROR' };
+
+      if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const points = decodePolyline(route.overview_polyline.points);
+        setRouteCoordinates(points);
+        
+        console.log('✓ Route loaded with', points.length, 'points');
+      } else {
+        console.log('ℹ No route found');
+        setRouteCoordinates([]);
+      }
+    } catch (error) {
+      console.error('Route fetch error:', error.message);
+      setRouteCoordinates([]);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  };
+
+  // Decode Google's encoded polyline format
+  const decodePolyline = (encoded) => {
+    const points = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
+
+    while (index < len) {
+      let b, shift = 0, result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
+    }
+
+    return points;
+  };
+
+  // Auto-fetch route when data has pickup and dropoff coordinates
+  useEffect(() => {
+    if (isOpen && data?.pickupCoordinates && data?.dropoffCoordinates && googleApiKey) {
+      fetchRoute(data.pickupCoordinates, data.dropoffCoordinates);
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [isOpen, data?.pickupCoordinates, data?.dropoffCoordinates, googleApiKey]);
 
   const refreshLocation = async () => {
     setIsLoadingLocation(true);
@@ -248,36 +366,115 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
     }
   };
 
+  const clearDelivery = async () => {
+    // Validation checks
+    if (!data?._id) {
+      Alert.alert('Error', 'Invalid delivery data');
+      return;
+    }
+
+    const currentStatus = data.status?.toLowerCase();
+    
+    if (currentStatus !== 'delivered') {
+      Alert.alert(
+        'Cannot Clear Delivery',
+        `This delivery cannot be cleared because its status is "${data.status}".\n\nOnly deliveries with status "Delivered" can be cleared.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Confirmation dialog
+    Alert.alert(
+      'Clear Delivery',
+      `Are you sure you want to mark this delivery as completed and clear it from the active list?\n\nVehicle: ${data.unitName || 'N/A'}\nDriver: ${data.assignedDriver || 'Unassigned'}\n\nThis action will move the delivery to history.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Clear Delivery',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(buildApiUrl(`/driver-allocations/${data._id}`), {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  status: 'Completed',
+                  completedAt: new Date().toISOString(),
+                  completedBy: data.assignedDriver || 'Admin',
+                  clearedByAdmin: true
+                })
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to clear delivery');
+              }
+
+              Alert.alert(
+                'Success',
+                'Delivery has been marked as completed and cleared from active list.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      onClose();
+                      // Trigger refresh if callback exists
+                      if (data.onRefresh) {
+                        data.onRefresh();
+                      }
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.log('Error clearing delivery:', error);
+              Alert.alert(
+                'Error',
+                'Failed to clear delivery. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getTrackingStatusInfo = () => {
     switch (trackingStatus) {
+      case 'pending':
+        return { 
+          color: '#f59e0b', 
+          text: '⏳ Awaiting Driver Acceptance', 
+          icon: '⏳' 
+        };
+      case 'monitoring':
+        return { 
+          color: '#3b82f6', 
+          text: '🔵 Monitoring Vehicle Location', 
+          icon: '👁️' 
+        };
       case 'active':
         return { 
           color: '#059669', 
-          text: '🟢 Live Tracking Active', 
-          icon: '📡' 
+          text: '🟢 Vehicle Location Available', 
+          icon: '📍' 
         };
-      case 'requesting':
+      case 'inactive':
         return { 
-          color: '#f59e0b', 
-          text: '🟡 Requesting Permission...', 
-          icon: '⚡' 
-        };
-      case 'denied':
-        return { 
-          color: '#ef4444', 
-          text: '🔴 Permission Denied', 
-          icon: '🚫' 
-        };
-      case 'error':
-        return { 
-          color: '#ef4444', 
-          text: '🔴 Tracking Error', 
-          icon: '⚠️' 
+          color: '#6b7280', 
+          text: '⚪ Location Not Available', 
+          icon: '📍' 
         };
       default:
         return { 
           color: '#6b7280', 
-          text: '⚪ Tracking Inactive', 
+          text: '⚪ Loading Vehicle Data', 
           icon: '📍' 
         };
     }
@@ -413,6 +610,16 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                         ` • Updated: ${lastLocationUpdate.toLocaleTimeString()}`
                       )}
                     </Text>
+                    {isLoadingRoute && (
+                      <Text style={[styles.trackingStatusText, { color: '#007AFF', marginTop: 4 }]}>
+                        🗺️ Loading route...
+                      </Text>
+                    )}
+                    {!isLoadingRoute && routeCoordinates.length > 0 && (
+                      <Text style={[styles.trackingStatusText, { color: '#059669', marginTop: 4 }]}>
+                        ✓ Route displayed ({routeCoordinates.length} points)
+                      </Text>
+                    )}
                   </View>
 
                   {locationError && (
@@ -424,30 +631,44 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                     </View>
                   )}
 
-                  {/* Fallback Map Information */}
-                  {(locationError || trackingStatus === 'denied') && (currentLocation || data?.location) && (
-                    <View style={styles.mapFallback}>
-                      <Text style={styles.fallbackTitle}>📍 Location Information</Text>
-                      <Text style={styles.fallbackText}>
-                        Lat: {(currentLocation?.latitude || data?.location?.latitude || 0).toFixed(6)}
+                  {/* Pending Status Message */}
+                  {data?.status?.toLowerCase() === 'pending' ? (
+                    <View style={styles.pendingContainer}>
+                      <Text style={styles.pendingIcon}>⏳</Text>
+                      <Text style={styles.pendingTitle}>Awaiting Driver Acceptance</Text>
+                      <Text style={styles.pendingMessage}>
+                        {data.assignedDriver || 'Driver'} has not started delivery yet.
                       </Text>
-                      <Text style={styles.fallbackText}>
-                        Lng: {(currentLocation?.longitude || data?.location?.longitude || 0).toFixed(6)}
+                      <Text style={styles.pendingSubtext}>
+                        Live tracking will be available once the driver accepts and starts the delivery.
                       </Text>
-                      {currentLocation?.accuracy && (
-                        <Text style={styles.fallbackAccuracy}>
-                          Accuracy: ±{Math.round(currentLocation.accuracy)}m
-                        </Text>
-                      )}
                     </View>
-                  )}
+                  ) : (
+                    <>
+                      {/* Fallback Map Information */}
+                      {(locationError || trackingStatus === 'denied') && (currentLocation || data?.location) && (
+                        <View style={styles.mapFallback}>
+                          <Text style={styles.fallbackTitle}>📍 Location Information</Text>
+                          <Text style={styles.fallbackText}>
+                            Lat: {(currentLocation?.latitude || data?.location?.latitude || 0).toFixed(6)}
+                          </Text>
+                          <Text style={styles.fallbackText}>
+                            Lng: {(currentLocation?.longitude || data?.location?.longitude || 0).toFixed(6)}
+                          </Text>
+                          {currentLocation?.accuracy && (
+                            <Text style={styles.fallbackAccuracy}>
+                              Accuracy: ±{Math.round(currentLocation.accuracy)}m
+                            </Text>
+                          )}
+                        </View>
+                      )}
 
-                  <View style={styles.mapContainer}>
+                      <View style={styles.mapContainer}>
                     <MapView
                       ref={mapRef}
                       provider={PROVIDER_GOOGLE}
                       style={styles.map}
-                      region={mapRegion}
+                      initialRegion={mapRegion}
                       showsUserLocation={false}
                       showsMyLocationButton={false}
                       showsTraffic={true}
@@ -462,7 +683,18 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                         setLocationError('Map failed to load. Please check your internet connection.');
                       }}
                     >
-                      {/* Vehicle Marker */}
+                      {/* Planned Route Polyline */}
+                      {routeCoordinates.length > 0 && (
+                        <Polyline
+                          coordinates={routeCoordinates}
+                          strokeColor="#007AFF"
+                          strokeWidth={4}
+                          lineCap="round"
+                          lineJoin="round"
+                        />
+                      )}
+
+                      {/* Vehicle Marker with Truck Icon */}
                       {(currentLocation || data?.location) && (
                         <Marker
                           coordinate={{
@@ -471,7 +703,8 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                           }}
                           title={data.unitName || 'Vehicle'}
                           description={`Status: ${data.status || 'Unknown'} • Driver: ${data.assignedDriver || 'N/A'}`}
-                          pinColor={trackingStatus === 'active' ? '#059669' : '#f59e0b'}
+                          image={truckIcon}
+                          anchor={{ x: 0.5, y: 0.5 }}
                         />
                       )}
 
@@ -508,46 +741,35 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                         />
                       )}
 
-                      {/* Route Path (if both pickup and dropoff coordinates exist) */}
-                      {data?.pickupCoordinates && data?.dropoffCoordinates && (
-                        <Polyline
-                          coordinates={[
-                            data.pickupCoordinates,
-                            data.dropoffCoordinates
-                          ]}
-                          strokeColor="#3b82f6"
-                          strokeWidth={4}
-                          strokePattern={[1, 1]}
-                          lineDashPhase={0}
-                        />
-                      )}
                     </MapView>
 
-                    {/* Enhanced Location Status */}
-                    <View style={styles.locationStatusContainer}>
-                      <View style={styles.locationStatus}>
-                        <Text style={styles.locationStatusTitle}>📍 Current Position</Text>
-                        <Text style={styles.locationStatusText}>
-                          {currentLocation 
-                            ? `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`
-                            : data?.location 
-                              ? `${data.location.latitude.toFixed(6)}, ${data.location.longitude.toFixed(6)}`
-                              : 'Location unavailable'
-                          }
-                        </Text>
-                        {currentLocation?.accuracy && (
-                          <Text style={styles.accuracyText}>
-                            Accuracy: ±{Math.round(currentLocation.accuracy)}m
-                          </Text>
-                        )}
-                        {currentLocation?.speed && currentLocation.speed > 0 && (
-                          <Text style={styles.speedText}>
-                            Speed: {Math.round(currentLocation.speed * 3.6)} km/h
-                          </Text>
-                        )}
+                        {/* Enhanced Location Status */}
+                        <View style={styles.locationStatusContainer}>
+                          <View style={styles.locationStatus}>
+                            <Text style={styles.locationStatusTitle}>📍 Current Position</Text>
+                            <Text style={styles.locationStatusText}>
+                              {currentLocation 
+                                ? `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`
+                                : data?.location 
+                                  ? `${data.location.latitude.toFixed(6)}, ${data.location.longitude.toFixed(6)}`
+                                  : 'Location unavailable'
+                              }
+                            </Text>
+                            {currentLocation?.accuracy && (
+                              <Text style={styles.accuracyText}>
+                                Accuracy: ±{Math.round(currentLocation.accuracy)}m
+                              </Text>
+                            )}
+                            {currentLocation?.speed && currentLocation.speed > 0 && (
+                              <Text style={styles.speedText}>
+                                Speed: {Math.round(currentLocation.speed * 3.6)} km/h
+                              </Text>
+                            )}
+                          </View>
+                        </View>
                       </View>
-                    </View>
-                  </View>
+                    </>
+                  )}
                 </View>
 
                 {/* Route Information */}
@@ -642,6 +864,20 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
               </View>
             )}
           </ScrollView>
+
+          {/* Vehicle Delivered Button - Only show for Delivered status */}
+          {data?.status?.toLowerCase() === 'delivered' && (
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity 
+                style={styles.deliveredButton}
+                onPress={clearDelivery}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.deliveredButtonIcon}>✓</Text>
+                <Text style={styles.deliveredButtonText}>Vehicle Delivered - Clear from List</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -973,6 +1209,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
+  // Pending Status Styles
+  pendingContainer: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 32,
+    margin: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+    minHeight: 300,
+    justifyContent: 'center',
+  },
+  pendingIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  pendingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#92400e',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  pendingMessage: {
+    fontSize: 16,
+    color: '#78350f',
+    marginBottom: 8,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  pendingSubtext: {
+    fontSize: 14,
+    color: '#a16207',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  
   // Map Fallback Styles
   mapFallback: {
     backgroundColor: '#f3f4f6',
@@ -1001,6 +1276,45 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  bottomButtonContainer: {
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  deliveredButton: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  deliveredButtonIcon: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  deliveredButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 

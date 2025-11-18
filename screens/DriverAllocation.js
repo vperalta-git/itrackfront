@@ -878,7 +878,7 @@ const DriverAllocation = () => {
       <ViewShipment
         isOpen={isViewShipmentOpen}
         onClose={() => setIsViewShipmentOpen(false)}
-        data={selectedRowData}
+        data={{...selectedRowData, onRefresh: fetchAllocations}}
       />
 
       {/* Route Selection Modal */}

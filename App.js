@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message';
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import DriverDashboard from './screens/DriverDashboard';
+import DriverHistory from './screens/DriverHistory';
 import NewDriverDashboard from './components/NewDriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
 import AdminDashboard from './screens/AdminDashboard';
@@ -439,8 +440,13 @@ export default function App() {
           />
           <Stack.Screen 
             name="DriverDashboard" 
-            component={NewDriverDashboard} 
+            component={DriverDashboard} 
             options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="DriverHistory" 
+            component={DriverHistory} 
+            options={{ headerShown: false }} 
           />
           <Stack.Screen 
             name="DispatchDashboard" 

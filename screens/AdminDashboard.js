@@ -631,7 +631,7 @@ export default function AdminDashboard() {
       <View style={styles.dashboardContainer}>
         {/* Statistics Cards */}
         <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
             <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
           </View>
@@ -641,12 +641,12 @@ export default function AdminDashboard() {
             <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
           </View>
@@ -700,7 +700,7 @@ export default function AdminDashboard() {
                 <View style={[styles.reportsTableCell, { flex: 1 }]}>
                   <View style={[
                     styles.statusBadge, 
-                    { backgroundColor: '#DC2626' }
+                    { backgroundColor: '#e50914' }
                   ]}>
                     <Text style={styles.statusBadgeText}>
                       {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
@@ -747,12 +747,12 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <View style={styles.releaseStatsContainer}>
-        <View style={[styles.releaseStatCard, { backgroundColor: '#DC2626' }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#e50914' }]}>
           <Text style={styles.releaseStatNumber}>{pendingReleases.length}</Text>
           <Text style={styles.releaseStatLabel}>Pending Release</Text>
         </View>
         
-        <View style={[styles.releaseStatCard, { backgroundColor: '#B91C1C' }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#e50914' }]}>
           <Text style={styles.releaseStatNumber}>{releaseHistory.length}</Text>
           <Text style={styles.releaseStatLabel}>Released Today</Text>
         </View>
@@ -892,22 +892,22 @@ export default function AdminDashboard() {
       <ScrollView style={styles.reportsContainer}>
         {/* Statistics Cards */}
         <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
             <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#B91C1C' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
           </View>
@@ -961,7 +961,7 @@ export default function AdminDashboard() {
                 <View style={[styles.reportsTableCell, { flex: 1 }]}>
                   <View style={[
                     styles.statusBadge, 
-                    { backgroundColor: '#DC2626' }
+                    { backgroundColor: '#e50914' }
                   ]}>
                     <Text style={styles.statusBadgeText}>
                       {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
@@ -993,7 +993,7 @@ export default function AdminDashboard() {
       const getStatusStyle = (status) => {
         // All statuses use primary color with varying opacity for distinction
         const baseStyle = { 
-          container: { backgroundColor: '#DC2626' }, 
+          container: { backgroundColor: '#e50914' }, 
           text: { color: '#ffffff' } 
         };
         
@@ -1004,7 +1004,7 @@ export default function AdminDashboard() {
           case 'allocated':
             return { container: { ...baseStyle.container, opacity: 0.85 }, text: baseStyle.text };
           case 'in dispatch':
-            return { container: { backgroundColor: '#B91C1C' }, text: baseStyle.text };
+            return { container: { backgroundColor: '#e50914' }, text: baseStyle.text };
           case 'maintenance':
             return { container: { ...baseStyle.container, opacity: 0.9 }, text: baseStyle.text };
           default:
@@ -1104,26 +1104,26 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <View style={styles.inventoryStatsContainer}>
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>{inventory.length}</Text>
             <Text style={styles.inventoryStatLabel}>Total Stock</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#B91C1C' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => (v.status || 'Available') === 'Available').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>Available</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#DC2626' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>In Use</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#B91C1C' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Dispatch').length}
             </Text>
@@ -1481,12 +1481,6 @@ export default function AdminDashboard() {
           {/* Header */}
           <View style={styles.headerContainer}>
             <Text style={[styles.header, { color: theme.text }]}>Admin Dashboard</Text>
-            <TouchableOpacity
-              style={styles.refreshButton}
-              onPress={initializeData}
-            >
-              <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Main Dashboard Content */}
@@ -1897,24 +1891,6 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '700', 
     color: '#1a202c',
     flex: 1
-  },
-  refreshButton: {
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  refreshButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -2377,11 +2353,11 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   stockDeleteBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#e50914',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,
-    shadowColor: '#dc2626',
+    shadowColor: '#e50914',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -3706,7 +3682,7 @@ const createStyles = (theme) => StyleSheet.create({
 
   reportsStatCard: {
     width: '48%',
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -3885,7 +3861,7 @@ const createStyles = (theme) => StyleSheet.create({
   quickActionButton: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',

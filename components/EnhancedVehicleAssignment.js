@@ -95,17 +95,22 @@ const EnhancedVehicleAssignment = ({ visible, onClose, onVehicleAssigned }) => {
         processes: assignmentData.processes.length
       });
       
-      const response = await fetch(buildApiUrl('/admin/assign-vehicle'), {
+      const response = await fetch(buildApiUrl('/createAllocation'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           unitName: assignmentData.unitName,
           unitId: assignmentData.unitId,
-          driverUsername: assignmentData.driverUsername,
-          agentUsername: assignmentData.agentUsername || null,
+          assignedDriver: selectedDriver.accountName, // Use accountName for consistent matching
+          assignedDriverEmail: selectedDriver.email, // Store email for reliable matching
+          assignedAgent: selectedAgent?.accountName || null,
           bodyColor: assignmentData.bodyColor || 'Not Specified',
           variation: assignmentData.variation || 'Standard',
-          processes: assignmentData.processes.length > 0 ? assignmentData.processes : ['delivery_to_isuzu_pasig']
+          status: 'Pending',
+          allocatedBy: 'Admin - Vehicle Assignment',
+          processesToBeDone: assignmentData.processes.length > 0 ? assignmentData.processes : ['delivery_to_isuzu_pasig'],
+          date: new Date(),
+          createdAt: new Date()
         }),
       });
 
@@ -117,7 +122,7 @@ const EnhancedVehicleAssignment = ({ visible, onClose, onVehicleAssigned }) => {
 
       Alert.alert(
         'Vehicle Assigned Successfully!',
-        `Vehicle: ${assignmentData.unitName}\nVIN: ${assignmentData.unitId}\nAssigned to: ${selectedDriver.accountName}\nAgent: ${selectedAgent?.accountName || 'None'}\nProcesses: ${result.data.allocation.processesToBeDone.length}`,
+        `Vehicle: ${assignmentData.unitName}\nVIN: ${assignmentData.unitId}\nAssigned to: ${selectedDriver.accountName}\nAgent: ${selectedAgent?.accountName || 'None'}\nProcesses: ${result.data.processesToBeDone?.length || 1}`,
         [
           {
             text: 'OK',

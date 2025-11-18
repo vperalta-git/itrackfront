@@ -323,7 +323,7 @@ export default function UnifiedDrawer() {
           backgroundColor: '#e50914',
           width: Math.min(width * 0.88, 340),
         },
-        headerTitle: 'I-Track System',
+        headerTitle: 'I-Track',
         headerTitleStyle: {
           fontSize: 18,
           fontWeight: '700',

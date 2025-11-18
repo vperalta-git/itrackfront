@@ -167,6 +167,7 @@ export default function NewDriverDashboard() {
           if (matches) {
             const matchType = emailMatch ? 'EMAIL' : exactMatch ? 'EXACT NAME' : 'PARTIAL NAME';
             console.log(`  ✅ [${matchType}] Match: "${allocation.assignedDriver}" ${allocation.assignedDriverEmail || ''} ↔️ "${driverName}" ${userEmail}`);
+            console.log(`  📊 STATUS: "${allocation.status}" | ID: ${allocation._id || allocation.unitId}`);
           }
           
           return matches;
@@ -256,7 +257,7 @@ export default function NewDriverDashboard() {
       <View style={styles.cardHeader}>
         <Text style={styles.unitId}>{item.unitId}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status || 'Assigned'}</Text>
+          <Text style={styles.statusText}>{item.status?.toUpperCase() || 'NO STATUS'}</Text>
         </View>
       </View>
       
@@ -298,7 +299,6 @@ export default function NewDriverDashboard() {
   const renderAllocationsTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>My Allocations</Text>
         <Text style={styles.summaryCount}>{driverAllocations.length}</Text>
         <Text style={styles.summarySubtext}>
           {driverAllocations.length === 0 ? 'No allocations yet' : 'Active allocations'}
@@ -335,7 +335,6 @@ export default function NewDriverDashboard() {
   const renderRouteTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.routeHeader}>
-        <Text style={styles.routeTitle}>My Route</Text>
         <Text style={styles.routeSubtext}>Driver: {driverName} • {driverAllocations.length} Assignments</Text>
       </View>
 
