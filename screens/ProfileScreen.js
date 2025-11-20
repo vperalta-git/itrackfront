@@ -333,7 +333,7 @@ export default function ProfileScreen() {
   const viewOtherProfile = (user) => {
     Alert.alert(
       `${user.name}'s Profile`,
-      `Role: ${user.role}\nEmail: ${user.email}\nPhone: ${user.phoneNumber || 'N/A'}\n\nPersonal Details:\n${user.personalDetails || 'No details available'}`,
+      `Role: ${user.role}\nEmail: ${user.email}\nPhone: ${user.phoneNumber || 'N/A'}\n\nOther Contact Information:\n${user.personalDetails || 'No details available'}`,
       [{ text: 'Close', style: 'cancel' }]
     );
   };
@@ -482,7 +482,7 @@ export default function ProfileScreen() {
 
           {/* Personal Details */}
           <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Personal Details</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Other Contact Information</Text>
             {isEditing ? (
               <TextInput
                 style={[styles.textArea, { 

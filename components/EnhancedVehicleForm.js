@@ -9,18 +9,17 @@ import {
   ScrollView,
   Alert,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { 
+  VEHICLE_MODELS, 
+  getUnitNames, 
+  getVariationsForUnit, 
+  isValidUnitVariationPair,
   VEHICLE_STATUS_OPTIONS,
-  BODY_COLOR_OPTIONS,
-  getAddVehicleStatusOptions,
-  getAllowedStatusTransitions,
-  isValidStatusTransition
+  BODY_COLOR_OPTIONS 
 } from '../constants/VehicleModels';
-import { useVehicleModels } from '../hooks/useVehicleModels';
 
 const { width } = Dimensions.get('window');
 
@@ -29,121 +28,62 @@ export default function EnhancedVehicleForm({
   onClose, 
   onSubmit, 
   initialData = null,
-  mode = "add" // "add" or "edit"
+  title = "Add Vehicle"
 }) {
-  const {
-    unitNames,
-    loading: modelsLoading,
-    error: modelsError,
-    isOnline,
-    getVariationsForUnit,
-    getVariationsForUnitAsync,
-    validateUnitVariationPair
-  } = useVehicleModels();
-
   const [formData, setFormData] = useState({
     unitName: '',
     variation: '',
     conductionNumber: '',
-    engineNumber: '',
-    chassisNumber: '',
-    keyNumber: '',
-    plateNumber: '',
+    vin: '',
     bodyColor: '',
     status: 'Available',
-    assignedAgent: '',
+    engineNumber: '',
+    keyNumber: '',
+    plateNumber: '',
+    chassisNumber: '',
     notes: ''
   });
 
   const [availableVariations, setAvailableVariations] = useState([]);
   const [errors, setErrors] = useState({});
-  const [variationsLoading, setVariationsLoading] = useState(false);
-  const [agents, setAgents] = useState([]);
-  const [agentsLoading, setAgentsLoading] = useState(false);
-  
-  const title = mode === "edit" ? "Edit Vehicle" : "Add Vehicle";
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
       if (initialData.unitName) {
-        loadVariationsForUnit(initialData.unitName);
+        setAvailableVariations(getVariationsForUnit(initialData.unitName));
       }
     } else {
       resetForm();
     }
-    
-    // Fetch agents only in edit mode
-    if (mode === 'edit' && visible) {
-      fetchAgents();
-    }
-  }, [initialData, visible, mode]);
-  
-  // Fetch agents from API
-  const fetchAgents = async () => {
-    setAgentsLoading(true);
-    try {
-      const { buildApiUrl } = await import('../constants/api');
-      const response = await fetch(buildApiUrl('/getUsers'));
-      const result = await response.json();
-      
-      if (result.success && Array.isArray(result.data)) {
-        const agentList = result.data.filter(user => user.role === 'Sales Agent');
-        setAgents(agentList);
-      }
-    } catch (error) {
-      console.error('Error fetching agents:', error);
-    } finally {
-      setAgentsLoading(false);
-    }
-  };
-
-  // Load variations for selected unit
-  const loadVariationsForUnit = async (unitName) => {
-    if (!unitName) {
-      setAvailableVariations([]);
-      return;
-    }
-
-    setVariationsLoading(true);
-    try {
-      const variations = await getVariationsForUnitAsync(unitName);
-      setAvailableVariations(variations);
-    } catch (error) {
-      console.warn('Failed to load variations:', error);
-      // Fallback to local data
-      setAvailableVariations(getVariationsForUnit(unitName));
-    } finally {
-      setVariationsLoading(false);
-    }
-  };
+  }, [initialData, visible]);
 
   const resetForm = () => {
     setFormData({
       unitName: '',
       variation: '',
       conductionNumber: '',
+      vin: '',
+      bodyColor: '',
+      status: 'Available',
       engineNumber: '',
-      chassisNumber: '',
       keyNumber: '',
       plateNumber: '',
-      bodyColor: '',
-      status: 'In Stockyard', // Default status for new vehicles
+      chassisNumber: '',
       notes: ''
     });
     setAvailableVariations([]);
     setErrors({});
   };
 
-  const handleUnitNameChange = async (unitName) => {
+  const handleUnitNameChange = (unitName) => {
+    const variations = getVariationsForUnit(unitName);
     setFormData(prev => ({
       ...prev,
       unitName,
       variation: '' // Reset variation when unit changes
     }));
-    
-    // Load variations for the selected unit
-    await loadVariationsForUnit(unitName);
+    setAvailableVariations(variations);
     
     // Clear variation error if exists
     if (errors.variation) {
@@ -151,18 +91,14 @@ export default function EnhancedVehicleForm({
     }
   };
 
-  const handleVariationChange = async (variation) => {
+  const handleVariationChange = (variation) => {
     // Validate that variation belongs to selected unit
-    if (formData.unitName && variation) {
-      const validation = await validateUnitVariationPair(formData.unitName, variation);
-      
-      if (!validation.isValid) {
-        setErrors(prev => ({ 
-          ...prev, 
-          variation: validation.error || 'Selected variation does not belong to the chosen unit' 
-        }));
-        return;
-      }
+    if (formData.unitName && !isValidUnitVariationPair(formData.unitName, variation)) {
+      setErrors(prev => ({ 
+        ...prev, 
+        variation: 'Selected variation does not belong to the chosen unit' 
+      }));
+      return;
     }
     
     setFormData(prev => ({ ...prev, variation }));
@@ -178,20 +114,16 @@ export default function EnhancedVehicleForm({
 
     if (!formData.variation.trim()) {
       newErrors.variation = 'Variation is required';
-    } else if (!availableVariations.includes(formData.variation)) {
+    } else if (!isValidUnitVariationPair(formData.unitName, formData.variation)) {
       newErrors.variation = 'Invalid variation for selected unit';
-    }
-    
-    // Validate status for new vehicles
-    if (!initialData) {
-      const allowedStatuses = getAddVehicleStatusOptions();
-      if (!allowedStatuses.includes(formData.status)) {
-        newErrors.status = 'Invalid status for new vehicle. Must be "In Stockyard" or "Available"';
-      }
     }
 
     if (!formData.conductionNumber.trim()) {
       newErrors.conductionNumber = 'Conduction Number is required';
+    }
+
+    if (!formData.vin.trim()) {
+      newErrors.vin = 'VIN is required';
     }
 
     if (!formData.bodyColor.trim()) {
@@ -277,7 +209,7 @@ export default function EnhancedVehicleForm({
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color='#1F2937' />
+            <MaterialIcons name="close" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -289,43 +221,16 @@ export default function EnhancedVehicleForm({
             {renderPicker(
               'Unit Name *', 
               'unitName', 
-              unitNames, 
-              modelsLoading ? "Loading units..." : "Select Vehicle Unit"
+              getUnitNames(), 
+              "Select Vehicle Unit"
             )}
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Variation *</Text>
-              <View style={[styles.pickerContainer, errors.variation && styles.inputError]}>
-                {variationsLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color='#DC2626' />
-                    <Text style={styles.loadingText}>Loading variations...</Text>
-                  </View>
-                ) : (
-                  <Picker
-                    selectedValue={formData.variation}
-                    onValueChange={handleVariationChange}
-                    style={styles.picker}
-                    enabled={!!formData.unitName && availableVariations.length > 0}
-                  >
-                    <Picker.Item 
-                      label={
-                        !formData.unitName 
-                          ? "Select Unit Name first"
-                          : availableVariations.length === 0 
-                          ? "No variations available"
-                          : "Select Variation"
-                      } 
-                      value="" 
-                    />
-                    {availableVariations.map((variation) => (
-                      <Picker.Item key={variation} label={variation} value={variation} />
-                    ))}
-                  </Picker>
-                )}
-              </View>
-              {errors.variation && <Text style={styles.errorText}>{errors.variation}</Text>}
-            </View>
+            {renderPicker(
+              'Variation *', 
+              'variation', 
+              availableVariations, 
+              formData.unitName ? "Select Variation" : "Select Unit Name first"
+            )}
           </View>
 
           {/* Vehicle Details */}
@@ -335,7 +240,37 @@ export default function EnhancedVehicleForm({
             {renderInput(
               'Conduction Number *', 
               'conductionNumber', 
-              'Enter Conduction Number'
+              'Enter conduction number'
+            )}
+            
+            {renderInput(
+              'VIN *', 
+              'vin', 
+              'Enter Vehicle Identification Number'
+            )}
+            
+            {renderInput(
+              'Engine Number', 
+              'engineNumber', 
+              'Enter engine number'
+            )}
+            
+            {renderInput(
+              'Chassis Number', 
+              'chassisNumber', 
+              'Enter chassis number'
+            )}
+            
+            {renderInput(
+              'Key Number', 
+              'keyNumber', 
+              'Enter key number'
+            )}
+            
+            {renderInput(
+              'Plate Number', 
+              'plateNumber', 
+              'Enter plate number'
             )}
           </View>
 
@@ -351,61 +286,12 @@ export default function EnhancedVehicleForm({
             )}
             
             {renderPicker(
-              'Status *', 
+              'Status', 
               'status', 
-              initialData ? VEHICLE_STATUS_OPTIONS : getAddVehicleStatusOptions(), 
+              VEHICLE_STATUS_OPTIONS, 
               "Select Status"
             )}
-            {!initialData && (
-              <Text style={styles.hintText}>
-                Default: In Stockyard. Select "Available" only if vehicle is already at Isuzu Pasig.
-              </Text>
-            )}
           </View>
-
-          {/* Assign to Agent - Only show in Edit mode */}
-          {mode === 'edit' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Assign to Agent</Text>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Sales Agent</Text>
-                <View style={[styles.pickerContainer, errors.assignedAgent && styles.inputError]}>
-                  {agentsLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color='#DC2626' />
-                      <Text style={styles.loadingText}>Loading agents...</Text>
-                    </View>
-                  ) : (
-                    <Picker
-                      selectedValue={formData.assignedAgent || ''}
-                      onValueChange={(value) => {
-                        setFormData(prev => ({ ...prev, assignedAgent: value }));
-                        if (errors.assignedAgent) {
-                          setErrors(prev => ({ ...prev, assignedAgent: null }));
-                        }
-                      }}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="No Agent Assigned" value="" />
-                      {agents.map((agent) => (
-                        <Picker.Item 
-                          key={agent._id} 
-                          label={agent.accountName || agent.username} 
-                          value={agent.username} 
-                        />
-                      ))}
-                    </Picker>
-                  )}
-                </View>
-                {formData.assignedAgent && (
-                  <Text style={styles.hintText}>
-                    Vehicle can be assigned to both an agent and a driver simultaneously
-                  </Text>
-                )}
-              </View>
-            </View>
-          )}
 
           {/* Additional Information */}
           <View style={styles.section}>
@@ -443,7 +329,7 @@ export default function EnhancedVehicleForm({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -451,14 +337,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#ddd',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#333333',
   },
   closeButton: {
     padding: 8,
@@ -473,10 +359,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#333333',
     marginBottom: 15,
     borderBottomWidth: 2,
-    borderBottomColor: '#DC2626',
+    borderBottomColor: '#e50914',
     paddingBottom: 5,
   },
   inputGroup: {
@@ -485,40 +371,40 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#333333',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#FFFFFF',
+    color: '#333333',
+    backgroundColor: '#f5f5f5',
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: '#DC2626',
+    borderColor: '#dc3545',
   },
   errorText: {
-    color: '#DC2626',
+    color: '#dc3545',
     fontSize: 14,
     marginTop: 5,
     marginLeft: 5,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   picker: {
     height: 50,
-    color: '#1F2937',
+    color: '#333333',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -528,47 +414,28 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#f0f0f0',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#ddd',
   },
   cancelButtonText: {
-    color: '#6B7280',
+    color: '#666666',
     fontSize: 16,
     fontWeight: '600',
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
   },
   submitButtonText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 50,
-    paddingHorizontal: 12,
-  },
-  loadingText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontStyle: 'italic',
-    marginTop: 5,
-    paddingHorizontal: 5,
   },
 });

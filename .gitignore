@@ -81,4 +81,7 @@ yarn-error.*
 *.apk
 *.aab
 
+# webfiles folder (transferred to root)
+webfiles/
+
 # @end expo-cli

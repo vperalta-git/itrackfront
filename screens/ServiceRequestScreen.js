@@ -25,30 +25,30 @@ export default function ServiceRequestScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   
   // New service request form state
   const [newRequest, setNewRequest] = useState({
-    selectedVehicle: null,
+    unitId: '',
+    unitName: '',
     requestedServices: [],
+    priority: 'Normal',
     notes: '',
     targetCompletionDate: ''
   });
 
-  // Inventory vehicles state
-  const [inventoryVehicles, setInventoryVehicles] = useState([]);
-  const [showVehicleSelector, setShowVehicleSelector] = useState(false);
-
-  // Available services (removed delivery_to_isuzu_pasig, stock_integration, documentation_check)
+  // Available services matching web version
   const availableServices = [
+    'delivery_to_isuzu_pasig',
     'tinting',
-    'carwash', 
+    'carwash',
     'ceramic_coating',
     'accessories',
-    'rust_proof'
+    'rust_proof',
+    'stock_integration',
+    'documentation_check'
   ];
 
   // Fetch service requests
@@ -76,26 +76,7 @@ export default function ServiceRequestScreen() {
 
   useEffect(() => {
     fetchServiceRequests();
-    fetchInventoryVehicles();
   }, [fetchServiceRequests]);
-
-  // Fetch inventory vehicles for selection
-  const fetchInventoryVehicles = async () => {
-    try {
-      const response = await fetch(buildApiUrl('/getInventory'));
-      const data = await response.json();
-      
-      if (data.success) {
-        // Filter only available vehicles
-        const availableVehicles = data.data.filter(vehicle => 
-          vehicle.status === 'Available' || vehicle.status === 'In Stock'
-        );
-        setInventoryVehicles(availableVehicles);
-      }
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
-    }
-  };
 
   // Filter and search service requests
   const getFilteredRequests = () => {
@@ -125,8 +106,8 @@ export default function ServiceRequestScreen() {
 
   // Add new service request
   const handleAddServiceRequest = async () => {
-    if (!newRequest.selectedVehicle || newRequest.requestedServices.length === 0) {
-      Alert.alert('Error', 'Please select a vehicle and at least one service');
+    if (!newRequest.unitId || !newRequest.unitName || newRequest.requestedServices.length === 0) {
+      Alert.alert('Error', 'Please fill in required fields (Unit ID, Unit Name, and at least one service)');
       return;
     }
 
@@ -137,12 +118,7 @@ export default function ServiceRequestScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
-          unitName: newRequest.selectedVehicle.unitName,
-          vehicleRegNo: newRequest.selectedVehicle.vin || newRequest.selectedVehicle.unitId,
-          service: newRequest.requestedServices,
-          requestedServices: newRequest.requestedServices,
-          notes: newRequest.notes,
+          ...newRequest,
           createdBy: await AsyncStorage.getItem('accountName') || 'System',
           status: 'Pending'
         }),
@@ -167,8 +143,10 @@ export default function ServiceRequestScreen() {
   // Reset form
   const resetNewRequestForm = () => {
     setNewRequest({
-      selectedVehicle: null,
+      unitId: '',
+      unitName: '',
       requestedServices: [],
+      priority: 'Normal',
       notes: '',
       targetCompletionDate: ''
     });
@@ -223,15 +201,6 @@ export default function ServiceRequestScreen() {
     }
   };
 
-  // Select vehicle from inventory
-  const selectVehicle = (vehicle) => {
-    setNewRequest({
-      ...newRequest,
-      selectedVehicle: vehicle
-    });
-    setShowVehicleSelector(false);
-  };
-
   // Format service name for display
   const formatServiceName = (service) => {
     return service.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -272,8 +241,13 @@ export default function ServiceRequestScreen() {
           <Text style={styles.requestTitle}>{item.unitName}</Text>
           <Text style={styles.requestId}>ID: {item.unitId}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.badgeText}>{item.status}</Text>
+        <View style={styles.badgeContainer}>
+          <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+            <Text style={styles.badgeText}>{item.priority}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.badgeText}>{item.status}</Text>
+          </View>
         </View>
       </View>
       
@@ -347,8 +321,8 @@ export default function ServiceRequestScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search and Filter */}
-      <View style={styles.searchFilterContainer}>
+      {/* Search and Filters */}
+      <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
           <MaterialIcons name="search" size={20} color="#666" />
           <TextInput
@@ -358,14 +332,15 @@ export default function ServiceRequestScreen() {
             onChangeText={setSearchTerm}
           />
         </View>
-        <TouchableOpacity 
-          style={styles.filterButton}
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Ionicons name="filter" size={20} color="#DC2626" />
-          <Text style={styles.filterButtonText}>Filter</Text>
-        </TouchableOpacity>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+        <FilterButton title="All" value="all" active={filterStatus === 'all'} />
+        <FilterButton title="Pending" value="pending" active={filterStatus === 'pending'} />
+        <FilterButton title="In Progress" value="in progress" active={filterStatus === 'in progress'} />
+        <FilterButton title="Completed" value="completed" active={filterStatus === 'completed'} />
+        <FilterButton title="Cancelled" value="cancelled" active={filterStatus === 'cancelled'} />
+      </ScrollView>
 
       {/* Service Requests List */}
       {loading ? (
@@ -393,144 +368,117 @@ export default function ServiceRequestScreen() {
       )}
 
       {/* Add Service Request Modal */}
-      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>New Service Request</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Select Vehicle *</Text>
-              <TouchableOpacity 
-                style={[styles.vehicleSelector, newRequest.selectedVehicle && styles.vehicleSelectorSelected]}
-                onPress={() => setShowVehicleSelector(true)}
-              >
-                <View style={styles.vehicleSelectorContent}>
-                  {newRequest.selectedVehicle ? (
-                    <>
-                      <View style={styles.vehicleInfo}>
-                        <Text style={styles.vehicleName}>{newRequest.selectedVehicle.unitName}</Text>
-                        <Text style={styles.vehicleDetails}>
-                          {newRequest.selectedVehicle.variation} • {newRequest.selectedVehicle.bodyColor}
-                        </Text>
-                        <Text style={styles.vehicleId}>ID: {newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id}</Text>
-                      </View>
-                      <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.placeholderText}>Choose vehicle from inventory</Text>
-                      <MaterialIcons name="arrow-forward-ios" size={20} color="#666" />
-                    </>
-                  )}
-                </View>
+      <Modal visible={showAddModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>New Service Request</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Requested Services *</Text>
-              <View style={styles.servicesGrid}>
-                {availableServices.map(service => (
-                  <TouchableOpacity
-                    key={service}
-                    style={[
-                      styles.serviceOption,
-                      newRequest.requestedServices.includes(service) && styles.serviceOptionActive
-                    ]}
-                    onPress={() => toggleService(service)}
-                  >
-                    <Text style={[
-                      styles.serviceOptionText,
-                      newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
-                    ]}>
-                      {formatServiceName(service)}
-                    </Text>
-                    {newRequest.requestedServices.includes(service) && (
-                      <MaterialIcons name="check" size={16} color="#fff" />
-                    )}
-                  </TouchableOpacity>
-                ))}
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Unit ID *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., DMAX001"
+                  value={newRequest.unitId}
+                  onChangeText={(text) => setNewRequest({...newRequest, unitId: text})}
+                />
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Additional notes or special instructions..."
-                value={newRequest.notes}
-                onChangeText={(text) => setNewRequest({...newRequest, notes: text})}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.cancelBtn]}
-              onPress={() => {
-                setShowAddModal(false);
-                resetNewRequestForm();
-              }}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.saveBtn]}
-              onPress={handleAddServiceRequest}
-            >
-              <Text style={styles.saveBtnText}>Create Request</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Vehicle Selector Modal */}
-      <Modal visible={showVehicleSelector} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Vehicle</Text>
-            <TouchableOpacity onPress={() => setShowVehicleSelector(false)} style={styles.closeButton}>
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            {inventoryVehicles.length === 0 ? (
-              <View style={styles.emptyVehicles}>
-                <MaterialIcons name="inventory" size={48} color="#ccc" />
-                <Text style={styles.emptyVehiclesText}>No available vehicles</Text>
-                <Text style={styles.emptyVehiclesSubtext}>Check inventory for available vehicles</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Unit Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Isuzu D-MAX"
+                  value={newRequest.unitName}
+                  onChangeText={(text) => setNewRequest({...newRequest, unitName: text})}
+                />
               </View>
-            ) : (
-              inventoryVehicles.map((vehicle) => (
-                <TouchableOpacity
-                  key={vehicle._id}
-                  style={styles.vehicleOption}
-                  onPress={() => selectVehicle(vehicle)}
-                >
-                  <View style={styles.vehicleOptionContent}>
-                    <View style={styles.vehicleOptionInfo}>
-                      <Text style={styles.vehicleOptionName}>{vehicle.unitName}</Text>
-                      <Text style={styles.vehicleOptionDetails}>
-                        {vehicle.variation} • {vehicle.bodyColor}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Priority</Text>
+                <View style={styles.priorityContainer}>
+                  {['Low', 'Normal', 'High'].map(priority => (
+                    <TouchableOpacity
+                      key={priority}
+                      style={[
+                        styles.priorityBtn,
+                        newRequest.priority === priority && styles.priorityBtnActive
+                      ]}
+                      onPress={() => setNewRequest({...newRequest, priority})}
+                    >
+                      <Text style={[
+                        styles.priorityBtnText,
+                        newRequest.priority === priority && styles.priorityBtnTextActive
+                      ]}>
+                        {priority}
                       </Text>
-                      <Text style={styles.vehicleOptionId}>ID: {vehicle.unitId || vehicle._id}</Text>
-                      <View style={[styles.vehicleStatusBadge, { backgroundColor: getStatusColor(vehicle.status) }]}>
-                        <Text style={styles.vehicleStatusText}>{vehicle.status}</Text>
-                      </View>
-                    </View>
-                    <MaterialIcons name="arrow-forward-ios" size={20} color="#666" />
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Requested Services *</Text>
+                <View style={styles.servicesGrid}>
+                  {availableServices.map(service => (
+                    <TouchableOpacity
+                      key={service}
+                      style={[
+                        styles.serviceOption,
+                        newRequest.requestedServices.includes(service) && styles.serviceOptionActive
+                      ]}
+                      onPress={() => toggleService(service)}
+                    >
+                      <Text style={[
+                        styles.serviceOptionText,
+                        newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
+                      ]}>
+                        {formatServiceName(service)}
+                      </Text>
+                      {newRequest.requestedServices.includes(service) && (
+                        <MaterialIcons name="check" size={16} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notes</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Additional notes or special instructions..."
+                  value={newRequest.notes}
+                  onChangeText={(text) => setNewRequest({...newRequest, notes: text})}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => {
+                  setShowAddModal(false);
+                  resetNewRequestForm();
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveBtn]}
+                onPress={handleAddServiceRequest}
+              >
+                <Text style={styles.saveBtnText}>Create Request</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -554,9 +502,14 @@ export default function ServiceRequestScreen() {
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <View style={[styles.detailBadge, { backgroundColor: getStatusColor(selectedRequest.status) }]}>
-                    <Text style={styles.badgeText}>{selectedRequest.status}</Text>
+                  <Text style={styles.detailLabel}>Status & Priority</Text>
+                  <View style={styles.badgeRow}>
+                    <View style={[styles.detailBadge, { backgroundColor: getStatusColor(selectedRequest.status) }]}>
+                      <Text style={styles.badgeText}>{selectedRequest.status}</Text>
+                    </View>
+                    <View style={[styles.detailBadge, { backgroundColor: getPriorityColor(selectedRequest.priority) }]}>
+                      <Text style={styles.badgeText}>{selectedRequest.priority} Priority</Text>
+                    </View>
                   </View>
                 </View>
 
@@ -606,94 +559,6 @@ export default function ServiceRequestScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilterModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <TouchableOpacity 
-          style={styles.filterModalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFilterModal(false)}
-        >
-          <View style={styles.filterModalContent}>
-            <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>Filter by Status</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'all' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('all');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'all' && styles.filterOptionTextActive]}>
-                All Requests
-              </Text>
-              {filterStatus === 'all' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'pending' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('pending');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'pending' && styles.filterOptionTextActive]}>
-                Pending
-              </Text>
-              {filterStatus === 'pending' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'in progress' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('in progress');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'in progress' && styles.filterOptionTextActive]}>
-                In Progress
-              </Text>
-              {filterStatus === 'in progress' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'completed' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('completed');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'completed' && styles.filterOptionTextActive]}>
-                Completed
-              </Text>
-              {filterStatus === 'completed' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'cancelled' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('cancelled');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'cancelled' && styles.filterOptionTextActive]}>
-                Cancelled
-              </Text>
-              {filterStatus === 'cancelled' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -708,7 +573,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundcolor: '#FFFFFF',
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -720,24 +585,21 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: '600',
     marginLeft: 4,
   },
-  searchFilterContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#FFFFFF',
+  searchContainer: {
+    padding: 20,
+    backgroundColor: '#ffffff',
   },
   searchBox: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
@@ -751,155 +613,110 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
-    minHeight: 40,
+    color: '#333',
   },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DC2626',
+  filterContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    backgroundColor: '#ffffff',
+  },
+  filterBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 6,
-  },
-  filterButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  filterModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    width: '85%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  filterModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  filterModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  filterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#F9FAFB',
-  },
-  filterOptionActive: {
-    backgroundColor: '#FEE2E2',
+    paddingVertical: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+    marginRight: 10,
     borderWidth: 1,
-    borderColor: '#DC2626',
+    borderColor: '#e0e0e0',
   },
-  filterOptionText: {
-    fontSize: 15,
+  filterBtnActive: {
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
+  },
+  filterBtnText: {
+    color: '#666',
     fontWeight: '500',
-    color: '#4B5563',
   },
-  filterOptionTextActive: {
-    color: '#DC2626',
-    fontWeight: '600',
+  filterBtnTextActive: {
+    color: '#ffffff',
   },
   listContainer: {
     padding: 20,
   },
   requestCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   requestInfo: {
     flex: 1,
   },
   requestTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 4,
   },
   requestId: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
+  },
+  badgeContainer: {
+    alignItems: 'flex-end',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
   },
   statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 80,
-    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
   },
   servicesContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   servicesLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   servicesWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   serviceTag: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#bbdefb',
+    borderColor: '#e0e0e0',
   },
   serviceTagText: {
-    fontSize: 13,
-    color: '#1565c0',
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#666',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -953,185 +770,105 @@ const styles = StyleSheet.create({
     maxWidth: 250,
   },
   // Modal Styles
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
     backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: width * 0.9,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 60,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#ffffff',
+    borderBottomColor: '#e0e0e0',
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
   modalBody: {
-    flex: 1,
     padding: 20,
+    maxHeight: 400,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#1F2937',
-    minHeight: 52,
-    fontWeight: '500',
-  },
-  vehicleSelector: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: '#ffffff',
-  },
-  vehicleSelectorSelected: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#f8fff8',
-  },
-  vehicleSelectorContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  vehicleInfo: {
-    flex: 1,
-  },
-  vehicleName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  vehicleDetails: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  vehicleId: {
-    fontSize: 12,
-    color: '#999',
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  // Vehicle selector styles
-  vehicleOption: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  vehicleOptionContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  vehicleOptionInfo: {
-    flex: 1,
-  },
-  vehicleOptionName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  vehicleOptionDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  vehicleOptionId: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 8,
-  },
-  vehicleStatusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-  },
-  vehicleStatusText: {
-    fontSize: 12,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  emptyVehicles: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyVehiclesText: {
-    fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginTop: 16,
     marginBottom: 8,
   },
-  emptyVehiclesSubtext: {
-    fontSize: 14,
+  input: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: '#f8f9fa',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  priorityContainer: {
+    flexDirection: 'row',
+  },
+  priorityBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  priorityBtnActive: {
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
+  },
+  priorityBtnText: {
     color: '#666',
-    textAlign: 'center',
+    fontWeight: '500',
+  },
+  priorityBtnTextActive: {
+    color: '#ffffff',
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
   },
   serviceOption: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    minWidth: 120,
-    justifyContent: 'center',
   },
   serviceOptionActive: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
   serviceOptionText: {
     color: '#666',
     fontSize: 14,
-    marginRight: 6,
-    fontWeight: '500',
+    marginRight: 4,
   },
   serviceOptionTextActive: {
     color: '#ffffff',
@@ -1159,10 +896,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: '600',
   },
   // Details Modal Styles
@@ -1198,7 +935,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   detailServiceTag: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#e50914',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -1206,57 +943,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailServiceTagText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '500',
-  },
-  // Vehicle selector modal styles
-  vehicleSelectorModal: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  vehicleSelectorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  vehicleSelectorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#666',
-  },
-  vehicleList: {
-    padding: 16,
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
   },
 });

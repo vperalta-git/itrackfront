@@ -14,15 +14,12 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import axios from 'axios';
-import { buildApiUrl } from '../constants/api';
 
 // Import all screens
 import AdminDashboard from '../screens/AdminDashboard';
 import AgentDashboard from '../screens/AgentDashboard';
 import DispatchDashboard from '../screens/DispatchDashboard';
 import DriverDashboard from '../screens/DriverDashboard';
-import DriverAllocation from '../screens/DriverAllocation';
 import VehicleProgressScreen from '../screens/VehicleProgressScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
@@ -35,8 +32,6 @@ import ServiceRequestScreen from '../screens/ServiceRequestScreen';
 import TestDriveScreen from '../screens/TestDriveScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
-import ReleaseScreen from '../screens/ReleaseScreen';
-import VehicleAssignmentScreen from '../screens/VehicleAssignmentScreen';
 
 // Import icons (using the same icons as web)
 const dashboardIcon = require('../assets/icons/dashboard.png');
@@ -52,82 +47,6 @@ const itrackLogo = require('../assets/icons/itrackwhite.png');
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
-
-// Profile Button Component for Header
-function ProfileButton() {
-  const navigation = useNavigation();
-  const [userInfo, setUserInfo] = useState({
-    name: '',
-    picture: '',
-    userId: ''
-  });
-
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const name = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName');
-        const userId = await AsyncStorage.getItem('userId');
-        const userEmail = await AsyncStorage.getItem('userEmail');
-        
-        setUserInfo({ name: name || 'User', userId });
-        
-        // Fetch user's profile picture from database
-        if (userId || userEmail) {
-          let userData = null;
-          
-          if (userId) {
-            const response = await axios.get(buildApiUrl(`/api/getUser/${userId}`));
-            if (response.data.success && response.data.data) {
-              userData = response.data.data;
-            }
-          } else if (userEmail) {
-            // If no userId, fetch all users and find by email
-            const response = await axios.get(buildApiUrl('/getUsers'));
-            if (response.data.success) {
-              const users = response.data.data || [];
-              userData = users.find(u => u.email === userEmail);
-              if (userData) {
-                // Store the userId for future use
-                await AsyncStorage.setItem('userId', userData._id);
-              }
-            }
-          }
-          
-          if (userData) {
-            setUserInfo(prev => ({
-              ...prev,
-              picture: userData.picture || '',
-              userId: userData._id
-            }));
-          }
-        }
-      } catch (error) {
-        console.error('Error loading user info:', error);
-      }
-    };
-    loadUserInfo();
-  }, []);
-
-  return (
-    <TouchableOpacity 
-      style={styles.headerProfileButton}
-      onPress={() => navigation.navigate('Profile')}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.welcomeText}>Welcome, {userInfo.name}</Text>
-      {userInfo.picture ? (
-        <Image 
-          source={{ uri: userInfo.picture }} 
-          style={styles.profilePicture}
-        />
-      ) : (
-        <View style={styles.profilePicturePlaceholder}>
-          <MaterialIcons name="person" size={20} color="#fff" />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
 
 // Custom Drawer Content Component (matching web sidebar)
 function CustomDrawerContent(props) {
@@ -155,12 +74,13 @@ function CustomDrawerContent(props) {
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
+    { name: "Vehicle Tracking", icon: shipmentsIcon, screen: "VehicleTracking", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Audit Trail", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] }
+    { name: "History", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] },
+    { name: "My Profile", icon: usersIcon, screen: "Profile", roles: ['all'] }
   ];
 
   // Filter menu based on role (matching web logic)
@@ -172,7 +92,7 @@ function CustomDrawerContent(props) {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
         item.roles.includes(userRole) ||
-        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Test Drive'].includes(item.name)
+        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Test Drive', 'My Profile'].includes(item.name)
       );
     }
     
@@ -184,7 +104,7 @@ function CustomDrawerContent(props) {
     // Driver gets limited access
     if (userRole === 'Driver') {
       return menuItems.filter(item => 
-        ['Dashboard'].includes(item.name)
+        ['Dashboard', 'My Profile'].includes(item.name)
       );
     }
     
@@ -193,7 +113,7 @@ function CustomDrawerContent(props) {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
         item.roles.includes('Dispatch') ||
-        ['Dashboard', 'Driver Allocation', 'Vehicle Progress'].includes(item.name)
+        ['Dashboard', 'Driver Allocation', 'Vehicle Tracking', 'Vehicle Progress', 'My Profile'].includes(item.name)
       );
     }
     
@@ -226,69 +146,60 @@ function CustomDrawerContent(props) {
   };
 
   return (
-    <View style={styles.drawerWrapper}>
-      <DrawerContentScrollView 
-        {...props} 
-        contentContainerStyle={styles.drawerScrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header with logo (matching web) */}
-        <View style={styles.drawerHeader}>
-          <Image source={itrackLogo} style={styles.logo} />
-          <Text style={styles.appTitle}>I-TRACK</Text>
-          <Text style={styles.userWelcome}>Welcome, {userName}</Text>
-          <Text style={styles.userRole}>{userRole}</Text>
-        </View>
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContainer}>
+      {/* Header with logo (matching web) */}
+      <View style={styles.drawerHeader}>
+        <Image source={itrackLogo} style={styles.logo} />
+        <Text style={styles.appTitle}>I-TRACK</Text>
+        <Text style={styles.userWelcome}>Welcome, {userName}</Text>
+        <Text style={styles.userRole}>{userRole}</Text>
+      </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {getFilteredMenu().map((item) => (
-            <TouchableOpacity
-              key={item.name}
-              style={[
-                styles.menuItem,
-                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuItem
-              ]}
-              onPress={() => {
-                if (item.screen === 'Dashboard') {
-                  // Navigate to appropriate dashboard based on role
-                  if (userRole === 'Driver') {
-                    props.navigation.navigate('DriverDashboard');
-                  } else if (userRole === 'Dispatch') {
-                    props.navigation.navigate('DispatchDashboard');
-                  } else if (userRole === 'Sales Agent') {
-                    props.navigation.navigate('AgentDashboard');
-                  } else {
-                    props.navigation.navigate('AdminDashboard');
-                  }
+      {/* Menu Items */}
+      <View style={styles.menuContainer}>
+        {getFilteredMenu().map((item) => (
+          <TouchableOpacity
+            key={item.name}
+            style={[
+              styles.menuItem,
+              props.state.routeNames[props.state.index] === item.screen && styles.activeMenuItem
+            ]}
+            onPress={() => {
+              if (item.screen === 'Dashboard') {
+                // Navigate to appropriate dashboard based on role
+                if (userRole === 'Driver') {
+                  props.navigation.navigate('DriverDashboard');
+                } else if (userRole === 'Dispatch') {
+                  props.navigation.navigate('DispatchDashboard');
+                } else if (userRole === 'Sales Agent') {
+                  props.navigation.navigate('AgentDashboard');
                 } else {
-                  props.navigation.navigate(item.screen);
+                  props.navigation.navigate('AdminDashboard');
                 }
-              }}
-            >
-              <Image source={item.icon} style={[
-                styles.menuIcon,
-                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuIcon
-              ]} />
-              <Text style={[
-                styles.menuText,
-                props.state.routeNames[props.state.index] === item.screen && styles.activeMenuText
-              ]}>
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Sign Out Button (matching web) */}
-        <View style={styles.signOutContainer}>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Image source={signOutIcon} style={styles.signOutIcon} />
-            <Text style={styles.signOutText}>Log Out</Text>
+              } else {
+                props.navigation.navigate(item.screen);
+              }
+            }}
+          >
+            <Image source={item.icon} style={styles.menuIcon} />
+            <Text style={[
+              styles.menuText,
+              props.state.routeNames[props.state.index] === item.screen && styles.activeMenuText
+            ]}>
+              {item.name}
+            </Text>
           </TouchableOpacity>
-        </View>
-      </DrawerContentScrollView>
-    </View>
+        ))}
+      </View>
+
+      {/* Sign Out Button (matching web) */}
+      <View style={styles.signOutContainer}>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <Image source={signOutIcon} style={styles.signOutIcon} />
+          <Text style={styles.signOutText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+    </DrawerContentScrollView>
   );
 }
 
@@ -310,26 +221,10 @@ export default function UnifiedDrawer() {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerStyle: { 
-          backgroundColor: '#e50914',
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3,
-        },
+        headerStyle: { backgroundColor: '#e50914' },
         headerTintColor: '#ffffff',
-        drawerStyle: { 
-          backgroundColor: '#e50914',
-          width: Math.min(width * 0.88, 340),
-        },
-        headerTitle: 'I-Track',
-        headerTitleStyle: {
-          fontSize: 18,
-          fontWeight: '700',
-          color: '#ffffff',
-        },
-        headerRight: () => <ProfileButton />,
+        drawerStyle: { backgroundColor: '#6c757d', width: width * 0.8 },
+        headerTitle: 'I-Track System',
       }}
     >
       {/* Dashboard Screens */}
@@ -367,13 +262,8 @@ export default function UnifiedDrawer() {
       />
       <Drawer.Screen
         name="DriverAllocation"
-        component={DriverAllocation}
+        component={AdminDashboard} // AdminDashboard handles driver allocation
         options={{ title: 'Driver Allocation' }}
-      />
-      <Drawer.Screen
-        name="Release"
-        component={ReleaseScreen}
-        options={{ title: 'Release' }}
       />
       <Drawer.Screen
         name="TestDrive"
@@ -393,6 +283,11 @@ export default function UnifiedDrawer() {
 
       {/* Additional Feature Screens */}
       <Drawer.Screen
+        name="VehicleTracking"
+        component={VehicleListView}
+        options={{ title: 'Vehicle Tracking' }}
+      />
+      <Drawer.Screen
         name="VehicleProgress"
         component={VehicleProgressScreen}
         options={{ title: 'Vehicle Progress' }}
@@ -400,7 +295,7 @@ export default function UnifiedDrawer() {
       <Drawer.Screen
         name="History"
         component={HistoryScreen}
-        options={{ title: 'Audit Trail' }}
+        options={{ title: 'Release History' }}
       />
       <Drawer.Screen
         name="Profile"
@@ -421,163 +316,89 @@ export default function UnifiedDrawer() {
 }
 
 const styles = StyleSheet.create({
-  drawerWrapper: {
+  drawerContainer: {
     flex: 1,
-    backgroundColor: '#e50914', // Clean red sidebar background (Netflix red)
-  },
-  drawerScrollContainer: {
-    flexGrow: 1,
-    paddingBottom: 30,
-    minHeight: '100%',
+    backgroundColor: '#6c757d',
   },
   drawerHeader: {
     padding: 20,
-    paddingTop: 40, // More space for status bar
-    paddingBottom: 25,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.15)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
     alignItems: 'center',
-    backgroundColor: '#e50914',
   },
   logo: {
-    width: 50,
-    height: 50,
-    marginBottom: 12,
-    tintColor: '#ffffff',
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+    tintColor: '#fff',
   },
   appTitle: {
-    color: '#ffffff',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: 1.2,
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 5,
   },
   userWelcome: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 15,
-    marginBottom: 4,
-    textAlign: 'center',
+    color: '#ccc',
+    fontSize: 16,
+    marginBottom: 2,
   },
   userRole: {
-    color: '#ffffff',
-    fontSize: 13,
+    color: '#e50914',
+    fontSize: 14,
     fontWeight: '600',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 15,
-    textAlign: 'center',
-    overflow: 'hidden',
   },
   menuContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 8,
     flex: 1,
+    paddingVertical: 20,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginHorizontal: 6,
-    marginVertical: 3,
-    borderRadius: 10,
-    minHeight: 52,
-    backgroundColor: 'transparent',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginHorizontal: 10,
+    borderRadius: 8,
   },
   activeMenuItem: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffffff',
-    paddingLeft: 14, // Adjust for border
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
+    backgroundColor: '#e50914',
   },
   menuIcon: {
     width: 24,
     height: 24,
-    marginRight: 16,
-    tintColor: '#ffffff',
-    opacity: 0.9,
-  },
-  activeMenuIcon: {
-    tintColor: '#ffffff',
-    opacity: 1,
+    marginRight: 15,
+    tintColor: '#fff',
   },
   menuText: {
-    color: '#ffffff',
-    fontSize: 15,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '500',
-    flex: 1,
-    opacity: 0.9,
   },
   activeMenuText: {
-    fontWeight: '600',
-    color: '#ffffff',
-    opacity: 1,
+    fontWeight: 'bold',
   },
   signOutContainer: {
-    paddingHorizontal: 14,
-    paddingVertical: 20,
-    borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-    marginTop: 'auto',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    minHeight: 52,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    backgroundColor: '#e9ecef',
+    borderRadius: 8,
   },
   signOutIcon: {
-    width: 22,
-    height: 22,
-    marginRight: 14,
-    tintColor: '#ffffff',
-    opacity: 0.9,
+    width: 20,
+    height: 20,
+    marginRight: 10,
+    tintColor: '#fff',
   },
   signOutText: {
-    color: '#ffffff',
-    fontSize: 15,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    opacity: 0.9,
-  },
-  headerProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 15,
-    paddingVertical: 8,
-  },
-  welcomeText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 10,
-  },
-  profilePicture: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  profilePicturePlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

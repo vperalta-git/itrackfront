@@ -619,13 +619,13 @@ export default function HistoryScreen() {
   const getTypeIcon = (type, subType) => {
     switch (type) {
       case 'allocation':
-        return '🚗';
+        return '🔹';
       case 'request':
-        return subType === 'completed' ? '✅' : '📋';
+        return subType === 'completed' ? '✓' : '◆';
       case 'audit':
-        return '🔍';
+        return '●';
       default:
-        return '📄';
+        return '○';
     }
   };
 
@@ -792,11 +792,11 @@ export default function HistoryScreen() {
 
   const renderFilterTabs = () => {
     const filters = [
-      { key: 'all', label: 'All Activities', icon: '📊' },
-      { key: 'allocations', label: 'Allocations', icon: '🚗' },
+      { key: 'all', label: 'All Activities', icon: '●' },
+      { key: 'allocations', label: 'Allocations', icon: '🔹' },
       { key: 'inventory', label: 'Inventory', icon: '�' },
       { key: 'services', label: 'Services', icon: '�' },
-      { key: 'users', label: 'Users', icon: '👥' },
+      { key: 'users', label: 'Users', icon: '○' },
     ];
 
     return (
@@ -863,7 +863,7 @@ export default function HistoryScreen() {
       <View style={styles.historyContainer}>
         {filteredHistory.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📝</Text>
+            <Text style={styles.emptyStateIcon}>○</Text>
             <Text style={styles.emptyStateTitle}>No audit trail found</Text>
             <Text style={styles.emptyStateText}>
               {activeFilter === 'all' 

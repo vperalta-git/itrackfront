@@ -20,15 +20,14 @@ export default function ReportsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
-    totalStocks: 0,
+    totalVehicles: 0,
     totalAllocations: 0,
     totalUsers: 0,
-    finishedVehiclePreps: 0,
-    completedAllocations: 0,
+    completedDeliveries: 0,
+    pendingAllocations: 0,
     activeDrivers: 0,
-    inProcessAllocations: 0,
-    inTransitAllocations: 0,
-    availableStocks: 0
+    totalTestDrives: 0,
+    completedServiceRequests: 0
   });
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [recentActivities, setRecentActivities] = useState([]);
@@ -40,21 +39,10 @@ export default function ReportsScreen() {
       const response = await fetch(buildApiUrl('/dashboard/stats'));
       const data = await response.json();
       
-      // Backend returns stats directly, not wrapped in success/stats
-      if (data && typeof data === 'object') {
-        setStats({
-          totalStocks: data.totalStocks || 0,
-          totalAllocations: data.totalAllocations || 0,
-          totalUsers: data.totalUsers || 0,
-          finishedVehiclePreps: data.finishedVehiclePreps || 0,
-          completedAllocations: data.completedAllocations || 0,
-          activeDrivers: data.activeDrivers || 0,
-          inProcessAllocations: data.inProcessAllocations || 0,
-          inTransitAllocations: data.inTransitAllocations || 0,
-          availableStocks: data.availableStocks || 0
-        });
+      if (data.success && data.stats) {
+        setStats(data.stats);
       } else {
-        console.warn('Unexpected stats format:', data);
+        console.warn('Failed to fetch stats:', data.message);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -230,51 +218,51 @@ export default function ReportsScreen() {
             <View style={styles.statsGrid}>
               <StatCard
                 title="Total Vehicles"
-                value={stats.totalStocks}
+                value={stats.totalVehicles}
                 icon="directions-car"
                 color="#007AFF"
+                change={8}
+                changeType="increase"
               />
               <StatCard
-                title="Available Vehicles"
-                value={stats.availableStocks}
-                icon="garage"
-                color="#28a745"
-              />
-              <StatCard
-                title="Total Allocations"
+                title="Active Allocations"
                 value={stats.totalAllocations}
                 icon="assignment"
                 color="#e50914"
-              />
-              <StatCard
-                title="Completed"
-                value={stats.completedAllocations}
-                icon="check-circle"
-                color="#17a2b8"
-              />
-              <StatCard
-                title="In Process"
-                value={stats.inProcessAllocations}
-                icon="autorenew"
-                color="#ffc107"
-              />
-              <StatCard
-                title="In Transit"
-                value={stats.inTransitAllocations}
-                icon="local-shipping"
-                color="#6f42c1"
-              />
-              <StatCard
-                title="Finished Preps"
-                value={stats.finishedVehiclePreps}
-                icon="build"
-                color="#795548"
+                change={12}
+                changeType="increase"
               />
               <StatCard
                 title="Total Users"
                 value={stats.totalUsers}
                 icon="people"
-                color="#607d8b"
+                color="#28a745"
+                change={3}
+                changeType="increase"
+              />
+              <StatCard
+                title="Completed Deliveries"
+                value={stats.completedDeliveries}
+                icon="check-circle"
+                color="#17a2b8"
+                change={15}
+                changeType="increase"
+              />
+              <StatCard
+                title="Pending Allocations"
+                value={stats.pendingAllocations}
+                icon="pending"
+                color="#ffc107"
+                change={5}
+                changeType="decrease"
+              />
+              <StatCard
+                title="Active Drivers"
+                value={stats.activeDrivers}
+                icon="local-shipping"
+                color="#6f42c1"
+                change={2}
+                changeType="increase"
               />
             </View>
           </View>

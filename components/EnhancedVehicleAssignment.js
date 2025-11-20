@@ -191,7 +191,7 @@ const EnhancedVehicleAssignment = ({ visible, onClose, onVehicleAssigned }) => {
               <Text style={styles.sectionTitle}>Vehicle Information</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Vehicle Model *</Text>
+                <Text style={styles.label}>Vehicle Model <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
                 <TextInput
                   style={styles.input}
                   value={assignmentData.unitName}
@@ -202,7 +202,7 @@ const EnhancedVehicleAssignment = ({ visible, onClose, onVehicleAssigned }) => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>VIN/Unit ID *</Text>
+                <Text style={styles.label}>VIN/Unit ID <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
                 <View style={styles.vinRow}>
                   <TextInput
                     style={[styles.input, styles.vinInput]}
@@ -247,7 +247,7 @@ const EnhancedVehicleAssignment = ({ visible, onClose, onVehicleAssigned }) => {
               <Text style={styles.sectionTitle}>Assignment Details</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Assign to Driver *</Text>
+                <Text style={styles.label}>Assign to Driver <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={assignmentData.driverUsername}

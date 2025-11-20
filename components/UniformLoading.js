@@ -5,7 +5,7 @@ const UniformLoading = ({
   message = 'Loading...', 
   size = 'large', 
   showMessage = true,
-  backgroundColor = '#F3F4F6',
+  backgroundColor = 'rgba(0,0,0,0.5)',
   style = {} 
 }) => {
   return (
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     height: 80,
   },
   loadingText: {
-    color: '#DC2626',
+    color: '#e50914',
     fontWeight: '600',
     textAlign: 'center',
   },

@@ -19,9 +19,10 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
-import StocksOverview from '../components/StocksOverview';
+import EnhancedDriverCreation from '../components/EnhancedDriverCreation';
+import EnhancedVehicleAssignment from '../components/EnhancedVehicleAssignment';
 import UniformLoading from '../components/UniformLoading';
-import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit, getAllowedStatusTransitions, VEHICLE_STATUS_RULES } from '../constants/VehicleModels';
+import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit } from '../constants/VehicleModels';
 
 export default function AdminDashboard() {
   const navigation = useNavigation();
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
   const [drivers, setDrivers] = useState([]);
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentTab, setCurrentTab] = useState('dashboard'); // Add tab state
 
   // Inventory management state
   const [inventory, setInventory] = useState([]);
@@ -42,9 +44,9 @@ export default function AdminDashboard() {
   const [selectedStock, setSelectedStock] = useState(null);
   const [newStock, setNewStock] = useState({
     unitName: "",
+    conductionNumber: "",
     bodyColor: "",
     variation: "",
-    status: "In Stockyard" // Default status
   });
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [availableVariations, setAvailableVariations] = useState([]);
@@ -83,7 +85,9 @@ export default function AdminDashboard() {
   const [showReleaseConfirmModal, setShowReleaseConfirmModal] = useState(false);
   const [selectedReleaseVehicle, setSelectedReleaseVehicle] = useState(null);
   
-
+  // Enhanced modal states
+  const [showDriverCreationModal, setShowDriverCreationModal] = useState(false);
+  const [showVehicleAssignmentModal, setShowVehicleAssignmentModal] = useState(false);
   
   // Available processes
   const availableProcesses = [
@@ -269,28 +273,20 @@ export default function AdminDashboard() {
   };
 
   const handleAddStock = async () => {
-    const { unitName, bodyColor, variation, status } = newStock;
-    if (!unitName || !bodyColor || !variation) {
+    const { unitName, conductionNumber, bodyColor, variation } = newStock;
+    if (!unitName || !conductionNumber || !bodyColor || !variation) {
       Alert.alert("Error", "Please fill in all fields for adding stock.");
       return;
     }
-    
-    // Validate status - only 'In Stockyard' or 'Available' allowed for new vehicles
-    if (status && status !== 'In Stockyard' && status !== 'Available') {
-      Alert.alert("Error", "For new vehicles, only 'In Stockyard' or 'Available' status is allowed.");
-      return;
-    }
-    
     try {
       const response = await fetch(buildApiUrl('/createStock'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unitName,
-          unitId: `${unitName.replace(/\s+/g, '')}_${Date.now()}`, // Generate unitId
+          unitId: conductionNumber, // Backend expects unitId
           bodyColor,
-          variation,
-          status: status || 'In Stockyard' // Default to 'In Stockyard'
+          variation
         }),
       });
       
@@ -300,8 +296,8 @@ export default function AdminDashboard() {
         throw new Error(result.error || "Failed to add stock.");
       }
       
-      Alert.alert("Success", `Stock added successfully with status: ${result.data.status}!`);
-      setNewStock({ unitName: "", bodyColor: "", variation: "", status: "In Stockyard" });
+      Alert.alert("Success", "Stock added successfully!");
+      setNewStock({ unitName: "", conductionNumber: "", bodyColor: "", variation: "" });
       setSelectedUnitName("");
       setAvailableVariations([]);
       setShowAddStockModal(false);
@@ -353,18 +349,9 @@ export default function AdminDashboard() {
       bodyColor: item.bodyColor || "",
       variation: item.variation || "",
       quantity: item.quantity?.toString() || "1",
-      status: item.status || "Available",
-      currentStatus: item.status || "Available", // Track original status for validation
-      assignedAgent: item.assignedAgent || ""
+      status: item.status || "Available"
     });
     setShowEditStockModal(true);
-  };
-
-  // Helper to get allowed status options for Edit modal based on current status
-  const getAllowedStatusOptions = (currentStatus, hasDriver, driverAccepted, hasLocation) => {
-    const allowed = getAllowedStatusTransitions(currentStatus, hasDriver, driverAccepted, hasLocation);
-    // Add current status as first option (no change)
-    return [currentStatus, ...allowed.filter(status => status !== currentStatus)];
   };
 
   const handleUpdateStock = async () => {
@@ -373,63 +360,20 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Validate status transition if status is being changed
-    if (editStock.status !== editStock.currentStatus) {
-      const hasDriver = !!selectedStock.assignedDriver;
-      const driverAccepted = selectedStock.driverAccepted === true;
-      const hasLocation = !!(selectedStock.location?.latitude && selectedStock.location?.longitude);
-      
-      const allowedTransitions = getAllowedStatusTransitions(
-        editStock.currentStatus, 
-        hasDriver, 
-        driverAccepted, 
-        hasLocation
-      );
-      
-      if (!allowedTransitions.includes(editStock.status)) {
-        const rule = VEHICLE_STATUS_RULES[editStock.currentStatus];
-        Alert.alert(
-          "Invalid Status Change", 
-          `Cannot change status from '${editStock.currentStatus}' to '${editStock.status}'.\n\nRequirements: ${rule?.requirements || 'Unknown'}`
-        );
-        return;
-      }
-
-      // Additional validation for 'Released' status - should only be set via Release button
-      if (editStock.status === 'Released') {
-        Alert.alert(
-          "Invalid Status Change",
-          "Vehicles can only be set to 'Released' status using the Release button after completing all required processes."
-        );
-        return;
-      }
-    }
-
     try {
-      const updatePayload = {
-        unitName: editStock.unitName,
-        unitId: editStock.unitId,
-        bodyColor: editStock.bodyColor,
-        variation: editStock.variation,
-        quantity: parseInt(editStock.quantity) || 1
-      };
-
-      // Only include status in update if it changed and passed validation
-      if (editStock.status !== editStock.currentStatus) {
-        updatePayload.status = editStock.status;
-      }
-
-      // Include assignedAgent in update (can be empty to unassign)
-      if (editStock.assignedAgent !== undefined) {
-        updatePayload.assignedAgent = editStock.assignedAgent || null;
-      }
-
       const response = await fetch(buildApiUrl(`/updateStock/${selectedStock._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatePayload),
+        body: JSON.stringify({
+          unitName: editStock.unitName,
+          unitId: editStock.unitId,
+          bodyColor: editStock.bodyColor,
+          variation: editStock.variation,
+          quantity: parseInt(editStock.quantity) || 1,
+          status: editStock.status
+        }),
       });
 
       const result = await response.json();
@@ -439,7 +383,7 @@ export default function AdminDashboard() {
       }
       
       Alert.alert("Success", "Stock updated successfully!");
-      setEditStock({ unitName: "", unitId: "", bodyColor: "", variation: "", quantity: "", status: "", currentStatus: "" });
+      setEditStock({ unitName: "", unitId: "", bodyColor: "", variation: "", quantity: "", status: "" });
       setShowEditStockModal(false);
       setSelectedStock(null);
       await fetchInventory(); // Refresh inventory data
@@ -453,6 +397,17 @@ export default function AdminDashboard() {
     if (!selectedVin || !selectedAgent || !selectedDriver) {
       Alert.alert('Missing Info', 'Please select vehicle, agent, and driver.');
       return;
+    }
+
+    // Auto-assign default delivery processes if none selected
+    let processesToAssign = selectedProcesses;
+    if (processesToAssign.length === 0) {
+      processesToAssign = [
+        'delivery_to_isuzu_pasig',
+        'stock_integration',
+        'documentation_check'
+      ];
+      console.log('No processes selected for stock assignment, using default delivery processes:', processesToAssign);
     }
 
     try {
@@ -469,8 +424,9 @@ export default function AdminDashboard() {
         variation: selectedVehicle.variation,
         assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Pending',
+        status: 'Assigned',
         allocatedBy: 'Admin',
+        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -483,11 +439,21 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign vehicle');
 
-      // Status automatically updated to 'Pending' by backend
-      Alert.alert('Success', 'Vehicle assigned successfully to driver and agent!');
+      // Update the inventory item status to "Allocated"
+      await fetch(buildApiUrl(`/updateStock/${selectedVehicle._id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...selectedVehicle,
+          status: 'Allocated'
+        }),
+      });
+
+      Alert.alert('Success', `Vehicle assigned successfully with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
       setSelectedVin('');
       setSelectedAgent('');
       setSelectedDriver('');
+      setSelectedProcesses([]);
       await Promise.all([fetchAllocations(), fetchInventory()]);
     } catch (err) {
       console.error('Assign to agent error:', err);
@@ -501,6 +467,17 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Auto-assign default delivery processes if none selected
+    let processesToAssign = selectedProcesses;
+    if (processesToAssign.length === 0) {
+      processesToAssign = [
+        'delivery_to_isuzu_pasig',
+        'stock_integration',
+        'documentation_check'
+      ];
+      console.log('No processes selected, using default delivery processes:', processesToAssign);
+    }
+
     try {
       const allocationPayload = {
         unitName: manualModel,
@@ -509,8 +486,9 @@ export default function AdminDashboard() {
         variation: 'Manual Entry',
         assignedDriver: selectedDriver,
         assignedAgent: selectedAgent,
-        status: 'Pending',
+        status: 'Assigned',
         allocatedBy: 'Admin',
+        requestedProcesses: processesToAssign,
         date: new Date()
       };
 
@@ -523,11 +501,12 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to assign');
 
-      Alert.alert('Success', 'Vehicle assigned successfully to driver and agent!');
+      Alert.alert('Success', `Vehicle assigned to driver with ${processesToAssign.length} process(es)\n\nProcesses: ${processesToAssign.join(', ')}`);
       setManualModel('');
       setManualVin('');
       setSelectedDriver('');
       setSelectedAgent('');
+      setSelectedProcesses([]);
       fetchAllocations();
     } catch (err) {
       console.error('Assign to driver error:', err);
@@ -535,7 +514,34 @@ export default function AdminDashboard() {
     }
   };
 
-
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all session-related AsyncStorage keys
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userName');
+              await AsyncStorage.removeItem('userRole');
+              await AsyncStorage.removeItem('accountName');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'LoginScreen' }], // Changed from 'Login' to 'LoginScreen'
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Handle release confirmation function
   const handleConfirmRelease = async () => {
@@ -610,130 +616,281 @@ export default function AdminDashboard() {
     </View>
   );
 
-  const renderDashboardContent = () => {
-    // Calculate statistics for dashboard
-    const totalStocks = inventory.length;
-    const finishedVehiclePreparation = allocations.filter(a => a.status === 'Ready for Release').length;
-    const ongoingShipment = allocations.filter(a => a.status === 'In Transit').length;
-    const ongoingVehiclePreparation = allocations.filter(a => a.status === 'Assigned to Dispatch' || a.status === 'In Progress').length;
-
-    // Recent in-progress preparation
-    const recentPreparation = allocations
-      .filter(a => a.status === 'Assigned to Dispatch' || a.status === 'In Progress')
-      .slice(0, 3);
-
-    // Recent assigned shipments  
-    const recentShipments = allocations
-      .filter(a => a.status === 'In Transit' || a.status === 'Pending')
-      .slice(0, 3);
-
-    return (
-      <View style={styles.dashboardContainer}>
-        {/* Statistics Cards */}
-        <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
-            <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
-            <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
-          </View>
-          
-          <View style={[styles.reportsStatCard, { backgroundColor: '#374151' }]}>
-            <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
-            <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
-          </View>
-          
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
-            <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
-            <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
-          </View>
-          
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
-            <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
-            <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
+  const renderDashboardContent = () => (
+    <View style={styles.dashboardContainer}>
+      {/* Modern Vehicle Assignment Card */}
+      <View style={styles.assignmentCard}>
+        <View style={styles.assignmentCardHeader}>
+          <Text style={styles.assignmentTitle}>Vehicle Assignment</Text>
+          <View style={styles.assignmentBadge}>
+            <Text style={styles.assignmentBadgeText}>Quick Assign</Text>
           </View>
         </View>
 
-        {/* Stocks Overview with Pie Charts */}
-        <StocksOverview inventory={inventory} theme={theme} />
-
-        {/* Recent In Progress Vehicle Preparation */}
-        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent In Progress Vehicle Preparation</Text>
-          
-          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
-            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>CONDUCTION NO.</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>SERVICE</Text>
-            </View>
-            
-            {recentPreparation.length > 0 ? recentPreparation.map((item, index) => (
-              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitId || 'N/A'}</Text>
-                <Text style={[styles.reportsTableCell, { flex: 1, color: theme.text }]}>
-                  {item.requestedProcesses && item.requestedProcesses.length > 0 
-                    ? item.requestedProcesses[0].name || 'Processing'
-                    : 'Processing'}
-                </Text>
-              </View>
-            )) : (
-              <View style={styles.reportsTableRow}>
-                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No vehicle preparation in progress</Text>
-              </View>
-            )}
+        {/* Input Mode Selection */}
+        <View style={styles.assignmentSection}>
+          <Text style={styles.assignmentLabel}>Assignment Mode</Text>
+          <View style={styles.modeSelector}>
+            <TouchableOpacity
+              style={[styles.modeButton, mode === 'stock' && styles.modeButtonActive]}
+              onPress={() => setMode('stock')}
+            >
+              <Text style={[styles.modeButtonText, mode === 'stock' && styles.modeButtonTextActive]}>
+                From Stock
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
+              onPress={() => setMode('manual')}
+            >
+              <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
+                Manual Entry
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Recent Assigned Shipments */}
-        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
-          
-          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
-            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>UNIT NAME</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>DRIVER</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
+        {mode === 'stock' ? (
+          <View style={styles.assignmentForm}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Select Vehicle from Stock</Text>
+              <View style={styles.modernPickerContainer}>
+                <Picker
+                  selectedValue={selectedVin}
+                  onValueChange={val => setSelectedVin(val)}
+                  style={styles.modernPicker}
+                >
+                  <Picker.Item label="Choose Vehicle..." value="" />
+                  {inventory.filter(item => (item.status || 'Available') === 'Available').map(v => (
+                    <Picker.Item 
+                      key={v._id} 
+                      label={`${v.unitName} - ${v.variation} (${v.bodyColor})`} 
+                      value={v.unitId || v._id} 
+                    />
+                  ))}
+                </Picker>
+              </View>
             </View>
-            
-            {recentShipments.length > 0 ? recentShipments.map((item, index) => (
-              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
-                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
-                <View style={[styles.reportsTableCell, { flex: 1 }]}>
-                  <View style={[
-                    styles.statusBadge, 
-                    { backgroundColor: '#e50914' }
+
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Assign to Agent</Text>
+              <View style={styles.modernPickerContainer}>
+                <Picker
+                  selectedValue={selectedAgent}
+                  onValueChange={val => setSelectedAgent(val)}
+                  style={styles.modernPicker}
+                >
+                  <Picker.Item label="Select Agent..." value="" />
+                  {agents.map(a => (
+                    <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.assignmentForm}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Vehicle Details</Text>
+              <TextInput
+                style={styles.modernInput}
+                placeholder="Vehicle Model (e.g., Isuzu D-Max)"
+                value={manualModel}
+                onChangeText={setManualModel}
+                placeholderTextColor="#94a3b8"
+              />
+              <TextInput
+                style={styles.modernInput}
+                placeholder="VIN Number"
+                value={manualVin}
+                onChangeText={setManualVin}
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Assign to Agent</Text>
+              <View style={styles.modernPickerContainer}>
+                <Picker
+                  selectedValue={selectedAgent}
+                  onValueChange={val => setSelectedAgent(val)}
+                  style={styles.modernPicker}
+                >
+                  <Picker.Item label="Select Agent..." value="" />
+                  {agents.map(a => (
+                    <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Driver Selection */}
+        <View style={styles.assignmentForm}>
+          <View style={styles.formField}>
+            <Text style={styles.fieldLabel}>Assign Driver</Text>
+            <View style={styles.modernPickerContainer}>
+              <Picker
+                selectedValue={selectedDriver}
+                onValueChange={val => setSelectedDriver(val)}
+                style={styles.modernPicker}
+              >
+                <Picker.Item label="Select Driver..." value="" />
+                {drivers.map(d => (
+                  <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.createAssignmentButton} 
+            onPress={mode === 'stock' ? assignToAgent : assignToDriver}
+          >
+            <Text style={styles.createAssignmentButtonText}>Create Assignment</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Enhanced Quick Actions */}
+      <View style={styles.quickActionsCard}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        
+        <View style={styles.actionButtonsGrid}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryActionButton]}
+            onPress={() => setShowDriverCreationModal(true)}
+          >
+            <Text style={styles.actionButtonIcon}>👤</Text>
+            <Text style={styles.actionButtonText}>Create Driver Account</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryActionButton]}
+            onPress={() => setShowVehicleAssignmentModal(true)}
+          >
+            <Text style={styles.actionButtonIcon}>🚗</Text>
+            <Text style={styles.actionButtonText}>Assign Vehicle</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.tertiaryActionButton]}
+            onPress={() => navigation.navigate('UserManagement')}
+          >
+            <Text style={styles.actionButtonIcon}>👥</Text>
+            <Text style={styles.actionButtonText}>User Management</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.quaternaryActionButton]}
+            onPress={() => navigation.navigate('TestDriveManagementScreen')}
+          >
+            <Text style={styles.actionButtonIcon}>�️</Text>
+            <Text style={styles.actionButtonText}>Test Drive Management</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Quick Navigation Card */}
+      <View style={styles.navigationCard}>
+        <Text style={styles.navigationTitle}>Quick Navigation</Text>
+        <View style={styles.navigationButtons}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigation.navigate('HistoryScreen')}
+          >
+            <Text style={styles.navButtonText}>�️ Maps & Tracking</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigation.navigate('UserManagement')}
+          >
+            <Text style={styles.navButtonText}>👥 User Management</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Current Allocations Card */}
+      <View style={styles.allocationsCard}>
+        <View style={styles.allocationsHeader}>
+          <Text style={styles.allocationsTitle}>Vehicle Allocations</Text>
+          <View style={styles.allocationsActions}>
+            <TouchableOpacity 
+              style={styles.allocationNavBtn}
+              onPress={() => navigation.navigate('DriverAllocation')}
+            >
+              <Text style={styles.allocationNavBtnText}>📋 All Allocations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.allocationNavBtn}
+              onPress={() => navigation.navigate('AdminVehicleTracking')}
+            >
+              <Text style={styles.allocationNavBtnText}>�️ Maps & Tracking</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {allocations.length > 0 ? (
+          <View style={styles.allocationsList}>
+            {allocations.slice(0, 5).map((item) => (
+              <View key={item._id} style={styles.allocationItem}>
+                <View style={styles.allocationHeader}>
+                  <Text style={styles.allocationUnitName}>{item.unitName}</Text>
+                  <View style={[styles.allocationStatusBadge, 
+                    item.status === 'In Transit' ? {backgroundColor: '#dbeafe'} : 
+                    item.status === 'Completed' ? {backgroundColor: '#d1fae5'} :
+                    item.status === 'Assigned' ? {backgroundColor: '#fef3c7'} :
+                    {backgroundColor: '#fecaca'}
                   ]}>
-                    <Text style={styles.statusBadgeText}>
-                      {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                    <Text style={[styles.allocationStatusText,
+                      item.status === 'In Transit' ? {color: '#1e40af'} : 
+                      item.status === 'Completed' ? {color: '#065f46'} :
+                      item.status === 'Assigned' ? {color: '#92400e'} :
+                      {color: '#dc2626'}
+                    ]}>
+                      {item.status}
                     </Text>
                   </View>
                 </View>
+                
+                <View style={styles.allocationDetails}>
+                  <Text style={styles.allocationDetailText}>
+                    Driver: {item.assignedDriver} • {item.variation}
+                  </Text>
+                  <Text style={styles.allocationDetailText}>
+                    Color: {item.bodyColor} • {new Date(item.createdAt || Date.now()).toLocaleDateString()}
+                  </Text>
+                  {item.assignedAgent && (
+                    <Text style={styles.allocationDetailText}>
+                      Agent: {item.assignedAgent}
+                    </Text>
+                  )}
+                </View>
               </View>
-            )) : (
-              <View style={styles.reportsTableRow}>
-                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
-              </View>
+            ))}
+            
+            {allocations.length > 5 && (
+              <TouchableOpacity 
+                style={styles.viewAllAllocationsBtn}
+                onPress={() => navigation.navigate('DriverAllocation')}
+              >
+                <Text style={styles.viewAllAllocationsBtnText}>
+                  View All {allocations.length} Allocations →
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
-        </View>
-
-        {/* Recent Completed Requests */}
-        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Completed Requests</Text>
-          
-          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
-            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>CONDUCTION NO.</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>DATE</Text>
-            </View>
-            
-            <View style={styles.reportsTableRow}>
-              <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No completed requests</Text>
-            </View>
+        ) : (
+          <View style={styles.emptyAllocations}>
+            <Text style={styles.emptyAllocationsText}>No allocations found</Text>
+            <Text style={styles.emptyAllocationsSubtext}>Create your first vehicle assignment</Text>
           </View>
-        </View>
+        )}
       </View>
-    );
-  };
+    </View>
+  );
 
   const renderReleaseContent = () => (
     <View style={styles.releaseContainer}>
@@ -747,12 +904,12 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <View style={styles.releaseStatsContainer}>
-        <View style={[styles.releaseStatCard, { backgroundColor: '#e50914' }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#FF9800' }]}>
           <Text style={styles.releaseStatNumber}>{pendingReleases.length}</Text>
           <Text style={styles.releaseStatLabel}>Pending Release</Text>
         </View>
         
-        <View style={[styles.releaseStatCard, { backgroundColor: '#e50914' }]}>
+        <View style={[styles.releaseStatCard, { backgroundColor: '#4CAF50' }]}>
           <Text style={styles.releaseStatNumber}>{releaseHistory.length}</Text>
           <Text style={styles.releaseStatLabel}>Released Today</Text>
         </View>
@@ -892,29 +1049,113 @@ export default function AdminDashboard() {
       <ScrollView style={styles.reportsContainer}>
         {/* Statistics Cards */}
         <View style={styles.reportsStatsGrid}>
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{totalStocks}</Text>
             <Text style={styles.reportsStatLabel}>Total{'\n'}Stocks</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#374151' }]}>
             <Text style={styles.reportsStatNumber}>{finishedVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Finished Vehicle{'\n'}Preparation</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingShipment}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing{'\n'}Shipment</Text>
           </View>
           
-          <View style={[styles.reportsStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.reportsStatCard, { backgroundColor: '#DC2626' }]}>
             <Text style={styles.reportsStatNumber}>{ongoingVehiclePreparation}</Text>
             <Text style={styles.reportsStatLabel}>Ongoing Vehicle{'\n'}Preparation</Text>
           </View>
         </View>
 
-        {/* Stocks Overview with Real Pie Charts */}
-        <StocksOverview inventory={inventory} theme={theme} />
+        {/* Stock Status Section - Accurate Pie Chart */}
+        <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Stock Status Distribution</Text>
+          
+          {/* Improved Pie Chart with Visual Representation */}
+          <TouchableOpacity style={styles.pieChartContainer} onLongPress={() => {
+            Alert.alert('Stock Status Details', 
+              Object.entries(stockData)
+                .map(([status, count]) => `${status}: ${count} vehicles`)
+                .join('\n') + `\n\nTotal Inventory: ${inventory.length} vehicles`
+            );
+          }}>
+            <View style={[styles.pieChart, { borderColor: theme.primary }]}>
+              <Text style={[styles.pieChartLabel, { color: theme.textSecondary }]}>Stock{'\n'}Status{'\n'}(Tap for Details)</Text>
+              
+              {/* Visual pie chart representation using circles */}
+              <View style={styles.pieChartVisual}>
+                {Object.entries(stockData).map(([status, count], index) => {
+                  const totalStock = inventory.length;
+                  const percentage = totalStock > 0 ? (count / totalStock) * 100 : 0;
+                  const colors = {
+                    'Available': '#059669', // Green
+                    'Allocated': '#F59E0B', // Yellow
+                    'In Preparation': '#3B82F6', // Blue
+                    'Ready for Release': '#8B5CF6', // Purple
+                    'Released': '#6B7280', // Gray
+                    'In Transit': '#EF4444' // Red
+                  };
+                  
+                  return (
+                    <View 
+                      key={index} 
+                      style={[
+                        styles.pieSegment, 
+                        { 
+                          backgroundColor: colors[status] || '#6B7280',
+                          width: Math.max(percentage * 2, 8), // Minimum width of 8
+                          height: Math.max(percentage * 2, 8)
+                        }
+                      ]} 
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Stock Status Breakdown List */}
+          <View style={styles.vehicleBreakdownList}>
+            {Object.entries(stockData).map(([status, count], index) => {
+              const totalStock = inventory.length;
+              const percentage = totalStock > 0 ? ((count / totalStock) * 100).toFixed(1) : '0.0';
+              const colors = {
+                'Available': '#059669',
+                'Allocated': '#F59E0B',
+                'In Preparation': '#3B82F6',
+                'Ready for Release': '#8B5CF6',
+                'Released': '#6B7280',
+                'In Transit': '#EF4444'
+              };
+              
+              return (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.vehicleBreakdownItem}
+                  onPress={() => Alert.alert(status, `Count: ${count} vehicles\nPercentage: ${percentage}% of total stock`)}
+                >
+                  <View style={[styles.colorIndicator, { 
+                    backgroundColor: colors[status] || '#6B7280'
+                  }]} />
+                  <Text style={[styles.vehicleModel, { color: theme.text, flex: 2 }]}>{status}</Text>
+                  <Text style={[styles.vehicleCount, { color: theme.textSecondary }]}>{count}</Text>
+                  <Text style={[styles.vehiclePercentage, { color: theme.textTertiary }]}>({percentage}%)</Text>
+                </TouchableOpacity>
+              );
+            })}
+            
+            {/* Total Summary */}
+            <View style={[styles.vehicleBreakdownItem, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 8, paddingTop: 8 }]}>
+              <View style={[styles.colorIndicator, { backgroundColor: theme.primary }]} />
+              <Text style={[styles.vehicleModel, { color: theme.text, fontWeight: 'bold', flex: 2 }]}>Total Stock</Text>
+              <Text style={[styles.vehicleCount, { color: theme.text, fontWeight: 'bold' }]}>{inventory.length}</Text>
+              <Text style={[styles.vehiclePercentage, { color: theme.text, fontWeight: 'bold' }]}>(100%)</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Recent In Progress Vehicle Preparation */}
         <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
@@ -947,34 +1188,38 @@ export default function AdminDashboard() {
         <View style={[styles.reportsSection, { backgroundColor: theme.card }]}>
           <Text style={[styles.reportsSectionTitle, { color: theme.text }]}>Recent Assigned Shipments</Text>
           
-          <View style={[styles.reportsTable, { backgroundColor: theme.surface }]}>
-            <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>UNIT NAME</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 2, color: theme.textSecondary }]}>DRIVER</Text>
-              <Text style={[styles.reportsTableHeaderCell, { flex: 1, color: theme.textSecondary }]}>STATUS</Text>
-            </View>
-            
-            {recentShipments.length > 0 ? recentShipments.map((item, index) => (
-              <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
-                <Text style={[styles.reportsTableCell, { flex: 2, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
-                <View style={[styles.reportsTableCell, { flex: 1 }]}>
-                  <View style={[
-                    styles.statusBadge, 
-                    { backgroundColor: '#e50914' }
-                  ]}>
-                    <Text style={styles.statusBadgeText}>
-                      {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
-                    </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={[styles.reportsTable, { backgroundColor: theme.surface, minWidth: 400 }]}>
+              <View style={[styles.reportsTableHeader, { backgroundColor: theme.borderLight }]}>
+                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>UNIT NAME</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>VARIATION</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 120, color: theme.textSecondary }]}>ASSIGNED DRIVER</Text>
+                <Text style={[styles.reportsTableHeaderCell, { width: 80, color: theme.textSecondary }]}>STATUS</Text>
+              </View>
+              
+              {recentShipments.length > 0 ? recentShipments.map((item, index) => (
+                <View key={index} style={[styles.reportsTableRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.unitName || 'N/A'}</Text>
+                  <Text style={[styles.reportsTableCell, { width: 80, color: theme.text }]}>{item.variation || 'N/A'}</Text>
+                  <Text style={[styles.reportsTableCell, { width: 120, color: theme.text }]}>{item.assignedDriver || 'N/A'}</Text>
+                  <View style={[styles.reportsTableCell, { width: 80 }]}>
+                    <View style={[
+                      styles.statusBadge, 
+                      item.status === 'In Transit' ? { backgroundColor: '#3B82F6' } : { backgroundColor: '#EF4444' }
+                    ]}>
+                      <Text style={styles.statusBadgeText}>
+                        {item.status === 'In Transit' ? 'IN TRANSIT' : 'PENDING'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            )) : (
-              <View style={styles.reportsTableRow}>
-                <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
-              </View>
-            )}
-          </View>
+              )) : (
+                <View style={styles.reportsTableRow}>
+                  <Text style={[styles.emptyTableText, { color: theme.textTertiary }]}>No recent shipments</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </ScrollView>
     );
@@ -991,24 +1236,18 @@ export default function AdminDashboard() {
 
     const renderStockCard = ({ item }) => {
       const getStatusStyle = (status) => {
-        // All statuses use primary color with varying opacity for distinction
-        const baseStyle = { 
-          container: { backgroundColor: '#e50914' }, 
-          text: { color: '#ffffff' } 
-        };
-        
         switch (status?.toLowerCase()) {
           case 'available':
-            return { container: { ...baseStyle.container, opacity: 0.7 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#d1fae5' }, text: { color: '#065f46' } };
           case 'in use':
           case 'allocated':
-            return { container: { ...baseStyle.container, opacity: 0.85 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#dbeafe' }, text: { color: '#1e40af' } };
           case 'in dispatch':
-            return { container: { backgroundColor: '#e50914' }, text: baseStyle.text };
+            return '#e50914'; // Red
           case 'maintenance':
-            return { container: { ...baseStyle.container, opacity: 0.9 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#fef3c7' }, text: { color: '#92400e' } };
           default:
-            return { container: { ...baseStyle.container, opacity: 0.7 }, text: baseStyle.text };
+            return { container: { backgroundColor: '#d1fae5' }, text: { color: '#065f46' } };
         }
       };
 
@@ -1098,7 +1337,7 @@ export default function AdminDashboard() {
             placeholder="Search by unit name, ID, color, or variation..."
             value={inventorySearch}
             onChangeText={setInventorySearch}
-            placeholderTextColor='#6B7280'
+            placeholderTextColor="#94a3b8"
           />
         </View>
 
@@ -1109,14 +1348,14 @@ export default function AdminDashboard() {
             <Text style={styles.inventoryStatLabel}>Total Stock</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#8B0000' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => (v.status || 'Available') === 'Available').length}
             </Text>
             <Text style={styles.inventoryStatLabel}>Available</Text>
           </View>
           
-          <View style={[styles.inventoryStatCard, { backgroundColor: '#e50914' }]}>
+          <View style={[styles.inventoryStatCard, { backgroundColor: '#2D2D2D' }]}>
             <Text style={styles.inventoryStatNumber}>
               {inventory.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
             </Text>
@@ -1236,8 +1475,37 @@ export default function AdminDashboard() {
             throw new Error(`Invalid JSON response from dispatch assignment endpoint: ${responseText}`);
           }
 
-          // Status automatically updated to 'Preparing' by backend
-          console.log('✅ Vehicle status will be automatically updated to "Preparing" by backend');
+          // Update vehicle status in inventory
+          const inventoryUpdateData = {
+            status: 'Assigned to Dispatch'
+          };
+          
+          console.log('📋 Updating inventory with data:', inventoryUpdateData);
+          
+          const inventoryResponse = await fetch(buildApiUrl(`/updateStock/${vehicle._id}`), {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(inventoryUpdateData),
+          });
+
+          console.log('📋 Inventory update status:', inventoryResponse.status);
+
+          if (!inventoryResponse.ok) {
+            const inventoryErrorText = await inventoryResponse.text();
+            console.error('❌ Inventory update failed:', inventoryErrorText);
+            // Don't throw here, just log the error as the dispatch assignment succeeded
+            console.warn('⚠️ Vehicle assigned to dispatch but inventory status not updated');
+          } else {
+            try {
+              const inventoryResult = await inventoryResponse.json();
+              console.log('✅ Inventory updated:', inventoryResult);
+            } catch (jsonError) {
+              console.error('❌ JSON parse error for inventory response:', jsonError);
+              console.warn('⚠️ Inventory update response invalid but likely succeeded');
+            }
+          }
         }
 
         Alert.alert(
@@ -1478,13 +1746,66 @@ export default function AdminDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-          {/* Header */}
+          {/* Header with Logout */}
           <View style={styles.headerContainer}>
             <Text style={[styles.header, { color: theme.text }]}>Admin Dashboard</Text>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Main Dashboard Content */}
-          {renderDashboardContent()}
+          {/* Tab Navigation */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity 
+              style={[styles.tab, currentTab === 'dashboard' && styles.activeTab]}
+              onPress={() => setCurrentTab('dashboard')}
+            >
+              <Text style={[styles.tabText, currentTab === 'dashboard' && styles.activeTabText]}>
+                Dashboard
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tab, currentTab === 'inventory' && styles.activeTab]}
+              onPress={() => setCurrentTab('inventory')}
+            >
+              <Text style={[styles.tabText, currentTab === 'inventory' && styles.activeTabText]}>
+                Inventory
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tab, currentTab === 'dispatch' && styles.activeTab]}
+              onPress={() => setCurrentTab('dispatch')}
+            >
+              <Text style={[styles.tabText, currentTab === 'dispatch' && styles.activeTabText]}>
+                Dispatch
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.tab, currentTab === 'release' && styles.activeTab]}
+              onPress={() => setCurrentTab('release')}
+            >
+              <Text style={[styles.tabText, currentTab === 'release' && styles.activeTabText]}>
+                Release
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tab, currentTab === 'reports' && styles.activeTab]}
+              onPress={() => setCurrentTab('reports')}
+            >
+              <Text style={[styles.tabText, currentTab === 'reports' && styles.activeTabText]}>
+                Reports
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tab Content */}
+          {currentTab === 'dashboard' ? renderDashboardContent() : 
+           currentTab === 'inventory' ? renderInventoryContent() : 
+           currentTab === 'dispatch' ? renderDispatchAssignmentContent() :
+
+           currentTab === 'release' ? renderReleaseContent() :
+           renderReportsContent()}
         </View>
       </ScrollView>
       
@@ -1596,7 +1917,13 @@ export default function AdminDashboard() {
                     if (response.ok) {
                       Alert.alert('Success', `${selectedVehicleForServices.unitName} assigned to dispatch successfully!`);
                       
-                      // Status automatically updated to 'Preparing' by backend
+                      // Update inventory status
+                      await fetch(buildApiUrl(`/updateStock/${selectedVehicleForServices._id}`), {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'Assigned to Dispatch' }),
+                      });
+
                       // Close modal and refresh
                       setShowServicesModal(false);
                       setSelectedVehicleForServices(null);
@@ -1620,7 +1947,25 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
+      {/* Enhanced Driver Creation Modal */}
+      <EnhancedDriverCreation
+        visible={showDriverCreationModal}
+        onClose={() => setShowDriverCreationModal(false)}
+        onDriverCreated={(driverData) => {
+          console.log('✅ Driver created:', driverData);
+          fetchDrivers(); // Refresh driver list
+        }}
+      />
 
+      {/* Enhanced Vehicle Assignment Modal */}
+      <EnhancedVehicleAssignment
+        visible={showVehicleAssignmentModal}
+        onClose={() => setShowVehicleAssignmentModal(false)}
+        onVehicleAssigned={(assignmentData) => {
+          console.log('✅ Vehicle assigned:', assignmentData);
+          fetchAllocations(); // Refresh allocations list
+        }}
+      />
       
       {/* Add Stock Modal */}
       <Modal visible={showAddStockModal} animationType="slide" transparent={true}>
@@ -1640,6 +1985,12 @@ export default function AdminDashboard() {
               ))}
             </Picker>
             
+            <TextInput
+              style={styles.input}
+              placeholder="Conduction Number"
+              value={newStock.conductionNumber}
+              onChangeText={(text) => setNewStock({ ...newStock, conductionNumber: text })}
+            />
             <TextInput
               style={styles.input}
               placeholder="Body Color"
@@ -1663,17 +2014,6 @@ export default function AdminDashboard() {
               ))}
             </Picker>
 
-            {/* Status Dropdown - Only 'In Stockyard' or 'Available' allowed for new vehicles */}
-            <Text style={styles.label}>Initial Status</Text>
-            <Picker
-              selectedValue={newStock.status}
-              onValueChange={(value) => setNewStock({ ...newStock, status: value })}
-              style={styles.picker}
-            >
-              <Picker.Item label="In Stockyard (Default - at warehouse)" value="In Stockyard" />
-              <Picker.Item label="Available (Already at Isuzu Pasig)" value="Available" />
-            </Picker>
-
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleAddStock}>
                 <Text style={styles.modalButtonText}>Add</Text>
@@ -1693,7 +2033,7 @@ export default function AdminDashboard() {
       <Modal visible={showEditStockModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Vehicle</Text>
+            <Text style={styles.modalTitle}>Edit Stock</Text>
 
             <TextInput
               style={styles.input}
@@ -1733,49 +2073,16 @@ export default function AdminDashboard() {
               keyboardType="numeric"
             />
 
-            {/* Status Picker - Shows only allowed transitions based on current status */}
-            <Text style={styles.label}>Vehicle Status</Text>
             <Picker
               selectedValue={editStock.status}
               onValueChange={(value) => setEditStock({ ...editStock, status: value })}
               style={styles.picker}
             >
-              {selectedStock && getAllowedStatusOptions(
-                editStock.currentStatus,
-                !!selectedStock.assignedDriver,
-                selectedStock.driverAccepted === true,
-                !!(selectedStock.location?.latitude && selectedStock.location?.longitude)
-              ).map((status) => {
-                const isCurrent = status === editStock.currentStatus;
-                const label = isCurrent ? `${status} (Current)` : status;
-                return <Picker.Item key={status} label={label} value={status} />;
-              })}
+              <Picker.Item label="Available" value="Available" />
+              <Picker.Item label="In Use" value="In Use" />
+              <Picker.Item label="Allocated" value="Allocated" />
+              <Picker.Item label="In Dispatch" value="In Dispatch" />
             </Picker>
-            {editStock.currentStatus && VEHICLE_STATUS_RULES[editStock.currentStatus] && (
-              <Text style={styles.statusHintText}>
-                Requirements for transitions: {VEHICLE_STATUS_RULES[editStock.currentStatus].requirements}
-              </Text>
-            )}
-
-            {/* Assign to Agent Section */}
-            <View style={styles.assignAgentSection}>
-              <Text style={styles.label}>Assign to Agent</Text>
-              <Picker
-                selectedValue={editStock.assignedAgent || ''}
-                onValueChange={(value) => setEditStock({ ...editStock, assignedAgent: value })}
-                style={styles.picker}
-              >
-                <Picker.Item label="No Agent Assigned" value="" />
-                {agents.map(a => (
-                  <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                ))}
-              </Picker>
-              {selectedStock?.assignedAgent && (
-                <Text style={styles.statusHintText}>
-                  Currently assigned to: {selectedStock.assignedAgent}
-                </Text>
-              )}
-            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleUpdateStock}>
@@ -1856,41 +2163,47 @@ export default function AdminDashboard() {
 
 const createStyles = (theme) => StyleSheet.create({
   container: { 
-    flex: 1,
-    backgroundColor: '#f8fafc', // Light gray background for better contrast
+    flex: 1, // Changed from flexGrow: 1 for better layout control
+    padding: 8, // Further reduced from 12 to 8 for tighter mobile fit
+    backgroundColor: theme.background,
+    width: '100%', // Changed from minWidth to width for better control
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc'
+    backgroundColor: '#F5F5F5'
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '500'
+    marginTop: 8, // Reduced from 10
+    fontSize: 13, // Reduced from 14
+    color: '#6B7280'
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 12, // Reduced from 16
+    paddingBottom: 8, // Reduced from 12
+    borderBottomWidth: 2,
+    borderBottomColor: '#e50914'
   },
   header: { 
-    fontSize: 28,
-    fontWeight: '700', 
-    color: '#1a202c',
+    fontSize: 20, // Reduced from 22 for even better mobile fit
+    fontWeight: 'bold', 
+    color: theme.primary,
     flex: 1
+  },
+  logoutButton: {
+    backgroundColor: '#8B0000',
+    paddingHorizontal: 10, // Reduced from 12
+    paddingVertical: 5, // Reduced from 6
+    borderRadius: 6
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 11 // Reduced from 12
   },
   tabContainer: {
     flexDirection: 'row',
@@ -2019,14 +2332,13 @@ const createStyles = (theme) => StyleSheet.create({
     width: '100%', // Added full width
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1a202c',
-    marginBottom: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: '#e2e8f0',
-    paddingBottom: 12,
-    letterSpacing: -0.5,
+    fontSize: 15, // Reduced from 16
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 10, // Reduced from 12
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+    paddingBottom: 5 // Reduced from 6
   },
   label: { 
     fontSize: 13, // Reduced from 14
@@ -2047,30 +2359,26 @@ const createStyles = (theme) => StyleSheet.create({
     height: 40, // Reduced from 45
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    marginBottom: 16,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 6, // Reduced from 8
+    marginBottom: 10, // Reduced from 12
+    fontSize: 13, // Reduced from 14
+    padding: 8, // Reduced from 10
     backgroundColor: '#FFFFFF',
-    color: '#1F2937',
-    minHeight: 52,
-    fontWeight: '500',
+    color: '#2D2D2D',
+    height: 40, // Reduced from 45
   },
   textInput: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    marginBottom: 16,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 6, // Reduced from 8
+    marginBottom: 10, // Reduced from 12
+    fontSize: 13, // Reduced from 14
+    padding: 8, // Reduced from 10
     backgroundColor: '#FFFFFF',
-    color: '#1F2937',
-    minHeight: 52,
-    fontWeight: '500',
+    color: '#2D2D2D',
+    height: 40, // Reduced from 45
   },
   primaryButton: {
     backgroundColor: '#e50914',
@@ -2131,119 +2439,101 @@ const createStyles = (theme) => StyleSheet.create({
   // Modern Inventory Management Styles
   inventoryContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-    padding: 16,
+    backgroundColor: '#F5F5F5',
+    padding: 12, // Reduced from 16 for better mobile fit
   },
 
   inventoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    marginBottom: 16, // Reduced from 20
+    paddingHorizontal: 4, // Added to prevent edge overflow
   },
 
   inventoryTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1a202c',
+    fontSize: 20, // Reduced from 24 for better mobile fit
+    fontWeight: '700',
+    color: '#000000',
     flex: 1,
-    letterSpacing: -0.5,
+    marginRight: 12, // Space between title and button
   },
 
   addStockButton: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 14, // Reduced from 16
+    paddingVertical: 10, // Reduced from 12
+    borderRadius: 8, // Reduced from 10
     shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   addStockButtonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13, // Reduced from 14
+    textAlign: 'center',
   },
 
   // Search Section
   inventorySearchSection: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10, // Reduced from 12
+    padding: 12, // Reduced from 16
+    marginBottom: 12, // Reduced from 16
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6, // Reduced from 8
+    elevation: 2, // Reduced from 3
   },
 
   inventorySearchInput: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
-    minHeight: 52,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 8, // Reduced from 10
+    padding: 12, // Reduced from 14
+    fontSize: 14, // Reduced from 16
+    color: '#2D2D2D',
   },
 
   // Stats Section - Mobile Optimized
   inventoryStatsContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-    gap: 12,
+    flexWrap: 'wrap', // Allow wrapping on smaller screens
+    marginBottom: 12, // Reduced from 16
+    gap: 6, // Reduced from 12
   },
 
   inventoryStatCard: {
     flex: 1,
-    minWidth: '45%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   inventoryStatNumber: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 8,
+    marginBottom: 4,
   },
 
   inventoryStatLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    opacity: 0.9,
   },
 
   // Stock Cards
@@ -2252,18 +2542,16 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   stockCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginBottom: 16,
-    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderLeftWidth: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    borderLeftWidth: 4,
     borderLeftColor: '#e50914',
   },
 
@@ -2271,23 +2559,19 @@ const createStyles = (theme) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    marginBottom: 12,
   },
 
   stockUnitName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1a202c',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
     flex: 1,
-    letterSpacing: -0.5,
   },
 
   stockStatusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     minWidth: 80,
     alignItems: 'center',
@@ -2295,81 +2579,68 @@ const createStyles = (theme) => StyleSheet.create({
 
   stockStatusText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
 
   stockCardContent: {
-    gap: 12,
+    gap: 8,
   },
 
   stockInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
 
   stockInfoLabel: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '600',
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
     flex: 1,
   },
 
   stockInfoValue: {
-    fontSize: 16,
-    color: '#1a202c',
-    fontWeight: '700',
+    fontSize: 14,
+    color: '#2D2D2D',
+    fontWeight: '600',
     flex: 2,
     textAlign: 'right',
   },
 
   stockDivider: {
-    height: 2,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 12,
-    borderRadius: 1,
+    height: 1,
+    backgroundColor: '#F5F5F5',
+    marginVertical: 8,
   },
 
   stockCardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 20,
-    gap: 12,
+    marginTop: 12,
+    gap: 8,
   },
 
   stockEditBtn: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
 
   stockDeleteBtn: {
-    backgroundColor: '#e50914',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: '#8B0000',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
 
   stockActionBtnText: {
-    color: '#ffffff',
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: 14,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
   // Empty States
@@ -2377,63 +2648,50 @@ const createStyles = (theme) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 60,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    margin: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    padding: 40,
   },
 
   inventoryEmptyText: {
-    fontSize: 24,
-    color: '#374151',
+    fontSize: 18,
+    color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 12,
-    fontWeight: '700',
+    marginBottom: 8,
   },
 
   inventoryEmptySubtext: {
-    fontSize: 18,
-    color: '#64748b',
+    fontSize: 14,
+    color: '#6B7280',
     textAlign: 'center',
-    fontWeight: '500',
   },
 
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
 
   modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 32,
-    width: '95%',
-    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
 
   modalTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1a202c',
-    marginBottom: 24,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 20,
     textAlign: 'center',
-    letterSpacing: -0.5,
   },
 
   picker: {
@@ -2476,320 +2734,292 @@ const createStyles = (theme) => StyleSheet.create({
 
   // Modern Dashboard Styles
   dashboardContainer: {
-    padding: 16,
-    gap: 20,
+    gap: 16,
   },
 
   // Assignment Card Styles
   assignmentCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 24,
-    marginHorizontal: 0,
-    marginVertical: 8,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#f1f5f9',
   },
 
   assignmentCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    marginBottom: 20,
   },
 
   assignmentTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1a202c',
-    letterSpacing: -0.5,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
   },
 
   assignmentBadge: {
     backgroundColor: '#e50914',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 
   assignmentBadgeText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
 
   assignmentSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
 
   assignmentLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a202c',
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
   },
 
   modeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 16,
-    padding: 6,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
   },
 
   modeButton: {
     flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
   modeButtonActive: {
     backgroundColor: '#e50914',
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
 
   modeButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#64748b',
   },
 
   modeButtonTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
+    color: '#fff',
   },
 
   assignmentForm: {
-    gap: 20,
+    gap: 16,
   },
 
   formField: {
-    gap: 12,
+    gap: 8,
   },
 
   fieldLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a202c',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
 
   modernPickerContainer: {
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
 
   modernPicker: {
-    height: 56,
-    fontSize: 16,
-    color: '#1a202c',
+    height: 50,
   },
 
   modernInput: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1F2937',
-    marginBottom: 16,
-    minHeight: 52,
-    fontWeight: '500',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    color: '#1f2937',
+    marginBottom: 8,
   },
 
   createAssignmentButton: {
     backgroundColor: '#e50914',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    marginTop: 8,
   },
 
   createAssignmentButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
+  // Navigation Card Styles
+  navigationCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
 
+  navigationTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 16,
+  },
+
+  navigationButtons: {
+    gap: 12,
+  },
+
+  navButton: {
+    backgroundColor: '#f8fafc',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+
+  navButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
 
   // Allocations Card Styles
   allocationsCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 24,
-    marginHorizontal: 0,
-    marginVertical: 8,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#f1f5f9',
   },
 
   allocationsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 8,
   },
 
   allocationsTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1a202c',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
     flex: 1,
-    letterSpacing: -0.5,
+    minWidth: 150,
   },
 
   allocationsActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     flexWrap: 'wrap',
   },
 
   allocationNavBtn: {
-    backgroundColor: '#e50914',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e50914',
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#e2e8f0',
   },
 
   allocationNavBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#ffffff',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 
   allocationsList: {
-    gap: 16,
+    gap: 12,
   },
 
   allocationItem: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
 
   allocationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   allocationUnitName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a202c',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
     flex: 1,
   },
 
   allocationStatusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
 
   allocationStatusText: {
     fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
 
   allocationDetails: {
-    gap: 8,
+    gap: 4,
   },
 
   allocationDetailText: {
-    fontSize: 16,
-    color: '#4a5568',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#6B7280',
   },
 
   viewAllAllocationsBtn: {
     backgroundColor: '#e50914',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#e50914',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    marginTop: 8,
   },
 
   viewAllAllocationsBtnText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   allocationFooter: {
@@ -2804,24 +3034,18 @@ const createStyles = (theme) => StyleSheet.create({
 
   emptyAllocations: {
     alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    marginTop: 8,
+    padding: 32,
   },
 
   emptyAllocationsText: {
-    fontSize: 20,
-    color: '#374151',
-    marginBottom: 8,
-    fontWeight: '700',
+    fontSize: 16,
+    color: '#64748b',
+    marginBottom: 4,
   },
 
   emptyAllocationsSubtext: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#94a3b8',
   },
 
   // Dispatch Assignment Styles
@@ -3593,7 +3817,64 @@ const createStyles = (theme) => StyleSheet.create({
     marginVertical: 20,
   },
 
+  // Enhanced Quick Actions Styles
+  quickActionsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 
+  actionButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  actionButton: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+    marginBottom: 8,
+  },
+
+  primaryActionButton: {
+    backgroundColor: '#2563eb',
+  },
+
+  secondaryActionButton: {
+    backgroundColor: '#dc2626',
+  },
+
+  tertiaryActionButton: {
+    backgroundColor: '#10b981',
+  },
+
+  quaternaryActionButton: {
+    backgroundColor: '#f59e0b',
+  },
+
+  actionButtonIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+
+  actionButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
   releaseVehicleDetails: {
     backgroundColor: '#f8f9fa',
@@ -3682,7 +3963,7 @@ const createStyles = (theme) => StyleSheet.create({
 
   reportsStatCard: {
     width: '48%',
-    backgroundColor: '#e50914',
+    backgroundColor: '#DC2626',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -3742,7 +4023,48 @@ const createStyles = (theme) => StyleSheet.create({
     marginBottom: 16,
   },
 
+  pieChartContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
 
+  pieChart: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 8,
+    borderColor: '#DC2626',
+  },
+
+  pieChartLabel: {
+    fontSize: 12,
+    color: theme.textSecondary,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
+  pieChartVisual: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    maxWidth: 30,
+  },
+
+  pieSegment: {
+    borderRadius: 2,
+    minWidth: 4,
+    minHeight: 4,
+  },
+
+  vehicleBreakdownList: {
+    gap: 8,
+  },
 
   vehicleBreakdownItem: {
     flexDirection: 'row',
@@ -3834,51 +4156,5 @@ const createStyles = (theme) => StyleSheet.create({
   disabledPicker: {
     opacity: 0.5,
     backgroundColor: '#f5f5f5',
-  },
-
-  statusHintText: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontStyle: 'italic',
-    marginTop: -8,
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-
-  assignAgentSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    padding: 4,
-  },
-  quickActionButton: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#e50914',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickActionIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  quickActionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });

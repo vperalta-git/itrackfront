@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 
 export default function VehicleProgressScreen() {
+  const navigation = useNavigation();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -151,6 +154,13 @@ export default function VehicleProgressScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e50914']} />
       }
     >
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => navigation.navigate('ServiceRequest')}
+      >
+        <Ionicons name="arrow-back" size={24} color="#DC2626" />
+        <Text style={styles.backButtonText}>Back to Vehicle Preparation</Text>
+      </TouchableOpacity>
       <Text style={styles.header}>Vehicle Preparation Tracker</Text>
       <Text style={styles.subheader}>Track vehicle preparation and dispatch assignments</Text>
       
@@ -176,6 +186,27 @@ const styles = StyleSheet.create({
     flex: 1, 
     padding: 16, 
     backgroundColor: '#f5f7fa' 
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backButtonText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   header: { 
     fontSize: 24, 

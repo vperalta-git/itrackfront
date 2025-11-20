@@ -9,10 +9,13 @@ import {
   RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 
 export default function ReleaseScreen() {
+  const navigation = useNavigation();
   const [pendingReleases, setPendingReleases] = useState([]);
   const [releaseHistory, setReleaseHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +142,13 @@ export default function ReleaseScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate('ServiceRequest')}
+        >
+          <Ionicons name="arrow-back" size={24} color="#DC2626" />
+          <Text style={styles.backButtonText}>Back to Vehicle Preparation</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Vehicle Release Management</Text>
         <Text style={styles.subtitle}>
           Confirm release for vehicles ready from dispatch
@@ -227,6 +237,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC2626',
     padding: 20,
     paddingTop: 30,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   title: {
     fontSize: 24,

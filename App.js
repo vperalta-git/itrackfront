@@ -22,7 +22,6 @@ import Toast from 'react-native-toast-message';
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import DriverDashboard from './screens/DriverDashboard';
-import DriverHistory from './screens/DriverHistory';
 import NewDriverDashboard from './components/NewDriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
 import AdminDashboard from './screens/AdminDashboard';
@@ -58,23 +57,10 @@ function AgentDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { 
-          backgroundColor: '#e50914',
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3,
-        },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: '#e50914' },
+        headerTintColor: '#fff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
-        drawerStyle: { backgroundColor: '#e50914' },
-        drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
-        headerTitleStyle: { fontWeight: '700' },
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
       <Drawer.Screen 
@@ -116,23 +102,10 @@ function AdminDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { 
-          backgroundColor: '#e50914',
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3,
-        },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: '#e50914' },
+        headerTintColor: '#fff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
-        drawerStyle: { backgroundColor: '#e50914' },
-        drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
-        headerTitleStyle: { fontWeight: '700' },
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
       <Drawer.Screen 
@@ -194,23 +167,10 @@ function ManagerDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { 
-          backgroundColor: '#e50914',
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3,
-        },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: '#e50914' },
+        headerTintColor: '#fff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
-        drawerStyle: { backgroundColor: '#e50914' },
-        drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
-        headerTitleStyle: { fontWeight: '700' },
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
       <Drawer.Screen 
@@ -257,23 +217,10 @@ function SupervisorDrawer() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerStyle: { 
-          backgroundColor: '#e50914',
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3,
-        },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: '#e50914' },
+        headerTintColor: '#fff',
         drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
-        drawerStyle: { backgroundColor: '#e50914' },
-        drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
-        headerTitleStyle: { fontWeight: '700' },
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
       <Drawer.Screen 
@@ -334,14 +281,14 @@ export default function App() {
         console.log('🔍 App startup check:', { userToken, userRole, userName });
 
         if (userToken === 'authenticated' && userRole && userName) {
-          // Map roles to their respective screens - USE UNIFIED DRAWER FOR ALL
+          // Map roles to their respective screens
           const roleRouteMap = {
-            'Admin': 'UnifiedDrawer',
-            'Manager': 'UnifiedDrawer',
-            'Sales Agent': 'UnifiedDrawer',
+            'Admin': 'AdminDrawer',
+            'Manager': 'ManagerDrawer',
+            'Sales Agent': 'AgentDrawer',
             'Driver': 'DriverDashboard',
-            'Dispatch': 'UnifiedDrawer',
-            'Supervisor': 'UnifiedDrawer'
+            'Dispatch': 'DispatchDashboard',
+            'Supervisor': 'SupervisorDrawer'
           };
 
           const targetRoute = roleRouteMap[userRole] || 'LoginScreen';
@@ -376,20 +323,9 @@ export default function App() {
         <Stack.Navigator 
           initialRouteName={initialRoute}
           screenOptions={{
-            headerStyle: { 
-              backgroundColor: '#e50914',
-              elevation: 4,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3,
-            },
-            headerTintColor: '#ffffff',
-            headerTitleStyle: { 
-              fontWeight: '700',
-              fontSize: 18,
-              color: '#ffffff'
-            },
+            headerStyle: { backgroundColor: '#e50914' },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: 'bold' },
           }}
         >
           {/* Authentication Screens */}
@@ -440,13 +376,8 @@ export default function App() {
           />
           <Stack.Screen 
             name="DriverDashboard" 
-            component={DriverDashboard} 
+            component={NewDriverDashboard} 
             options={{ headerShown: false }}
-          />
-          <Stack.Screen 
-            name="DriverHistory" 
-            component={DriverHistory} 
-            options={{ headerShown: false }} 
           />
           <Stack.Screen 
             name="DispatchDashboard" 

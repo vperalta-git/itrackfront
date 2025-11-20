@@ -448,7 +448,7 @@ const VehicleModelsScreen = () => {
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Unit Name *</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Unit Name <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 value={formData.unitName}
@@ -482,7 +482,7 @@ const VehicleModelsScreen = () => {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Variations * (one per line)</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Variations (one per line) <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
               <TextInput
                 style={[styles.textArea, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 value={formData.variations}
@@ -521,7 +521,7 @@ const VehicleModelsScreen = () => {
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Unit Name *</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Unit Name <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 value={formData.unitName}
@@ -555,7 +555,7 @@ const VehicleModelsScreen = () => {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Variations * (one per line)</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Variations (one per line) <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
               <TextInput
                 style={[styles.textArea, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 value={formData.variations}

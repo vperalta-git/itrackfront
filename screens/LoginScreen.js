@@ -19,6 +19,11 @@ import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 // import { useGoogleAuth } from '../utils/googleAuth'; // Commented out Google Auth
 
+const Colors = {
+  primary: '#e50914',
+  textLight: '#ffffff',
+};
+
 export default function LoginScreen() {
   const navigation = useNavigation();
   // const { signInWithGoogle, isLoading: googleLoading } = useGoogleAuth(); // Commented out Google Auth
@@ -137,13 +142,10 @@ export default function LoginScreen() {
       const userRole = user?.role;
       const userName = user?.accountName || user?.name || '';
       const userEmail = user?.email || '';
-      const userId = user?._id || user?.id || '';
-      const userPhone = user?.phoneNumber || user?.phoneNo || '';
       
       console.log('✅ Login successful for user:', userName);
       console.log('🔍 User role:', userRole);
       console.log('📧 User email:', userEmail);
-      console.log('🆔 User ID:', userId);
 
       if (!userRole) {
         console.error('❌ No role information in response');
@@ -155,15 +157,12 @@ export default function LoginScreen() {
       await AsyncStorage.multiSet([
         ['userToken', 'authenticated'],
         ['accountName', userName],
-        ['userName', userName],
-        ['userRole', userRole],
         ['role', userRole],
-        ['userEmail', userEmail],
         ['email', userEmail],
-        ['userId', userId],
-        ['userPhone', userPhone]
+        ['userName', userName],
+        ['userRole', userRole]
       ]);
-      console.log('💾 User data saved to storage:', { userName, userRole, userId });
+      console.log('💾 User data saved to storage');
 
       if (rememberMe) {
         await AsyncStorage.setItem('rememberedUsername', username);
@@ -544,19 +543,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   forgotPasswordText: {
-    color: '#DC2626',
+    color: Colors.primary,
     fontSize: 14,
     fontWeight: '500',
   },
   loginBtn: {
-    backgroundColor: '#DC2626', 
+    backgroundColor: Colors.primary, 
     paddingVertical: 14,
     borderRadius: 8, 
     alignItems: 'center', 
     marginTop: 10,
   },
   loginText: {
-    color: '#FFFFFF',
+    color: Colors.textLight,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -660,10 +659,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: Colors.primary,
   },
   resetBtnText: {
-    color: '#FFFFFF',
+    color: Colors.textLight,
     fontWeight: 'bold',
   },
 });
