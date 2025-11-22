@@ -29,13 +29,13 @@ const TAB_VEHICLE_TRACKING = "Vehicle Tracking";
 const TAB_HISTORY = "History";
 
 const STATUS_COLORS = {
-  "In Progress": "#e50914", // Red
-  Completed: "#2D2D2D", // Dark Gray
-  Pending: "#8B0000", // Dark Red
-  "In Transit": "#e50914", // Red
-  Available: "#2D2D2D", // Dark Gray
-  "In Use": "#e50914", // Red
-  "In Dispatch": "#e50914", // Red
+  "In Progress": '#DC2626',
+  Completed: '#B91C1C',
+  Pending: '#DC2626',
+  "In Transit": '#DC2626',
+  Available: '#B91C1C',
+  "In Use": '#DC2626',
+  "In Dispatch": '#DC2626',
 };
 
 export default function AgentDashboard() {
@@ -71,6 +71,25 @@ export default function AgentDashboard() {
     };
     load();
   }, []);
+
+  // Auto-refresh vehicle locations when tracking tab is active
+  useEffect(() => {
+    let refreshInterval;
+    
+    if (activeTab === TAB_VEHICLE_TRACKING) {
+      // Refresh every 15 seconds to get updated driver locations
+      refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing vehicle locations...');
+        fetchAllData();
+      }, 15000);
+    }
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [activeTab]);
 
   const fetchAllData = async () => {
     try {
@@ -161,11 +180,31 @@ export default function AgentDashboard() {
       // Filter allocations for this agent
       if (allocationsResponse?.success && allocationsResponse?.data) {
         const currentAgentName = await AsyncStorage.getItem("accountName");
-        const agentSpecificAllocations = allocationsResponse.data.filter(allocation => 
-          allocation.allocatedBy === currentAgentName || 
-          allocation.assignedTo === currentAgentName ||
-          allocation.assignedDriver === currentAgentName
-        );
+        const agentEmail = await AsyncStorage.getItem("userEmail");
+        const normalizedAgentName = (currentAgentName || '').toLowerCase().trim();
+        
+        const agentSpecificAllocations = allocationsResponse.data.filter(allocation => {
+          // Exact match checks
+          if (allocation.allocatedBy === currentAgentName || 
+              allocation.assignedTo === currentAgentName ||
+              allocation.assignedDriver === currentAgentName) {
+            return true;
+          }
+          
+          // Flexible matching for better compatibility
+          const checkFlexibleMatch = (fieldValue) => {
+            if (!fieldValue) return false;
+            const normalized = fieldValue.toLowerCase().trim();
+            const exactMatch = normalized === normalizedAgentName;
+            const containsMatch = normalized.includes(normalizedAgentName) || 
+                                 normalizedAgentName.includes(normalized);
+            return exactMatch || (containsMatch && normalizedAgentName.length > 3);
+          };
+          
+          return checkFlexibleMatch(allocation.allocatedBy) ||
+                 checkFlexibleMatch(allocation.assignedTo) ||
+                 checkFlexibleMatch(allocation.assignedDriver);
+        });
         setAgentAllocations(agentSpecificAllocations);
         
         // Load vehicle locations for agent's vehicles
@@ -186,32 +225,10 @@ export default function AgentDashboard() {
   // Load vehicle locations for agent's assigned vehicles
   const loadAgentVehicleLocations = async (allocations) => {
     try {
-      const allocationsWithLocations = await Promise.all(
-        allocations.map(async (allocation) => {
-          try {
-            const response = await fetch(buildApiUrl(`/vehicles/${allocation.unitId || allocation._id}`));
-            if (response.ok) {
-              const vehicle = await response.json();
-              if (vehicle.location) {
-                return {
-                  ...allocation,
-                  location: {
-                    latitude: vehicle.location.lat,
-                    longitude: vehicle.location.lng,
-                  }
-                };
-              }
-            }
-          } catch (error) {
-            console.warn('Failed to load location for vehicle:', allocation.unitName);
-          }
-          return allocation;
-        })
-      );
-      
-      setAgentAllocations(allocationsWithLocations);
-      if (allocationsWithLocations.length > 0) {
-        setSelectedVehicle(allocationsWithLocations[0]);
+      // Use currentLocation directly from allocations (updated by driver in real-time)
+      setAgentAllocations(allocations);
+      if (allocations.length > 0) {
+        setSelectedVehicle(allocations[0]);
       }
     } catch (error) {
       console.error('Error loading vehicle locations:', error);
@@ -223,41 +240,10 @@ export default function AgentDashboard() {
     await fetchAllData();
   };
 
-  // Logout handler with confirmation dialog
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear all session-related AsyncStorage keys
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userName');
-              await AsyncStorage.removeItem('userRole');
-              await AsyncStorage.removeItem('accountName');
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'LoginScreen' }],
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout properly. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const StatusBadge = ({ status }) => (
     <View style={[
       styles.modernStatusBadge, 
-      { backgroundColor: STATUS_COLORS[status] || "#6B7280" }
+      { backgroundColor: STATUS_COLORS[status] || '#B91C1C' }
     ]}>
       <Text style={styles.modernStatusText}>{status}</Text>
     </View>
@@ -357,7 +343,7 @@ export default function AgentDashboard() {
                 title="Total Inventory"
                 value={stats.totalStocks}
                 icon="📦"
-                color="#e50914"
+                color="#DC2626"
                 subtitle={`${vehicleStocks.filter(v => v.status === 'Available').length} available`}
               />
               
@@ -365,7 +351,7 @@ export default function AgentDashboard() {
                 title="Completed Preps"
                 value={stats.finishedVehiclePreps}
                 icon="✅"
-                color="#2D2D2D"
+                color="#B91C1C"
                 subtitle="This month"
               />
               
@@ -373,7 +359,7 @@ export default function AgentDashboard() {
                 title="Active Shipments"
                 value={stats.ongoingShipments}
                 icon="🚛"
-                color="#e50914"
+                color="#DC2626"
                 subtitle="In transit"
               />
               
@@ -385,7 +371,7 @@ export default function AgentDashboard() {
                   return processes && processes.length > 0;
                 }).length}
                 icon="🔧"
-                color="#8B0000"
+                color="#DC2626"
                 subtitle="Active processes"
               />
             </View>
@@ -487,16 +473,16 @@ export default function AgentDashboard() {
           const getStatusStyle = (status) => {
             switch (status?.toLowerCase()) {
               case 'available':
-                return { container: { backgroundColor: '#2D2D2D' }, text: { color: '#FFFFFF' } };
+                return { container: { backgroundColor: '#B91C1C' }, text: { color: '#FFFFFF' } };
               case 'in use':
               case 'allocated':
-                return { container: { backgroundColor: '#e50914' }, text: { color: '#FFFFFF' } };
+                return { container: { backgroundColor: '#DC2626' }, text: { color: '#FFFFFF' } };
               case 'in dispatch':
-                return statusColors["In Dispatch"];
+                return { container: { backgroundColor: '#DC2626' }, text: { color: '#FFFFFF' } };
               case 'maintenance':
-                return { container: { backgroundColor: '#8B0000' }, text: { color: '#FFFFFF' } };
+                return { container: { backgroundColor: '#DC2626', opacity: 0.8 }, text: { color: '#FFFFFF' } };
               default:
-                return { container: { backgroundColor: '#6B7280' }, text: { color: '#FFFFFF' } };
+                return { container: { backgroundColor: '#B91C1C', opacity: 0.7 }, text: { color: '#FFFFFF' } };
             }
           };
 
@@ -514,13 +500,6 @@ export default function AgentDashboard() {
               </View>
 
               <View style={styles.stockCardContent}>
-                <View style={styles.stockInfoRow}>
-                  <Text style={styles.stockInfoLabel}>Conduction #</Text>
-                  <Text style={styles.stockInfoValue}>
-                    {item.conductionNumber || item.unitId || 'N/A'}
-                  </Text>
-                </View>
-
                 <View style={styles.stockInfoRow}>
                   <Text style={styles.stockInfoLabel}>Body Color</Text>
                   <Text style={styles.stockInfoValue}>{item.bodyColor || 'N/A'}</Text>
@@ -573,19 +552,19 @@ export default function AgentDashboard() {
 
             {/* Stats Cards */}
             <View style={styles.stocksStatsContainer}>
-              <View style={[styles.stocksStatCard, { backgroundColor: '#e50914' }]}>
+              <View style={[styles.stocksStatCard, { backgroundColor: '#DC2626' }]}>
                 <Text style={styles.stocksStatNumber}>{vehicleStocks.length}</Text>
                 <Text style={styles.stocksStatLabel}>Total Stock</Text>
               </View>
               
-              <View style={[styles.stocksStatCard, { backgroundColor: '#2D2D2D' }]}>
+              <View style={[styles.stocksStatCard, { backgroundColor: '#B91C1C' }]}>
                 <Text style={styles.stocksStatNumber}>
                   {vehicleStocks.filter(v => (v.status || 'Available') === 'Available').length}
                 </Text>
                 <Text style={styles.stocksStatLabel}>Available</Text>
               </View>
               
-              <View style={[styles.stocksStatCard, { backgroundColor: '#8B0000' }]}>
+              <View style={[styles.stocksStatCard, { backgroundColor: '#DC2626' }]}>
                 <Text style={styles.stocksStatNumber}>
                   {vehicleStocks.filter(v => v.status === 'In Use' || v.status === 'Allocated').length}
                 </Text>
@@ -623,26 +602,26 @@ export default function AgentDashboard() {
             
             {/* Summary Cards */}
             <View style={styles.statsContainer}>
-              <View style={[styles.statCard, { backgroundColor: '#e50914' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#DC2626' }]}>
                 <Text style={styles.statNumber}>{vehicleStocks.length}</Text>
                 <Text style={styles.statLabel}>Total Vehicles</Text>
               </View>
               
-              <View style={[styles.statCard, { backgroundColor: '#2D2D2D' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#B91C1C' }]}>
                 <Text style={styles.statNumber}>
                   {vehicleStocks.filter(v => v.status === 'Available').length}
                 </Text>
                 <Text style={styles.statLabel}>Available</Text>
               </View>
               
-              <View style={[styles.statCard, { backgroundColor: '#8B0000' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#DC2626' }]}>
                 <Text style={styles.statNumber}>
                   {vehiclePreps.filter(v => v.status === 'In Progress').length}
                 </Text>
                 <Text style={styles.statLabel}>In Preparation</Text>
               </View>
               
-              <View style={[styles.statCard, { backgroundColor: '#6B7280' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#B91C1C' }]}>
                 <Text style={styles.statNumber}>
                   {vehiclePreps.filter(v => v.status === 'Completed').length}
                 </Text>
@@ -653,10 +632,10 @@ export default function AgentDashboard() {
             {/* Export Options */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Export Reports</Text>
-              <TouchableOpacity style={[styles.addButton, { backgroundColor: '#6B7280' }]}>
+              <TouchableOpacity style={[styles.addButton, { backgroundColor: '#B91C1C' }]}>
                 <Text style={styles.addButtonText}>📊 Export Summary Report</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.addButton, { backgroundColor: '#2D2D2D', marginTop: 10 }]}>
+              <TouchableOpacity style={[styles.addButton, { backgroundColor: '#DC2626', marginTop: 10 }]}>
                 <Text style={styles.addButtonText}>📋 Export Activity Log</Text>
               </TouchableOpacity>
             </View>
@@ -686,7 +665,7 @@ export default function AgentDashboard() {
             {/* Vehicle Preparation Cards */}
             <View style={styles.section}>
               {loading ? (
-                <ActivityIndicator size="large" color="#e50914" />
+                <ActivityIndicator size="large" color="#DC2626" />
               ) : (
                 filterBySearch(vehicles, ["unitId", "unitName", "assignedDriver"])
                   .filter(vehicle => {
@@ -717,7 +696,7 @@ export default function AgentDashboard() {
                           </View>
                           <View style={[
                             styles.completionBadge,
-                            { backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#e50914' }
+                            { backgroundColor: completionPercentage === 100 ? '#B91C1C' : '#DC2626' }
                           ]}>
                             <Text style={styles.completionText}>
                               {completionPercentage}%
@@ -754,7 +733,7 @@ export default function AgentDashboard() {
                                 styles.progressFill,
                                 { 
                                   width: `${completionPercentage}%`,
-                                  backgroundColor: completionPercentage === 100 ? '#2D2D2D' : '#e50914'
+                                  backgroundColor: completionPercentage === 100 ? '#B91C1C' : '#DC2626'
                                 }
                               ]}
                             />
@@ -894,7 +873,7 @@ export default function AgentDashboard() {
                       </Text>
                       <View style={[
                         styles.trackingStatusBadge,
-                        { backgroundColor: allocation.location ? '#22C55E' : '#6B7280' }
+                        { backgroundColor: allocation.location ? '#DC2626' : '#B91C1C' }
                       ]}>
                         <Text style={styles.trackingStatusText}>
                           {allocation.location ? '📍 GPS Active' : '📍 No GPS'}
@@ -924,11 +903,20 @@ export default function AgentDashboard() {
                         </Text>
                       </View>
 
-                      {allocation.location && (
+                      {allocation.currentLocation && (
                         <View style={styles.vehicleInfoRow}>
                           <Text style={styles.vehicleInfoLabel}>Location:</Text>
                           <Text style={styles.vehicleInfoValue}>
-                            {allocation.location.latitude.toFixed(4)}, {allocation.location.longitude.toFixed(4)}
+                            {allocation.currentLocation.latitude.toFixed(4)}, {allocation.currentLocation.longitude.toFixed(4)}
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {allocation.currentLocation?.lastUpdated && (
+                        <View style={styles.vehicleInfoRow}>
+                          <Text style={styles.vehicleInfoLabel}>Last Update:</Text>
+                          <Text style={styles.vehicleInfoValue}>
+                            {new Date(allocation.currentLocation.lastUpdated).toLocaleTimeString()}
                           </Text>
                         </View>
                       )}
@@ -1004,12 +992,6 @@ export default function AgentDashboard() {
               style={styles.profileButton}
             >
               <Text style={styles.profileButtonText}>👤</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={styles.modernLogoutBtn}
-            >
-              <Text style={styles.modernLogoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
         </View>

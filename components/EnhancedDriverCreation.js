@@ -106,7 +106,7 @@ const EnhancedDriverCreation = ({ visible, onClose, onDriverCreated }) => {
             <Text style={styles.sectionTitle}>Driver Information</Text>
             
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
+              <Text style={styles.label}>Full Name *</Text>
               <TextInput
                 style={styles.input}
                 value={driverData.accountName}
@@ -117,7 +117,7 @@ const EnhancedDriverCreation = ({ visible, onClose, onDriverCreated }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
+              <Text style={styles.label}>Username *</Text>
               <View style={styles.usernameRow}>
                 <TextInput
                   style={[styles.input, styles.usernameInput]}
@@ -134,7 +134,7 @@ const EnhancedDriverCreation = ({ visible, onClose, onDriverCreated }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
+              <Text style={styles.label}>Password *</Text>
               <TextInput
                 style={styles.input}
                 value={driverData.password}

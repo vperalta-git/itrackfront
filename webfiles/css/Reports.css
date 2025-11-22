@@ -1,0 +1,142 @@
+.filter-controls {
+  display: flex;
+  align-items: center; /* Align items vertically */
+  gap: 12px; /* Space between elements */
+  padding: 0.75rem 1rem;
+  user-select: none;
+  margin-top: 40px;
+  margin-left: 23px;
+
+}
+
+.filter-controls label {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+
+  font-size: 12px;
+  color: #000000;
+}
+
+.filter-controls input[type="date"] {
+  margin-top: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: border-color 0.2s ease-in-out;
+  background-color: white;
+  color: #1f2937;
+  width: 170px;
+  height: 20px;
+}
+
+.filter-controls input[type="date"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.filter-btn {
+  padding: 8px 20px; /* Consistent padding */
+  border: none;
+  background-color: #222;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-top: 16px;
+}
+
+.pdf-btn{
+   padding: 7px 20px; /* Consistent padding */
+  border: none;
+  background-color: #222;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-top: 16px;
+}
+
+.clear-btn{
+   padding: 7px 20px; /* Consistent padding */
+  border: none;
+  background-color: #222;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-top: 16px;
+}
+
+
+.print-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  background-color: #007BFF;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.print-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Hide elements you don't want to print */
+@media print {
+  .toggle-btn, .print-btn, .sidebar, .header {
+    display: none !important;
+  }
+  .main {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+
+
+.print-btn {
+  background-color: #4CAF50;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.print-btn:hover {
+  background-color: #45a049;
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+
+.button-icon1 {
+  width: 13px;
+  height: 13px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.button-icon2 {
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.reportstitle{
+  text-align: left;
+  font-weight: bold;
+  margin-left: 40px;
+  margin-top: 55px;
+  font-size: 18px;
+
+}

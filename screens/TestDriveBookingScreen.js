@@ -382,7 +382,7 @@ const TestDriveBookingScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Vehicle Information</Text>
         
         <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Vehicle Model <Text style={{ fontSize: 11, color: '#999' }}>(Required field)</Text></Text>
+          <Text style={styles.pickerLabel}>Vehicle Model *</Text>
           <Picker
             selectedValue={vehicleModel}
             onValueChange={setVehicleModel}

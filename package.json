@@ -1,13 +1,10 @@
 {
   "name": "itrack",
-  "version": "20.0.1",
+  "version": "54.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "start:dev": "expo start --dev-client",
-    "start:clear": "expo start --clear",
     "android": "expo run:android",
-    "android:dev": "expo run:android --variant debug",
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
@@ -24,6 +21,7 @@
     "expo-auth-session": "~5.5.2",
     "expo-crypto": "~13.0.2",
     "expo-image-picker": "~15.1.0",
+    "expo-linear-gradient": "~13.0.2",
     "expo-location": "~17.0.1",
     "expo-status-bar": "~1.12.1",
     "expo-web-browser": "~13.0.3",
@@ -32,7 +30,7 @@
     "react-native": "0.74.5",
     "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "~2.16.1",
-    "react-native-gifted-charts": "^1.4.66",
+    "react-native-gifted-charts": "^1.4.65",
     "react-native-maps": "^1.14.0",
     "react-native-reanimated": "~3.10.1",
     "react-native-safe-area-context": "4.10.5",
@@ -43,10 +41,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "^20.0.1",
-    "expo-dev-client": "^6.0.18"
+    "@react-native-community/cli": "^20.0.1"
   },
   "private": true,
+  "overrides": {
+    "@react-native-community/cli": "^20.0.1",
+    "send": "^0.19.0"
+  },
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {

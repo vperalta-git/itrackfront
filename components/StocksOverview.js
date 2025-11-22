@@ -44,6 +44,7 @@ const StocksOverview = ({ inventory = [], theme }) => {
         count: count,
         value: count,
         color: colors[index % colors.length],
+        focused: index === 0, // Focus on the first (largest) item
         onPress: () => handleSegmentPress({ name, count, color: colors[index % colors.length] })
       }))
       .sort((a, b) => b.count - a.count); // Sort by count descending
@@ -131,6 +132,8 @@ const StocksOverview = ({ inventory = [], theme }) => {
             <PieChart
               data={unitData}
               donut
+              sectionAutoFocus
+              focusOnPress
               radius={isLargeScreen ? 65 : 75}
               innerRadius={isLargeScreen ? 40 : 50}
               innerCircleColor={theme?.card || '#ffffff'}

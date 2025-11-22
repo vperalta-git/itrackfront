@@ -1,13 +1,5 @@
 {
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "image": "latest"
-      }
-    },
     "preview": {
       "distribution": "internal",
       "android": {

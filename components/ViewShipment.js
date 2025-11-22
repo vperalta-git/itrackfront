@@ -398,9 +398,8 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-
               const response = await fetch(buildApiUrl(`/driver-allocations/${data._id}`), {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                 },
@@ -825,29 +824,6 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                           </Text>
                         </View>
                       )}
-                    
-                      {/* Delivery Time Display */}
-                      {(data.startTime || data.completedAt) && (
-                        <View style={styles.routeMetrics}>
-                          <Text style={styles.routeMetricText}>
-                            🕒 Delivery time: {data.startTime ? new Date(data.startTime).toLocaleString() : 'N/A'} - {data.completedAt ? new Date(data.completedAt).toLocaleString() : 'N/A'}
-                          </Text>
-                        </View>
-                      )}
-                    
-                      {/* Vehicle Delivered Button - Only show for Delivered status */}
-                      {data?.status?.toLowerCase() === 'delivered' && (
-                        <View style={styles.bottomButtonContainer}>
-                          <TouchableOpacity 
-                            style={styles.deliveredButton}
-                            onPress={clearDelivery}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.deliveredButtonIcon}>✓</Text>
-                            <Text style={styles.deliveredButtonText}>Vehicle Delivered - Clear from List</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
                     </View>
                   </View>
                 )}
@@ -889,6 +865,19 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
             )}
           </ScrollView>
 
+          {/* Vehicle Delivered Button - Only show for Delivered status */}
+          {data?.status?.toLowerCase() === 'delivered' && (
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity 
+                style={styles.deliveredButton}
+                onPress={clearDelivery}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.deliveredButtonIcon}>✓</Text>
+                <Text style={styles.deliveredButtonText}>Vehicle Delivered - Clear from List</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>

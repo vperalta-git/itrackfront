@@ -19,11 +19,6 @@ import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 // import { useGoogleAuth } from '../utils/googleAuth'; // Commented out Google Auth
 
-const Colors = {
-  primary: '#e50914',
-  textLight: '#ffffff',
-};
-
 export default function LoginScreen() {
   const navigation = useNavigation();
   // const { signInWithGoogle, isLoading: googleLoading } = useGoogleAuth(); // Commented out Google Auth
@@ -105,41 +100,30 @@ export default function LoginScreen() {
     try {
       console.log('🔐 Attempting login with email:', username);
       
-      // Use hardcoded mobile backend URL for reliability
-      const apiUrl = 'https://itrack-backend-1.onrender.com/login';
+      const apiUrl = buildApiUrl('/login');
       console.log('🔗 API URL:', apiUrl);
-
-      const requestBody = { 
-        username: username.toLowerCase().trim(), 
-        password 
-      };
-      console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
 
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          username: username.toLowerCase().trim(), 
+          password 
+        })
       });
 
       console.log('📡 Response status:', res.status);
-      console.log('📡 Response ok:', res.ok);
+      console.log('📡 Response headers:', Object.fromEntries(res.headers.entries()));
 
       const contentType = res.headers.get('content-type');
-      console.log('📡 Content-Type:', contentType);
-      
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
-        console.error('❌ Non-JSON response:', text.substring(0, 500));
+        console.error('❌ Non-JSON response:', text);
         throw new Error('Server returned unexpected response format');
       }
 
       const data = await res.json();
-      console.log('📥 Login response success:', data.success);
-      console.log('📥 Login response user:', data.user);
-      console.log('📥 Full response:', JSON.stringify(data, null, 2));
+      console.log('📥 Login response data:', JSON.stringify(data, null, 2));
 
       if (!res.ok || !data.success) {
         const errorMessage = data.message || `Server error (${res.status})`;
@@ -153,10 +137,13 @@ export default function LoginScreen() {
       const userRole = user?.role;
       const userName = user?.accountName || user?.name || '';
       const userEmail = user?.email || '';
+      const userId = user?._id || user?.id || '';
+      const userPhone = user?.phoneNumber || user?.phoneNo || '';
       
       console.log('✅ Login successful for user:', userName);
       console.log('🔍 User role:', userRole);
       console.log('📧 User email:', userEmail);
+      console.log('🆔 User ID:', userId);
 
       if (!userRole) {
         console.error('❌ No role information in response');
@@ -168,12 +155,15 @@ export default function LoginScreen() {
       await AsyncStorage.multiSet([
         ['userToken', 'authenticated'],
         ['accountName', userName],
-        ['role', userRole],
-        ['email', userEmail],
         ['userName', userName],
-        ['userRole', userRole]
+        ['userRole', userRole],
+        ['role', userRole],
+        ['userEmail', userEmail],
+        ['email', userEmail],
+        ['userId', userId],
+        ['userPhone', userPhone]
       ]);
-      console.log('💾 User data saved to storage');
+      console.log('💾 User data saved to storage:', { userName, userRole, userId });
 
       if (rememberMe) {
         await AsyncStorage.setItem('rememberedUsername', username);
@@ -554,19 +544,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   forgotPasswordText: {
-    color: Colors.primary,
+    color: '#DC2626',
     fontSize: 14,
     fontWeight: '500',
   },
   loginBtn: {
-    backgroundColor: Colors.primary, 
+    backgroundColor: '#DC2626', 
     paddingVertical: 14,
     borderRadius: 8, 
     alignItems: 'center', 
     marginTop: 10,
   },
   loginText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -670,10 +660,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resetBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
   },
   resetBtnText: {
-    color: Colors.textLight,
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });

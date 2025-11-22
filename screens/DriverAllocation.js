@@ -21,7 +21,10 @@ const DriverAllocation = () => {
     variation: '',
     assignedDriver: '',
     status: 'Pending',
-    date: ''
+    date: '',
+    customerName: '',
+    customerEmail: '',
+    customerPhone: ''
   });
   const [editAllocation, setEditAllocation] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -123,6 +126,11 @@ const DriverAllocation = () => {
       return;
     }
 
+    if (!newAllocation.customerName || !newAllocation.customerEmail) {
+      Alert.alert('Missing Customer Info', 'Please provide customer name and email address.');
+      return;
+    }
+
     try {
       const selectedVehicle = inventory.find(v => (v.unitId || v._id) === selectedVin);
       if (!selectedVehicle) {
@@ -133,33 +141,6 @@ const DriverAllocation = () => {
       // Get the selected driver's email for reliable matching
       const selectedDriverData = drivers.find(d => (d.accountName || d.username) === selectedDriver);
       const assignedDriverEmail = selectedDriverData?.email || '';
-      
-      // Check if driver already has a pending or in transit vehicle
-      const driverActiveAllocations = allocations.filter(allocation => {
-        const allocationDriver = allocation.assignedDriver || '';
-        const allocationDriverEmail = allocation.assignedDriverEmail || '';
-        const status = (allocation.status || '').toLowerCase();
-        
-        // Match by driver name or email
-        const isMatchingDriver = allocationDriver === selectedDriver || 
-                                allocationDriverEmail === assignedDriverEmail;
-        
-        // Check if status is pending or in transit
-        const hasActiveAllocation = status === 'pending' || status === 'in transit';
-        
-        return isMatchingDriver && hasActiveAllocation;
-      });
-
-      if (driverActiveAllocations.length > 0) {
-        const allocation = driverActiveAllocations[0];
-        const statusText = allocation.status?.toLowerCase() === 'pending' ? 'Pending' : 'In Transit';
-        Alert.alert(
-          'Driver Unavailable',
-          `${selectedDriver} already has a vehicle (${allocation.unitName} ${allocation.unitId}) with status "${statusText}". The driver must complete the current delivery and press "Ready for Next Delivery" before being assigned another vehicle.`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
       
       const allocationPayload = {
         unitName: selectedVehicle.unitName,
@@ -176,7 +157,10 @@ const DriverAllocation = () => {
         dropoffCoordinates: selectedRoute?.dropoff?.coordinates,
         routeDistance: selectedRoute?.distance,
         estimatedTime: selectedRoute?.estimatedTime,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        customerName: newAllocation.customerName,
+        customerEmail: newAllocation.customerEmail,
+        customerPhone: newAllocation.customerPhone
       };
 
       const res = await axios.post(buildApiUrl('/createAllocation'), allocationPayload);
@@ -223,7 +207,7 @@ const DriverAllocation = () => {
 
   const handleCreate = () => {
     // Validate that route is selected
-    if (!selectedRoute) {
+    if (!selectedRoute && !pickupPoint && !dropoffPoint) {
       Alert.alert('Missing Route', 'Please select pickup and drop-off locations using the route planner.');
       return;
     }
@@ -235,49 +219,6 @@ const DriverAllocation = () => {
     if (!editAllocation) return;
 
     try {
-      // Get the original allocation to check if driver is being changed
-      const originalAllocation = allocations.find(a => a._id === id);
-      
-      // If driver is being changed, validate the new driver
-      if (originalAllocation && editAllocation.assignedDriver !== originalAllocation.assignedDriver) {
-        const newDriverName = editAllocation.assignedDriver;
-        const newDriverData = drivers.find(d => (d.accountName || d.username) === newDriverName);
-        const newDriverEmail = newDriverData?.email || '';
-        
-        // Check if the new driver already has a pending or in transit vehicle
-        const driverActiveAllocations = allocations.filter(allocation => {
-          // Skip the current allocation being edited
-          if (allocation._id === id) return false;
-          
-          const allocationDriver = allocation.assignedDriver || '';
-          const allocationDriverEmail = allocation.assignedDriverEmail || '';
-          const status = (allocation.status || '').toLowerCase();
-          
-          // Match by driver name or email
-          const isMatchingDriver = allocationDriver === newDriverName || 
-                                  allocationDriverEmail === newDriverEmail;
-          
-          // Check if status is pending or in transit
-          const hasActiveAllocation = status === 'pending' || status === 'in transit';
-          
-          return isMatchingDriver && hasActiveAllocation;
-        });
-
-        if (driverActiveAllocations.length > 0) {
-          const allocation = driverActiveAllocations[0];
-          const statusText = allocation.status?.toLowerCase() === 'pending' ? 'Pending' : 'In Transit';
-          Alert.alert(
-            'Driver Unavailable',
-            `${newDriverName} already has a vehicle (${allocation.unitName} ${allocation.unitId}) with status "${statusText}". The driver must complete the current delivery and press "Ready for Next Delivery" before being assigned another vehicle.`,
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        // Update the driver email in the allocation
-        editAllocation.assignedDriverEmail = newDriverEmail;
-      }
-
       console.log('Updating allocation:', id, editAllocation);
       const res = await axios.put(buildApiUrl(`/updateAllocation/${id}`), editAllocation);
       
@@ -423,6 +364,20 @@ const DriverAllocation = () => {
             </View>
           )}
 
+          {/* Customer Information */}
+          {(item.customerName || item.customerEmail) && (
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerLabel}>👥 Customer</Text>
+              <View style={styles.customerDetails}>
+                {item.customerName && (
+                  <Text style={styles.customerName}>{item.customerName}</Text>
+                )}
+                {item.customerEmail && (
+                  <Text style={styles.customerEmail}>{item.customerEmail}</Text>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Card Actions */}
@@ -440,10 +395,6 @@ const DriverAllocation = () => {
             style={[styles.cardActionBtn, styles.editActionBtn]} 
             onPress={(e) => {
               e.stopPropagation();
-              if (item.status && item.status.toLowerCase() === 'in transit') {
-                Alert.alert('Edit Not Allowed', 'You cannot edit a driver allocation when it is already in transit.');
-                return;
-              }
               setEditAllocation(item);
             }}
           >
@@ -623,14 +574,51 @@ const DriverAllocation = () => {
                   onValueChange={val => setSelectedDriver(val)}
                 >
                   <Picker.Item label="Select Driver..." value="" />
-                  {drivers.filter(d => (d.accountName || d.name || d.username)).map(d => (
-                    <Picker.Item 
-                      key={d._id} 
-                      label={d.accountName || d.name || d.username} 
-                      value={d.accountName || d.name || d.username} 
-                    />
+                  {drivers.map(d => (
+                    <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
                   ))}
                 </Picker>
+              </View>
+
+              {/* Customer Information Section */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Customer Information</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Customer Full Name"
+                  value={newAllocation.customerName}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerName: text })}
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Email *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="customer@email.com"
+                  value={newAllocation.customerEmail}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerEmail: text })}
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Customer Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+63 900 000 0000"
+                  value={newAllocation.customerPhone}
+                  onChangeText={text => setNewAllocation({ ...newAllocation, customerPhone: text })}
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="phone-pad"
+                />
               </View>
 
               {/* Enhanced Route Selection */}
@@ -694,6 +682,70 @@ const DriverAllocation = () => {
                   </TouchableOpacity>
                 )}
 
+                {/* Legacy Quick Selection (fallback) */}
+                {!selectedRoute && (
+                  <>
+                    <Text style={styles.orDivider}>— OR —</Text>
+                    
+                    <View style={styles.legacyLocationContainer}>
+                      <Text style={styles.inputLabel}>Quick Pickup Selection</Text>
+                      <View style={styles.locationButtonsContainer}>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setPickupPoint('Isuzu Laguna Stockyard')}
+                        >
+                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
+                            Laguna Stockyard
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                          onPress={() => setPickupPoint('Isuzu Pasig')}
+                        >
+                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                            Pasig
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter pickup location"
+                        value={pickupPoint}
+                        onChangeText={setPickupPoint}
+                        placeholderTextColor="#94a3b8"
+                      />
+
+                      <Text style={[styles.inputLabel, { marginTop: 12 }]}>Quick Drop-off Selection</Text>
+                      <View style={styles.locationButtonsContainer}>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
+                          onPress={() => setDropoffPoint('Isuzu Laguna Stockyard')}
+                        >
+                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
+                            Laguna Stockyard
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
+                          onPress={() => setDropoffPoint('Isuzu Pasig')}
+                        >
+                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
+                            Pasig
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter drop-off location"
+                        value={dropoffPoint}
+                        onChangeText={setDropoffPoint}
+                        placeholderTextColor="#94a3b8"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
             </View>
             </ScrollView>
@@ -789,10 +841,9 @@ const DriverAllocation = () => {
                   selectedValue={editAllocation.assignedDriver || ''}
                   style={styles.input}
                   onValueChange={itemValue => setEditAllocation({ ...editAllocation, assignedDriver: itemValue })}
-                  enabled={editAllocation.status && editAllocation.status.toLowerCase() === 'pending'}
                 >
                   <Picker.Item label="Select Driver" value="" />
-                  {drivers.filter(driver => (driver.accountName || driver.name || driver.username)).map(driver => (
+                  {drivers.map(driver => (
                     <Picker.Item key={driver._id} label={driver.accountName || driver.name || driver.username} value={driver.accountName || driver.name || driver.username} />
                   ))}
                 </Picker>

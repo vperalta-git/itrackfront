@@ -120,14 +120,91 @@ export const findUnitByVariation = (variation) => {
 
 // Vehicle status options
 export const VEHICLE_STATUS_OPTIONS = [
+  'In Stockyard',
   'Available',
-  'Sold', 
-  'Reserved',
+  'Pending',
   'In Transit',
-  'Service',
-  'Damaged',
-  'Test Drive'
+  'Preparing',
+  'Released'
 ];
+
+// Status definitions and rules
+export const VEHICLE_STATUS_RULES = {
+  'In Stockyard': {
+    description: 'Default status when vehicle is added to inventory',
+    allowedTransitions: ['Available'],
+    isDefault: true
+  },
+  'Available': {
+    description: 'Vehicle is at Isuzu Pasig and ready for allocation',
+    allowedTransitions: ['Pending', 'Preparing'],
+    canBeSetOnAdd: true // Only non-default status allowed when adding
+  },
+  'Pending': {
+    description: 'Vehicle allocated to driver but not yet accepted',
+    allowedTransitions: ['In Transit', 'Available'],
+    requiresDriver: true
+  },
+  'In Transit': {
+    description: 'Driver accepted and vehicle is being transported to Isuzu Pasig',
+    allowedTransitions: ['Available'],
+    requiresDriverAcceptance: true,
+    requiresPreviousStatus: 'Pending'
+  },
+  'Preparing': {
+    description: 'Vehicle is in dispatch area for preparation services',
+    allowedTransitions: ['Available', 'Released'],
+    requiresPreviousStatus: 'Available'
+  },
+  'Released': {
+    description: 'Vehicle released to customer (can only be set via Release button)',
+    allowedTransitions: [],
+    cannotBeManuallySet: true
+  }
+};
+
+// Get allowed status options for adding a new vehicle
+export const getAddVehicleStatusOptions = () => {
+  return ['In Stockyard', 'Available'];
+};
+
+// Get allowed status options for updating based on current status and context
+export const getAllowedStatusTransitions = (currentStatus, context = {}) => {
+  const { hasDriver, driverAccepted, isAtIsuzu } = context;
+  const currentRule = VEHICLE_STATUS_RULES[currentStatus];
+  
+  if (!currentRule) return [];
+  
+  let allowed = [currentStatus, ...currentRule.allowedTransitions];
+  
+  // Filter based on requirements
+  allowed = allowed.filter(status => {
+    const rule = VEHICLE_STATUS_RULES[status];
+    if (!rule) return false;
+    
+    // Cannot manually set Released
+    if (rule.cannotBeManuallySet) return false;
+    
+    // Pending requires driver
+    if (status === 'Pending' && !hasDriver) return false;
+    
+    // In Transit requires driver acceptance and previous status Pending
+    if (status === 'In Transit' && (!driverAccepted || currentStatus !== 'Pending')) return false;
+    
+    // Preparing requires vehicle to be Available at Isuzu
+    if (status === 'Preparing' && currentStatus !== 'Available') return false;
+    
+    return true;
+  });
+  
+  return allowed;
+};
+
+// Validate status transition
+export const isValidStatusTransition = (fromStatus, toStatus, context = {}) => {
+  const allowedTransitions = getAllowedStatusTransitions(fromStatus, context);
+  return allowedTransitions.includes(toStatus);
+};
 
 // Body color options
 export const BODY_COLOR_OPTIONS = [

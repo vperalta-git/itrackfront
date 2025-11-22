@@ -52,10 +52,18 @@ app.use(session({
   }
 }));
 
-// CORS configuration - Allow all origins for mobile app support
+// CORS configuration - Updated for production security
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      'https://itrack-backend-1.onrender.com',
+      'https://your-frontend-domain.com', // Add your frontend domain
+      /\.onrender\.com$/ // Allow all Render.com subdomains
+    ]
+  : true; // Allow all origins in development
+
 app.use(cors({
   credentials: true,
-  origin: true // Allow all origins (needed for mobile apps)
+  origin: allowedOrigins
 }));
 app.use(express.json({ limit: '50mb' })); // Support larger payloads for profile pictures
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -834,6 +842,55 @@ app.post('/api/forgot-password', async (req, res) => {
   }
 });
 
+// Change Password - For logged-in users
+app.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    console.log('🔐 Change password request for user:', req.session?.user?.username);
+
+    // Check if user is logged in
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    }
+
+    // Find user
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
+    await user.save();
+
+    console.log('✅ Password changed successfully for user:', user.username);
+    res.json({ success: true, message: 'Password changed successfully' });
+
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Get current user info (for profile)
 app.get('/profile', (req, res) => {
   try {
@@ -1171,9 +1228,6 @@ app.put('/updateStock/:id', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
-    // Remove assignedAgent from update data - should only be managed through Unit Allocation
-    delete updateData.assignedAgent;
-    
     // Get before state for audit logging
     const beforeState = await Inventory.findById(id);
     
@@ -1350,107 +1404,6 @@ app.delete('/deleteAllocation/:id', async (req, res) => {
     res.json({ success: true, message: 'Allocation deleted successfully', data: deletedAllocation });
   } catch (error) {
     console.error('❌ Delete allocation error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ========== UNIT ALLOCATION ENDPOINTS (Sales Agent Assignment) ==========
-
-// UnitAllocation Schema - for unit allocations to sales agents
-const UnitAllocationSchema = new mongoose.Schema({
-  unitName: { type: String, required: true },
-  unitId: { type: String, required: true },
-  bodyColor: String,
-  variation: String,
-  assignedAgent: { type: String, required: true }, // Sales agent name
-  allocatedBy: String, // Manager/Admin who allocated
-  allocationDate: { type: Date, default: Date.now },
-  notes: String,
-}, { timestamps: true });
-
-const UnitAllocation = mongoose.model('UnitAllocation', UnitAllocationSchema, 'unitallocations');
-
-// Get all unit allocations
-app.get('/api/getUnitAllocations', async (req, res) => {
-  try {
-    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
-    console.log(`📊 Found ${allocations.length} unit allocations`);
-    res.json(allocations);
-  } catch (error) {
-    console.error('❌ Get unit allocations error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Create new unit allocation
-app.post('/api/createUnitAllocation', async (req, res) => {
-  try {
-    const allocationData = req.body;
-    console.log('📋 Creating unit allocation:', allocationData);
-    
-    // Check if unit is already allocated
-    const existingAllocation = await UnitAllocation.findOne({ unitId: allocationData.unitId });
-    if (existingAllocation) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'This unit is already allocated to a sales agent' 
-      });
-    }
-    
-    const newAllocation = new UnitAllocation(allocationData);
-    await newAllocation.save();
-    
-    // Update inventory to mark unit as assigned to agent
-    if (allocationData.unitId) {
-      await Inventory.findOneAndUpdate(
-        { unitId: allocationData.unitId },
-        { 
-          assignedAgent: allocationData.assignedAgent,
-          lastUpdatedBy: allocationData.allocatedBy || 'System',
-          dateUpdated: new Date()
-        }
-      );
-      console.log(`✅ Updated vehicle ${allocationData.unitId} assignedAgent to "${allocationData.assignedAgent}"`);
-    }
-    
-    console.log('✅ Created unit allocation:', newAllocation.unitName);
-    res.json({ success: true, message: 'Unit allocated successfully', data: newAllocation });
-  } catch (error) {
-    console.error('❌ Create unit allocation error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Delete unit allocation
-app.delete('/api/deleteUnitAllocation/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    console.log(`📋 Deleting unit allocation ${id}`);
-    
-    const deletedAllocation = await UnitAllocation.findByIdAndDelete(id);
-    
-    if (!deletedAllocation) {
-      return res.status(404).json({ success: false, message: 'Unit allocation not found' });
-    }
-    
-    // When allocation is deleted, remove agent assignment from inventory
-    if (deletedAllocation.unitId) {
-      await Inventory.findOneAndUpdate(
-        { unitId: deletedAllocation.unitId },
-        { 
-          assignedAgent: null,
-          lastUpdatedBy: 'System - Allocation Deleted',
-          dateUpdated: new Date()
-        }
-      );
-      console.log(`✅ Removed agent assignment from vehicle ${deletedAllocation.unitId}`);
-    }
-    
-    console.log('✅ Deleted unit allocation:', deletedAllocation.unitName);
-    res.json({ success: true, message: 'Unit allocation deleted successfully', data: deletedAllocation });
-  } catch (error) {
-    console.error('❌ Delete unit allocation error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -3179,7 +3132,83 @@ app.delete('/api/testdrive-vehicles/:id', async (req, res) => {
   }
 });
 
-// ========== RELEASE MANAGEMENT (kept separate, no duplicate) ==========
+// ========== AUDIT TRAIL & HISTORY ==========
+
+// Get system audit trail
+app.get('/api/audit-trail', async (req, res) => {
+  try {
+    console.log('📊 Fetching audit trail...');
+    
+    // Get recent activities from various collections
+    const activities = [];
+    
+    // Recent allocations
+    const recentAllocations = await DriverAllocation.find({})
+      .sort({ createdAt: -1 })
+      .limit(10);
+    
+    recentAllocations.forEach(allocation => {
+      activities.push({
+        _id: allocation._id,
+        type: 'allocation',
+        action: 'Vehicle Assigned',
+        description: `${allocation.unitName} assigned to ${allocation.assignedDriver}`,
+        user: allocation.allocatedBy || 'System',
+        timestamp: allocation.createdAt,
+        details: {
+          unitName: allocation.unitName,
+          unitId: allocation.unitId,
+          driver: allocation.assignedDriver,
+          status: allocation.status
+        }
+      });
+    });
+    
+    // Recent user creations (if createdAt field exists)
+    try {
+      const recentUsers = await User.find({ createdAt: { $exists: true } })
+        .sort({ createdAt: -1 })
+        .limit(5);
+      
+      recentUsers.forEach(user => {
+        activities.push({
+          _id: user._id,
+          type: 'user',
+          action: 'User Created',
+          description: `New ${user.role} account created: ${user.accountName}`,
+          user: 'Admin',
+          timestamp: user.createdAt,
+          details: {
+            role: user.role,
+            email: user.email,
+            accountName: user.accountName
+          }
+        });
+      });
+    } catch (userError) {
+      console.log('Note: User createdAt field not available');
+    }
+    
+    // Sort all activities by timestamp (newest first)
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    console.log(`✅ Found ${activities.length} audit trail entries`);
+    res.json({
+      success: true,
+      data: activities.slice(0, 20), // Return top 20 most recent
+      count: activities.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching audit trail:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch audit trail',
+      details: error.message
+    });
+  }
+});
+
+// API Configuration endpoint
 app.get('/api/config', (req, res) => {
   const baseUrl = `http://${req.get('host')}`;
   
