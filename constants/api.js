@@ -5,8 +5,7 @@ let isInitialized = false;
 // Function to fetch server configuration from backend
 const fetchServerConfig = async () => {
   const fallbackUrls = [
-    'https://itrack-backend-1.onrender.com',  // PRIMARY - Production Render deployment (working with itrackDB)
-    'https://itrack-web-backend.onrender.com', // Web backup 
+    'https://itrack-backend-1.onrender.com',  // PRIMARY - Mobile backend ONLY
     'http://localhost:5000',                  // Local development server
     'http://192.168.254.147:5000',            // Local network fallback (if on same WiFi)
     'http://10.0.2.2:5000',                   // Android emulator host

@@ -105,30 +105,41 @@ export default function LoginScreen() {
     try {
       console.log('🔐 Attempting login with email:', username);
       
-      const apiUrl = buildApiUrl('/login');
+      // Use hardcoded mobile backend URL for reliability
+      const apiUrl = 'https://itrack-backend-1.onrender.com/login';
       console.log('🔗 API URL:', apiUrl);
+
+      const requestBody = { 
+        username: username.toLowerCase().trim(), 
+        password 
+      };
+      console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
 
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          username: username.toLowerCase().trim(), 
-          password 
-        })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
       console.log('📡 Response status:', res.status);
-      console.log('📡 Response headers:', Object.fromEntries(res.headers.entries()));
+      console.log('📡 Response ok:', res.ok);
 
       const contentType = res.headers.get('content-type');
+      console.log('📡 Content-Type:', contentType);
+      
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
-        console.error('❌ Non-JSON response:', text);
+        console.error('❌ Non-JSON response:', text.substring(0, 500));
         throw new Error('Server returned unexpected response format');
       }
 
       const data = await res.json();
-      console.log('📥 Login response data:', JSON.stringify(data, null, 2));
+      console.log('📥 Login response success:', data.success);
+      console.log('📥 Login response user:', data.user);
+      console.log('📥 Full response:', JSON.stringify(data, null, 2));
 
       if (!res.ok || !data.success) {
         const errorMessage = data.message || `Server error (${res.status})`;

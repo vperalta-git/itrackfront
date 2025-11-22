@@ -9,13 +9,39 @@ const nodemailer = require('nodemailer');
 
 const app = express();
 
+// ========== ENVIRONMENT VARIABLE VALIDATION ==========
+console.log('🔍 Checking environment variables...');
+
+// Check if critical variables are set
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️  MONGODB_URI not set - using fallback connection string');
+  process.env.MONGODB_URI = 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
+}
+
+if (!process.env.SESSION_SECRET) {
+  console.warn('⚠️  SESSION_SECRET not set - using default (NOT SECURE FOR PRODUCTION)');
+  process.env.SESSION_SECRET = 'itrack-mobile-session-secret-key-2025';
+}
+
+// Optional variables
+const optionalVars = ['GOOGLE_MAPS_API_KEY', 'GMAIL_USER', 'GMAIL_APP_PASSWORD'];
+const missingOptional = optionalVars.filter(varName => !process.env[varName]);
+
+if (missingOptional.length > 0) {
+  console.warn('⚠️  Optional environment variables not set:');
+  missingOptional.forEach(varName => console.warn(`   - ${varName}`));
+  console.warn('💡 Some features may be limited without these variables');
+}
+
+console.log('✅ Environment check complete\n');
+
 // Session configuration - Updated for production security
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'itrack-mobile-session-secret-key-2025',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0',
+    mongoUrl: process.env.MONGODB_URI,
     touchAfter: 24 * 3600 // lazy session update
   }),
   cookie: {
@@ -26,18 +52,10 @@ app.use(session({
   }
 }));
 
-// CORS configuration - Updated for production security
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [
-      'https://itrack-backend-1.onrender.com',
-      'https://your-frontend-domain.com', // Add your frontend domain
-      /\.onrender\.com$/ // Allow all Render.com subdomains
-    ]
-  : true; // Allow all origins in development
-
+// CORS configuration - Allow all origins for mobile app support
 app.use(cors({
   credentials: true,
-  origin: allowedOrigins
+  origin: true // Allow all origins (needed for mobile apps)
 }));
 app.use(express.json({ limit: '50mb' })); // Support larger payloads for profile pictures
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -78,14 +96,6 @@ let transporter;
 function initializeEmailService() {
   console.log('📧 Initializing Gmail service...');
   
-  const emailConfig = {
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.GMAIL_APP_PASSWORD || 'your-app-password'
-    }
-  };
-
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     console.log('⚠️  Gmail credentials not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
     console.log('📝 To set up Gmail App Password:');
@@ -96,6 +106,14 @@ function initializeEmailService() {
     console.log('   5. Set GMAIL_APP_PASSWORD=your-16-digit-app-password');
     return;
   }
+
+  const emailConfig = {
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  };
 
   try {
     transporter = nodemailer.createTransporter(emailConfig);
@@ -201,8 +219,7 @@ async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
 }
 
 // MongoDB URI configuration - Updated to connect to your itrackDB database
-const mongoURI = process.env.MONGODB_URI || 
-  'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
+const mongoURI = process.env.MONGODB_URI;
 
 // Connect to MongoDB with retry logic
 mongoose.connect(mongoURI)
@@ -212,10 +229,14 @@ mongoose.connect(mongoURI)
 // User Schema with Role Validation and Enhanced Password Management - SYNCED WITH WEB VERSION
 const UserSchema = new mongoose.Schema({
   // Core Authentication Fields
-  username: {
+  email: {
     type: String,
     required: true,
-    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  username: {
+    type: String,
     trim: true
   },
   password: {
@@ -233,11 +254,6 @@ const UserSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true
-  },
   isActive: {
     type: Boolean,
     default: true
@@ -247,7 +263,7 @@ const UserSchema = new mongoose.Schema({
   },
   
   // Profile Enhancement Fields (Synced with web)
-  profilePicture: {
+  picture: {
     type: String, // URL or base64 string
     default: null
   },
@@ -383,6 +399,7 @@ const DriverAllocationSchema = new mongoose.Schema({
   bodyColor: String,
   variation: String,
   assignedDriver: String,
+  assignedDriverEmail: String, // For reliable driver matching
   assignedAgent: String,
   status: String,
   allocatedBy: String,
@@ -392,6 +409,8 @@ const DriverAllocationSchema = new mongoose.Schema({
     latitude: { type: Number, min: -90, max: 90 },
     longitude: { type: Number, min: -180, max: 180 },
     address: String,
+    speed: { type: Number, default: 0 },
+    heading: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now }
   },
   
@@ -423,6 +442,18 @@ const DriverAllocationSchema = new mongoose.Schema({
   }],
   
   // ROUTE INFORMATION (From web version)
+  pickupPoint: String, // Human-readable pickup location name
+  dropoffPoint: String, // Human-readable dropoff location name
+  pickupCoordinates: {
+    latitude: Number,
+    longitude: Number
+  },
+  dropoffCoordinates: {
+    latitude: Number,
+    longitude: Number
+  },
+  routeDistance: Number, // in kilometers
+  estimatedTime: Number, // in minutes
   routeInfo: {
     distance: Number, // in meters
     estimatedDuration: Number, // in seconds
@@ -430,6 +461,11 @@ const DriverAllocationSchema = new mongoose.Schema({
     routeStarted: Date,
     routeCompleted: Date
   },
+  
+  // CUSTOMER INFORMATION
+  customerName: String,
+  customerEmail: String,
+  customerPhone: String,
 
   // Vehicle Process Management (From web version)
   requestedProcesses: [{
@@ -480,17 +516,18 @@ const DriverAllocation = mongoose.model('DriverAllocation', DriverAllocationSche
 
 // ======================== AUTH =========================
 
-// Enhanced Login with Temporary Password Support
+// Enhanced Login with Email-based Authentication
 app.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    console.log('📥 Login attempt:', username);
-    console.log('🔍 Looking for user with email or username:', username.toLowerCase().trim());
+    const { username, password } = req.body; // Keep 'username' for backward compatibility but treat as email
+    const email = username; // The mobile app sends email in 'username' field
+    console.log('📥 Login attempt:', email);
+    console.log('🔍 Looking for user with email:', email.toLowerCase().trim());
 
     // Check admin credentials first
-    if (username === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
+    if (email === 'isuzupasigadmin' && password === 'Isuzu_Pasig1') {
       req.session.user = {
-        username: 'isuzupasigadmin',
+        email: 'admin@isuzupasig.com',
         role: 'Admin',
         accountName: 'Isuzu Pasig Admin'
       };
@@ -504,20 +541,17 @@ app.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in database by email OR username
+    // Find user in database by email only
     const user = await User.findOne({
-      $or: [
-        { email: username.toLowerCase().trim() },
-        { username: username.toLowerCase().trim() }
-      ]
+      email: email.toLowerCase().trim()
     });
     
     if (!user) {
-      console.log('❌ User not found for:', username.toLowerCase().trim());
+      console.log('❌ User not found for:', email.toLowerCase().trim());
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    console.log('✅ User found:', user.username, 'Email:', user.email);
+    console.log('✅ User found:', user.email);
 
     let isValidLogin = false;
     let isTemporaryPassword = false;
@@ -531,7 +565,7 @@ app.post('/login', async (req, res) => {
         isValidLogin = true;
         isTemporaryPassword = true;
         
-        console.log('🔑 User logged in with temporary password:', username);
+        console.log('🔑 User logged in with temporary password:', email);
         
         // Clear temporary password after successful use
         user.temporaryPassword = undefined;
@@ -540,13 +574,12 @@ app.post('/login', async (req, res) => {
       }
     }
 
-    // If not using temporary password, check regular password
+    // If not using temporary password, check regular password (plain text)
     if (!isValidLogin) {
-      console.log('🔍 Comparing password for user:', user.username);
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (isMatch) {
+      console.log('🔍 Comparing plain text password for user:', user.email);
+      if (password === user.password) {
         isValidLogin = true;
-        console.log('🔑 User logged in with regular password:', username);
+        console.log('🔑 User logged in with plain text password:', email);
       } else {
         console.log('❌ Password mismatch for user:', user.username);
       }
@@ -561,14 +594,13 @@ app.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Create session
+    // Create session based on email
     const sessionUser = {
       id: user._id,
-      username: user.username,
+      email: user.email,
       role: user.role,
       accountName: user.accountName,
       name: user.name || user.accountName,
-      email: user.email,
       assignedTo: user.assignedTo
     };
 
@@ -580,8 +612,7 @@ app.post('/login', async (req, res) => {
         role: user.role,
         accountName: user.accountName,
         name: user.name || user.accountName,
-        email: user.email,
-        username: user.username
+        email: user.email
       }
     };
 
@@ -589,7 +620,7 @@ app.post('/login', async (req, res) => {
     if (isTemporaryPassword) {
       response.requirePasswordChange = true;
       response.message = 'Login successful with temporary password. Please change your password immediately.';
-      console.log('⚠️  User should change password immediately:', username);
+      console.log('⚠️  User should change password immediately:', email);
     }
 
     res.json(response);
@@ -653,12 +684,11 @@ app.post('/api/login', async (req, res) => {
       }
     }
 
-    // Check regular password if temp password didn't work
+    // Check regular password if temp password didn't work (plain text)
     if (!isValidLogin && user.password) {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (isMatch) {
+      if (password === user.password) {
         isValidLogin = true;
-        console.log('✅ User logged in with regular password:', email);
+        console.log('✅ User logged in with plain text password:', email);
       }
     }
 
@@ -666,10 +696,9 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    // Set session
+    // Set session based on email
     req.session.user = {
       id: user._id,
-      username: user.username || user.email,
       email: user.email,
       role: user.role || 'User',
       accountName: user.name || user.accountName
@@ -802,55 +831,6 @@ app.post('/api/forgot-password', async (req, res) => {
   } catch (error) {
     console.error('❌ API Forgot password error:', error);
     res.status(500).json({ success: false, message: 'Failed to process request. Please try again.' });
-  }
-});
-
-// Change Password - For logged-in users
-app.post('/change-password', async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    console.log('🔐 Change password request for user:', req.session?.user?.username);
-
-    // Check if user is logged in
-    if (!req.session?.user) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
-    }
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
-    }
-
-    // Find user
-    const user = await User.findById(req.session.user.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isCurrentPasswordValid) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
-    }
-
-    // Hash new password
-    const saltRounds = 10;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    user.password = hashedNewPassword;
-    user.updatedAt = new Date();
-    await user.save();
-
-    console.log('✅ Password changed successfully for user:', user.username);
-    res.json({ success: true, message: 'Password changed successfully' });
-
-  } catch (error) {
-    console.error('❌ Change password error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -1024,9 +1004,10 @@ app.get('/api/getUser/:id', async (req, res) => {
 app.put('/updateProfile/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phoneNumber, personalDetails, profilePicture } = req.body;
+    const { name, phoneNumber, phoneno, personalDetails, picture } = req.body;
     
     console.log('📱 Updating profile for user ID:', id);
+    console.log('📱 Request body:', { name, phoneNumber, phoneno, picture: picture ? 'base64 data' : undefined });
     
     const updateData = {
       updatedAt: new Date()
@@ -1034,9 +1015,11 @@ app.put('/updateProfile/:id', async (req, res) => {
     
     // Only update provided fields
     if (name !== undefined) updateData.name = name;
-    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    // Accept both phoneNumber and phoneno for compatibility
+    if (phoneNumber !== undefined) updateData.phoneno = phoneNumber;
+    if (phoneno !== undefined) updateData.phoneno = phoneno;
     if (personalDetails !== undefined) updateData.personalDetails = personalDetails;
-    if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+    if (picture !== undefined) updateData.picture = picture;
     
     const updatedUser = await User.findByIdAndUpdate(
       id, 
@@ -1110,13 +1093,22 @@ app.post('/change-password', async (req, res) => {
 
 // Inventory Schema
 const InventorySchema = new mongoose.Schema({
-  unitName: String,
-  unitId: String,
+  unitName: { type: String, required: true },
+  unitId: String, // Conduction Number - unique identifier
   bodyColor: String,
-  variation: String,
-  conductionNumber: String,
+  variation: { type: String, required: true },
+  conductionNumber: { type: String, required: true },
+  engineNumber: String,
+  keyNumber: String,
+  plateNumber: String,
+  chassisNumber: String,
+  notes: String,
   quantity: { type: Number, default: 1 },
-  status: { type: String, default: 'Available' }
+  status: { type: String, default: 'Available' },
+  addedBy: String,
+  lastUpdatedBy: String,
+  addedDate: Date,
+  dateUpdated: Date
 }, { timestamps: true });
 const Inventory = mongoose.model('Inventory', InventorySchema, 'inventories');
 
@@ -1135,7 +1127,7 @@ app.get('/getStock', async (req, res) => {
 // Create new stock item
 app.post('/createStock', async (req, res) => {
   try {
-    const { unitName, unitId, bodyColor, variation, conductionNumber, quantity } = req.body;
+    const { unitName, unitId, bodyColor, variation, conductionNumber, quantity, addedBy } = req.body;
     
     const newStock = new Inventory({
       unitName,
@@ -1147,6 +1139,24 @@ app.post('/createStock', async (req, res) => {
     });
     
     await newStock.save();
+    
+    // Log audit trail for inventory creation
+    await logAuditTrail(
+      'create',
+      'Inventory',
+      newStock._id,
+      addedBy || 'System',
+      {
+        after: {
+          unitName: newStock.unitName,
+          unitId: newStock.unitId,
+          variation: newStock.variation,
+          bodyColor: newStock.bodyColor,
+          status: newStock.status
+        }
+      }
+    );
+    
     console.log('✅ Created stock:', newStock.unitName);
     res.json({ success: true, message: 'Stock created successfully', data: newStock });
   } catch (error) {
@@ -1161,10 +1171,40 @@ app.put('/updateStock/:id', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
+    // Remove assignedAgent from update data - should only be managed through Unit Allocation
+    delete updateData.assignedAgent;
+    
+    // Get before state for audit logging
+    const beforeState = await Inventory.findById(id);
+    
     const updatedStock = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
     
     if (!updatedStock) {
       return res.status(404).json({ success: false, message: 'Stock item not found' });
+    }
+    
+    // Log audit trail for inventory update
+    if (beforeState) {
+      await logAuditTrail(
+        'update',
+        'Inventory',
+        updatedStock._id,
+        updateData.updatedBy || updateData.lastUpdatedBy || 'System',
+        {
+          before: {
+            unitName: beforeState.unitName,
+            status: beforeState.status,
+            assignedAgent: beforeState.assignedAgent,
+            bodyColor: beforeState.bodyColor
+          },
+          after: {
+            unitName: updatedStock.unitName,
+            status: updatedStock.status,
+            assignedAgent: updatedStock.assignedAgent,
+            bodyColor: updatedStock.bodyColor
+          }
+        }
+      );
     }
     
     console.log('✅ Updated stock:', updatedStock.unitName);
@@ -1185,6 +1225,22 @@ app.delete('/deleteStock/:id', async (req, res) => {
     if (!deletedStock) {
       return res.status(404).json({ success: false, message: 'Stock item not found' });
     }
+    
+    // Log audit trail for inventory deletion
+    await logAuditTrail(
+      'delete',
+      'Inventory',
+      deletedStock._id,
+      'System',
+      {
+        before: {
+          unitName: deletedStock.unitName,
+          unitId: deletedStock.unitId,
+          variation: deletedStock.variation,
+          status: deletedStock.status
+        }
+      }
+    );
     
     console.log('✅ Deleted stock:', deletedStock.unitName);
     res.json({ success: true, message: 'Stock deleted successfully' });
@@ -1217,10 +1273,184 @@ app.post('/createAllocation', async (req, res) => {
     const newAllocation = new DriverAllocation(allocationData);
     await newAllocation.save();
     
+    // Update vehicle status to "Pending" when allocated
+    if (allocationData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: allocationData.unitId },
+        { 
+          status: 'Pending',
+          lastUpdatedBy: 'System - Allocation',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${allocationData.unitId} status to "Pending"`);
+    }
+    
     console.log('✅ Created allocation:', newAllocation.unitName);
     res.json({ success: true, message: 'Allocation created successfully', data: newAllocation });
   } catch (error) {
     console.error('❌ Create allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update allocation
+app.put('/updateAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    console.log(`📋 Updating allocation ${id}:`, updateData);
+    
+    const updatedAllocation = await DriverAllocation.findByIdAndUpdate(
+      id,
+      { $set: updateData, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedAllocation) {
+      return res.status(404).json({ success: false, message: 'Allocation not found' });
+    }
+    
+    console.log('✅ Updated allocation:', updatedAllocation.unitName);
+    res.json({ success: true, message: 'Allocation updated successfully', data: updatedAllocation });
+  } catch (error) {
+    console.error('❌ Update allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete allocation
+app.delete('/deleteAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`📋 Deleting allocation ${id}`);
+    
+    const deletedAllocation = await DriverAllocation.findByIdAndDelete(id);
+    
+    if (!deletedAllocation) {
+      return res.status(404).json({ success: false, message: 'Allocation not found' });
+    }
+    
+    // When allocation is deleted, return vehicle to "Available" status
+    if (deletedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deletedAllocation.unitId },
+        { 
+          status: 'Available',
+          lastUpdatedBy: 'System - Allocation Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Returned vehicle ${deletedAllocation.unitId} status to "Available"`);
+    }
+    
+    console.log('✅ Deleted allocation:', deletedAllocation.unitName);
+    res.json({ success: true, message: 'Allocation deleted successfully', data: deletedAllocation });
+  } catch (error) {
+    console.error('❌ Delete allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== UNIT ALLOCATION ENDPOINTS (Sales Agent Assignment) ==========
+
+// UnitAllocation Schema - for unit allocations to sales agents
+const UnitAllocationSchema = new mongoose.Schema({
+  unitName: { type: String, required: true },
+  unitId: { type: String, required: true },
+  bodyColor: String,
+  variation: String,
+  assignedAgent: { type: String, required: true }, // Sales agent name
+  allocatedBy: String, // Manager/Admin who allocated
+  allocationDate: { type: Date, default: Date.now },
+  notes: String,
+}, { timestamps: true });
+
+const UnitAllocation = mongoose.model('UnitAllocation', UnitAllocationSchema, 'unitallocations');
+
+// Get all unit allocations
+app.get('/api/getUnitAllocations', async (req, res) => {
+  try {
+    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} unit allocations`);
+    res.json(allocations);
+  } catch (error) {
+    console.error('❌ Get unit allocations error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create new unit allocation
+app.post('/api/createUnitAllocation', async (req, res) => {
+  try {
+    const allocationData = req.body;
+    console.log('📋 Creating unit allocation:', allocationData);
+    
+    // Check if unit is already allocated
+    const existingAllocation = await UnitAllocation.findOne({ unitId: allocationData.unitId });
+    if (existingAllocation) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This unit is already allocated to a sales agent' 
+      });
+    }
+    
+    const newAllocation = new UnitAllocation(allocationData);
+    await newAllocation.save();
+    
+    // Update inventory to mark unit as assigned to agent
+    if (allocationData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: allocationData.unitId },
+        { 
+          assignedAgent: allocationData.assignedAgent,
+          lastUpdatedBy: allocationData.allocatedBy || 'System',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${allocationData.unitId} assignedAgent to "${allocationData.assignedAgent}"`);
+    }
+    
+    console.log('✅ Created unit allocation:', newAllocation.unitName);
+    res.json({ success: true, message: 'Unit allocated successfully', data: newAllocation });
+  } catch (error) {
+    console.error('❌ Create unit allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete unit allocation
+app.delete('/api/deleteUnitAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`📋 Deleting unit allocation ${id}`);
+    
+    const deletedAllocation = await UnitAllocation.findByIdAndDelete(id);
+    
+    if (!deletedAllocation) {
+      return res.status(404).json({ success: false, message: 'Unit allocation not found' });
+    }
+    
+    // When allocation is deleted, remove agent assignment from inventory
+    if (deletedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deletedAllocation.unitId },
+        { 
+          assignedAgent: null,
+          lastUpdatedBy: 'System - Allocation Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Removed agent assignment from vehicle ${deletedAllocation.unitId}`);
+    }
+    
+    console.log('✅ Deleted unit allocation:', deletedAllocation.unitName);
+    res.json({ success: true, message: 'Unit allocation deleted successfully', data: deletedAllocation });
+  } catch (error) {
+    console.error('❌ Delete unit allocation error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1321,6 +1551,36 @@ app.post('/api/dispatch/assignments', async (req, res) => {
     
     const savedAssignment = await newAssignment.save();
     
+    // Update vehicle status to "Preparing" when assigned to dispatch
+    if (assignmentData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: assignmentData.unitId },
+        { 
+          status: 'Preparing',
+          lastUpdatedBy: 'System - Dispatch Assignment',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${assignmentData.unitId} status to "Preparing"`);
+    }
+    
+    // Log audit trail
+    await logAuditTrail(
+      'create',
+      'DispatchAssignment',
+      savedAssignment._id,
+      assignmentData.assignedBy || 'System',
+      {
+        after: {
+          unitName: assignmentData.unitName,
+          unitId: assignmentData.unitId,
+          assignedDriver: assignmentData.assignedDriver,
+          processes: assignmentData.processes,
+          status: 'Assigned to Dispatch'
+        }
+      }
+    );
+    
     console.log('✅ Dispatch assignment created:', savedAssignment._id);
     res.json({ 
       success: true, 
@@ -1395,6 +1655,25 @@ app.put('/api/dispatch/assignments/:id/process', async (req, res) => {
     }
     
     const updatedAssignment = await assignment.save();
+    
+    // Log audit trail for task completion
+    await logAuditTrail(
+      'update',
+      'DispatchTask',
+      assignment._id,
+      completedBy || 'System',
+      {
+        before: { processStatus: { [processId]: !completed } },
+        after: { 
+          processStatus: { [processId]: completed },
+          processName: processId,
+          unitName: assignment.unitName,
+          unitId: assignment.unitId,
+          overallProgress: assignment.overallProgress,
+          status: assignment.status
+        }
+      }
+    );
     
     console.log('✅ Process updated successfully');
     res.json({
@@ -1536,18 +1815,27 @@ app.post('/updateDriverLocation', async (req, res) => {
     await DriverAllocation.updateMany(
       { 
         $or: [
-          { assignedDriverName: driver.name },
-          { assignedDriverName: driver.username },
-          { assignedDriverName: driverName }
+          { assignedDriver: driver.accountName },
+          { assignedDriver: driver.username },
+          { assignedDriver: driverName }
         ]
       },
       { 
         $set: { 
-          'location.latitude': location.latitude,
-          'location.longitude': location.longitude,
-          'location.lastUpdate': new Date(),
-          'location.speed': location.speed || 0,
-          'location.heading': location.heading || 0
+          'currentLocation.latitude': location.latitude,
+          'currentLocation.longitude': location.longitude,
+          'currentLocation.lastUpdated': new Date(),
+          'currentLocation.speed': location.speed || 0,
+          'currentLocation.heading': location.heading || 0
+        },
+        $push: {
+          locationHistory: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: new Date(),
+            speed: location.speed || 0,
+            heading: location.heading || 0
+          }
         }
       }
     );
@@ -1633,6 +1921,538 @@ app.get('/getAllDriverLocations', async (req, res) => {
       success: false, 
       message: 'Failed to get driver locations',
       error: error.message 
+    });
+  }
+});
+
+// ========== GOOGLE MAPS API ENDPOINTS ==========
+
+// Get route directions using Google Maps Directions API (for mobile)
+app.post('/getRoute', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🗺️ Getting route from Google Maps API:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      
+      // Decode polyline to coordinates array
+      const polyline = decodePolyline(route.overview_polyline.points);
+      
+      res.json({
+        success: true,
+        route: {
+          polyline: polyline,
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+          bounds: route.bounds,
+          summary: route.summary
+        }
+      });
+    } else {
+      console.warn('⚠️ Google Maps API error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Directions API error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get route directions',
+      error: error.message
+    });
+  }
+});
+
+// Polyline decoder function
+function decodePolyline(encoded) {
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+  const points = [];
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const deltaLat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const deltaLng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += deltaLng;
+
+    points.push({
+      latitude: lat / 1E5,
+      longitude: lng / 1E5
+    });
+  }
+  return points;
+}
+
+// Get route directions using Google Maps Directions API
+app.post('/api/directions/route', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🗺️ Getting route from Google Maps API:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      
+      res.json({
+        success: true,
+        route: {
+          overview_polyline: route.overview_polyline.points,
+          bounds: route.bounds,
+          legs: route.legs,
+          summary: route.summary,
+          distance: route.legs[0].distance,
+          duration: route.legs[0].duration
+        }
+      });
+    } else {
+      console.warn('⚠️ Google Maps API error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Directions API error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get route directions',
+      error: error.message
+    });
+  }
+});
+
+// Geocode address to coordinates
+app.post('/api/geocode/address', async (req, res) => {
+  try {
+    const { address } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('📍 Geocoding address:', address);
+
+    if (!address) {
+      return res.status(400).json({
+        success: false,
+        message: 'Address is required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      
+      res.json({
+        success: true,
+        location: result.geometry.location,
+        formatted_address: result.formatted_address,
+        place_id: result.place_id
+      });
+    } else {
+      console.warn('⚠️ Geocoding error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Address not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Geocoding error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to geocode address',
+      error: error.message
+    });
+  }
+});
+
+// Reverse geocode coordinates to address
+app.post('/api/geocode/reverse', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('📍 Reverse geocoding:', { latitude, longitude });
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      
+      res.json({
+        success: true,
+        address: result.formatted_address,
+        place_id: result.place_id,
+        address_components: result.address_components
+      });
+    } else {
+      console.warn('⚠️ Reverse geocoding error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Location not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Reverse geocoding error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reverse geocode',
+      error: error.message
+    });
+  }
+});
+
+// Search places using Google Places API
+app.post('/api/places/search', async (req, res) => {
+  try {
+    const { query, location } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🔍 Searching places:', query);
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    if (location) {
+      url += `&location=${location.latitude},${location.longitude}&radius=5000`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results) {
+      res.json({
+        success: true,
+        places: data.results.map(place => ({
+          place_id: place.place_id,
+          name: place.name,
+          address: place.formatted_address,
+          location: place.geometry.location,
+          types: place.types,
+          rating: place.rating
+        }))
+      });
+    } else {
+      console.warn('⚠️ Places search error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No places found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Places search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search places',
+      error: error.message
+    });
+  }
+});
+
+// Get Google Maps API Key
+app.get('/api/maps/api-key', (req, res) => {
+  try {
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    res.json({
+      success: true,
+      apiKey: GOOGLE_MAPS_API_KEY
+    });
+  } catch (error) {
+    console.error('Error fetching API key:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch API key'
+    });
+  }
+});
+
+// Google Maps Routes API - Get optimal route with traffic
+app.post('/api/maps/route', async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🗺️  Calculating route:', { origin, destination });
+
+    if (!origin || !destination) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origin and destination are required'
+      });
+    }
+
+    // Use Directions API (works with current setup)
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      
+      res.json({
+        success: true,
+        route: {
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+          durationInTraffic: leg.duration_in_traffic?.text || leg.duration.text,
+          startAddress: leg.start_address,
+          endAddress: leg.end_address,
+          startLocation: leg.start_location,
+          endLocation: leg.end_location,
+          polyline: route.overview_polyline.points,
+          steps: leg.steps.map(step => ({
+            distance: step.distance.text,
+            duration: step.duration.text,
+            instruction: step.html_instructions.replace(/<[^>]*>/g, ''),
+            startLocation: step.start_location,
+            endLocation: step.end_location
+          }))
+        }
+      });
+    } else {
+      console.warn('⚠️  Route calculation error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'No route found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Route calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate route',
+      error: error.message
+    });
+  }
+});
+
+// Google Maps Distance Matrix API - Calculate distances for multiple origins/destinations
+app.post('/api/maps/distance-matrix', async (req, res) => {
+  try {
+    const { origins, destinations } = req.body;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('📊 Calculating distance matrix');
+
+    if (!origins || !destinations || origins.length === 0 || destinations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Origins and destinations arrays are required'
+      });
+    }
+
+    const originsStr = origins.join('|');
+    const destinationsStr = destinations.join('|');
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(originsStr)}&destinations=${encodeURIComponent(destinationsStr)}&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK') {
+      res.json({
+        success: true,
+        matrix: {
+          originAddresses: data.origin_addresses,
+          destinationAddresses: data.destination_addresses,
+          rows: data.rows.map(row => ({
+            elements: row.elements.map(el => ({
+              distance: el.distance?.text,
+              duration: el.duration?.text,
+              durationInTraffic: el.duration_in_traffic?.text,
+              status: el.status
+            }))
+          }))
+        }
+      });
+    } else {
+      console.warn('⚠️  Distance matrix error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Failed to calculate distances',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Distance matrix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate distance matrix',
+      error: error.message
+    });
+  }
+});
+
+// Google Places API - Get place details by place_id
+app.get('/api/places/details/:placeId', async (req, res) => {
+  try {
+    const { placeId } = req.params;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🔍 Getting place details:', placeId);
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,rating,reviews,photos,opening_hours,website&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.result) {
+      res.json({
+        success: true,
+        place: {
+          name: data.result.name,
+          address: data.result.formatted_address,
+          location: data.result.geometry.location,
+          phone: data.result.formatted_phone_number,
+          rating: data.result.rating,
+          reviews: data.result.reviews,
+          photos: data.result.photos,
+          openingHours: data.result.opening_hours,
+          website: data.result.website
+        }
+      });
+    } else {
+      console.warn('⚠️  Place details error:', data.status, data.error_message);
+      res.status(400).json({
+        success: false,
+        message: data.error_message || 'Place not found',
+        status: data.status
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Place details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get place details',
+      error: error.message
+    });
+  }
+});
+
+// Google Places API - Autocomplete for place searches
+app.get('/api/places/autocomplete', async (req, res) => {
+  try {
+    const { input, location, radius } = req.query;
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo';
+    
+    console.log('🔍 Place autocomplete:', input);
+
+    if (!input) {
+      return res.status(400).json({
+        success: false,
+        message: 'Input parameter is required'
+      });
+    }
+
+    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    if (location && radius) {
+      url += `&location=${location}&radius=${radius}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.predictions) {
+      res.json({
+        success: true,
+        predictions: data.predictions.map(pred => ({
+          placeId: pred.place_id,
+          description: pred.description,
+          mainText: pred.structured_formatting.main_text,
+          secondaryText: pred.structured_formatting.secondary_text
+        }))
+      });
+    } else {
+      res.json({
+        success: true,
+        predictions: []
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Place autocomplete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to autocomplete places',
+      error: error.message
     });
   }
 });
@@ -1766,6 +2586,23 @@ app.post('/driver-allocations', async (req, res) => {
     console.log('Creating driver allocation:', req.body);
     const newAllocation = new DriverAllocation(req.body);
     await newAllocation.save();
+    
+    // Log audit trail for driver allocation
+    await logAuditTrail(
+      'create',
+      'DriverAllocation',
+      newAllocation._id,
+      req.body.allocatedBy || 'System',
+      {
+        after: {
+          unitName: req.body.unitName,
+          unitId: req.body.unitId,
+          assignedDriver: req.body.assignedDriver,
+          status: req.body.status || 'Pending'
+        }
+      }
+    );
+    
     res.json({ success: true, allocation: newAllocation });
   } catch (err) {
     console.error('Error creating driver allocation:', err);
@@ -1777,8 +2614,60 @@ app.post('/driver-allocations', async (req, res) => {
 app.patch('/driver-allocations/:id', async (req, res) => {
   try {
     console.log(`Updating allocation ${req.params.id} with:`, req.body);
+    
+    // Get before state for audit logging
+    const beforeState = await DriverAllocation.findById(req.params.id);
+    
     const updated = await DriverAllocation.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Allocation not found' });
+    
+    // Update vehicle status based on allocation status changes
+    if (req.body.status && updated.unitId) {
+      let newVehicleStatus = null;
+      
+      if (req.body.status === 'In Transit') {
+        newVehicleStatus = 'In Transit';
+      } else if (req.body.status === 'Delivered' || req.body.status === 'Completed') {
+        // When driver delivers to Isuzu Pasig, set to Available
+        newVehicleStatus = 'Available';
+      }
+      
+      if (newVehicleStatus) {
+        await Inventory.findOneAndUpdate(
+          { unitId: updated.unitId },
+          { 
+            status: newVehicleStatus,
+            lastUpdatedBy: `System - ${req.body.status}`,
+            dateUpdated: new Date()
+          }
+        );
+        console.log(`✅ Updated vehicle ${updated.unitId} status to "${newVehicleStatus}"`);
+      }
+    }
+    
+    // Log audit trail for allocation update (delivery)
+    if (beforeState) {
+      await logAuditTrail(
+        'update',
+        'DriverAllocation',
+        updated._id,
+        req.body.updatedBy || 'System',
+        {
+          before: {
+            status: beforeState.status,
+            unitName: beforeState.unitName,
+            unitId: beforeState.unitId
+          },
+          after: {
+            status: updated.status,
+            unitName: updated.unitName,
+            unitId: updated.unitId,
+            assignedDriver: updated.assignedDriver
+          }
+        }
+      );
+    }
+    
     res.json({ success: true, allocation: updated });
   } catch (err) {
     console.error('Error updating driver allocation:', err);
@@ -1896,6 +2785,121 @@ app.put('/api/inventory/:id', async (req, res) => {
   }
 });
 
+// ========== AUDIT TRAILS ==========
+
+// Audit Trail Schema  
+const AuditTrailSchema = new mongoose.Schema({
+  action: String,
+  resource: String,
+  resourceId: String,
+  performedBy: String,
+  details: mongoose.Schema.Types.Mixed,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const AuditTrail = mongoose.model('AuditTrail', AuditTrailSchema, 'audittrails');
+
+// Helper function to log audit trail
+const logAuditTrail = async (action, resource, resourceId, performedBy, details = {}) => {
+  try {
+    const auditEntry = new AuditTrail({
+      action,
+      resource,
+      resourceId,
+      performedBy,
+      details,
+      timestamp: new Date()
+    });
+    await auditEntry.save();
+    console.log(`📝 Audit logged: ${action} on ${resource} by ${performedBy}`);
+  } catch (error) {
+    console.error('❌ Error logging audit trail:', error);
+    // Don't throw error - audit logging failure shouldn't break the main operation
+  }
+};
+
+// Web-compatible audit trail endpoint (matches web version format)
+app.get('/api/audit-trail', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, action, resource, performedBy } = req.query;
+    
+    let query = {};
+    if (action) query.action = action;
+    if (resource) query.resource = resource;
+    if (performedBy) query.performedBy = performedBy;
+    
+    const audittrails = await AuditTrail.find(query)
+      .sort({ timestamp: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit));
+    
+    console.log(`📊 [Web Format] Found ${audittrails.length} audit trails`);
+    
+    // Return in web format (direct array, not wrapped in success object)
+    res.json(audittrails);
+  } catch (error) {
+    console.error('❌ Error fetching audit trails (web format):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get audit trails
+app.get('/api/audittrails', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, action, resource, performedBy } = req.query;
+    
+    let query = {};
+    if (action) query.action = action;
+    if (resource) query.resource = resource;
+    if (performedBy) query.performedBy = performedBy;
+    
+    const audittrails = await AuditTrail.find(query)
+      .sort({ timestamp: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit));
+    
+    const total = await AuditTrail.countDocuments(query);
+    
+    console.log(`📊 Found ${audittrails.length} audit trails (${total} total)`);
+    res.json({ 
+      success: true, 
+      data: audittrails,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: (parseInt(offset) + audittrails.length) < total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching audit trails:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch audit trails',
+      error: error.message
+    });
+  }
+});
+
+// Get audit trails for specific resource
+app.get('/api/audittrails/:resourceId', async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    const audittrails = await AuditTrail.find({ resourceId })
+      .sort({ timestamp: -1 });
+    
+    console.log(`📊 Found ${audittrails.length} audit trails for resource ${resourceId}`);
+    res.json({ success: true, data: audittrails });
+  } catch (error) {
+    console.error('❌ Error fetching resource audit trails:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch resource audit trails',
+      error: error.message
+    });
+  }
+});
+
 // ========== RELEASE MANAGEMENT ==========
 
 // Get releases
@@ -1937,6 +2941,36 @@ app.post('/api/releases', async (req, res) => {
         error: 'Vehicle allocation not found'
       });
     }
+    
+    // Update vehicle status in Inventory to "Released"
+    if (updatedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: updatedAllocation.unitId },
+        { 
+          status: 'Released',
+          lastUpdatedBy: releaseData.releasedBy || 'System - Release',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${updatedAllocation.unitId} status to "Released"`);
+    }
+    
+    // Log audit trail for release
+    await logAuditTrail(
+      'create',
+      'VehicleRelease',
+      updatedAllocation._id,
+      releaseData.releasedBy || 'System',
+      {
+        after: {
+          unitName: updatedAllocation.unitName,
+          unitId: updatedAllocation.unitId,
+          assignedDriver: updatedAllocation.assignedDriver,
+          releasedAt: releaseData.releasedAt,
+          status: 'Released'
+        }
+      }
+    );
     
     console.log('✅ Vehicle released successfully:', updatedAllocation);
     res.json({ 
@@ -2003,7 +3037,7 @@ app.post('/test/create-sample-data', async (req, res) => {
 // Create TestDriveVehicle model
 const testDriveVehicleSchema = new mongoose.Schema({
   unitName: { type: String, required: true },
-  unitId: { type: String, required: true, unique: true },
+  unitId: { type: String, required: true },
   bodyColor: { type: String, required: true },
   variation: { type: String, required: true },
   status: { type: String, enum: ['Available', 'In Use', 'Maintenance', 'Unavailable'], default: 'Available' },
@@ -2145,83 +3179,7 @@ app.delete('/api/testdrive-vehicles/:id', async (req, res) => {
   }
 });
 
-// ========== AUDIT TRAIL & HISTORY ==========
-
-// Get system audit trail
-app.get('/api/audit-trail', async (req, res) => {
-  try {
-    console.log('📊 Fetching audit trail...');
-    
-    // Get recent activities from various collections
-    const activities = [];
-    
-    // Recent allocations
-    const recentAllocations = await DriverAllocation.find({})
-      .sort({ createdAt: -1 })
-      .limit(10);
-    
-    recentAllocations.forEach(allocation => {
-      activities.push({
-        _id: allocation._id,
-        type: 'allocation',
-        action: 'Vehicle Assigned',
-        description: `${allocation.unitName} assigned to ${allocation.assignedDriver}`,
-        user: allocation.allocatedBy || 'System',
-        timestamp: allocation.createdAt,
-        details: {
-          unitName: allocation.unitName,
-          unitId: allocation.unitId,
-          driver: allocation.assignedDriver,
-          status: allocation.status
-        }
-      });
-    });
-    
-    // Recent user creations (if createdAt field exists)
-    try {
-      const recentUsers = await User.find({ createdAt: { $exists: true } })
-        .sort({ createdAt: -1 })
-        .limit(5);
-      
-      recentUsers.forEach(user => {
-        activities.push({
-          _id: user._id,
-          type: 'user',
-          action: 'User Created',
-          description: `New ${user.role} account created: ${user.accountName}`,
-          user: 'Admin',
-          timestamp: user.createdAt,
-          details: {
-            role: user.role,
-            email: user.email,
-            accountName: user.accountName
-          }
-        });
-      });
-    } catch (userError) {
-      console.log('Note: User createdAt field not available');
-    }
-    
-    // Sort all activities by timestamp (newest first)
-    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    console.log(`✅ Found ${activities.length} audit trail entries`);
-    res.json({
-      success: true,
-      data: activities.slice(0, 20), // Return top 20 most recent
-      count: activities.length
-    });
-  } catch (error) {
-    console.error('❌ Error fetching audit trail:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch audit trail',
-      details: error.message
-    });
-  }
-});
-
-// API Configuration endpoint
+// ========== RELEASE MANAGEMENT (kept separate, no duplicate) ==========
 app.get('/api/config', (req, res) => {
   const baseUrl = `http://${req.get('host')}`;
   
@@ -2696,37 +3654,7 @@ app.listen(PORT, HOST, () => {
 // =================== ADDITIONAL API ENDPOINTS FOR UNIFIED MOBILE APP ===================
 
 // Inventory Management Endpoints
-app.get('/getInventory', async (req, res) => {
-  try {
-    const inventory = await Vehicle.find({}).sort({ createdAt: -1 });
-    res.json({ success: true, data: inventory });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
-app.post('/addToInventory', async (req, res) => {
-  try {
-    const newVehicle = new Vehicle({
-      ...req.body,
-      status: req.body.status || 'In Stock',
-      addedDate: new Date()
-    });
-    await newVehicle.save();
-    res.json({ success: true, data: newVehicle });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.put('/updateInventoryItem/:id', async (req, res) => {
-  try {
-    const updated = await Vehicle.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // Service Request Endpoints
 app.get('/getServiceRequests', async (req, res) => {
@@ -2889,12 +3817,316 @@ app.post('/generateReport', async (req, res) => {
   }
 });
 
+// ============= VEHICLE MODELS API ENDPOINTS =============
+
+// Get all vehicle models (unit names and variations)
+app.get('/getVehicleModels', async (req, res) => {
+  try {
+    // Try to fetch from external service with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch('http://localhost:8000/api/vehicle-models', {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`External API returned ${response.status}`);
+    }
+    
+    const models = await response.json();
+    res.json(models);
+  } catch (error) {
+    // Silently fail - client will use local data
+    // Only log in development for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('ℹ️ Vehicle models API unavailable, client will use local data');
+    }
+    res.status(500).json({ 
+      success: false, 
+      message: 'Vehicle models service unavailable' 
+    });
+  }
+});
+
+// Get unit names only
+app.get('/getUnitNames', async (req, res) => {
+  try {
+    const unitNames = await fetch('http://localhost:8000/api/vehicle-models/units').then(r => r.json());
+    res.json(unitNames);
+  } catch (error) {
+    console.error('❌ Error fetching unit names:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch unit names' });
+  }
+});
+
+// Get variations for specific unit
+app.get('/getVariations/:unitName', async (req, res) => {
+  try {
+    const { unitName } = req.params;
+    const variations = await fetch(`http://localhost:8000/api/vehicle-models/${encodeURIComponent(unitName)}/variations`).then(r => r.json());
+    res.json(variations);
+  } catch (error) {
+    console.error('❌ Error fetching variations:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch variations' });
+  }
+});
+
+// Validate unit-variation pair
+app.post('/validateUnitVariation', async (req, res) => {
+  try {
+    const validation = await fetch('http://localhost:8000/api/vehicle-models/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    }).then(r => r.json());
+    res.json(validation);
+  } catch (error) {
+    console.error('❌ Error validating unit-variation pair:', error);
+    res.status(500).json({ success: false, message: 'Failed to validate unit-variation pair' });
+  }
+});
+
+// ============= INVENTORY API ENDPOINTS =============
+
+// Get inventory with enhanced filtering
+app.get('/getInventory', async (req, res) => {
+  try {
+    const { status, unitName, search } = req.query;
+    let query = {};
+
+    if (status && status !== 'all') {
+      query.status = new RegExp(status, 'i');
+    }
+    
+    if (unitName) {
+      query.unitName = new RegExp(unitName, 'i');
+    }
+    
+    if (search) {
+      query.$or = [
+        { unitName: new RegExp(search, 'i') },
+        { unitId: new RegExp(search, 'i') },
+        { bodyColor: new RegExp(search, 'i') },
+        { variation: new RegExp(search, 'i') },
+        { conductionNumber: new RegExp(search, 'i') }
+      ];
+    }
+
+    const inventory = await Inventory.find(query)
+      .sort({ createdAt: -1 })
+      .limit(req.query.limit ? parseInt(req.query.limit) : 100);
+    
+    console.log(`📦 Found ${inventory.length} inventory items`);
+    res.json({ success: true, data: inventory });
+  } catch (error) {
+    console.error('❌ Get inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Add item to inventory
+app.post('/addToInventory', async (req, res) => {
+  try {
+    const {
+      unitName,
+      variation,
+      conductionNumber,
+      bodyColor,
+      status,
+      engineNumber,
+      keyNumber,
+      plateNumber,
+      chassisNumber,
+      notes,
+      addedBy
+    } = req.body;
+
+    // Validate status for new vehicles - must be "In Stockyard" or "Available"
+    const validAddStatuses = ['In Stockyard', 'Available'];
+    const finalStatus = status && validAddStatuses.includes(status) ? status : 'In Stockyard';
+    
+    if (status && !validAddStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid status for new vehicle. Only "In Stockyard" or "Available" are allowed. Default is "In Stockyard".` 
+      });
+    }
+    
+    // Validate required fields
+    if (!unitName || !variation || !conductionNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Unit name, variation, and conduction number are required' 
+      });
+    }
+    
+    // Check for duplicate conduction number (unitId)
+    const existingVehicle = await Inventory.findOne({
+      $or: [
+        { conductionNumber },
+        { unitId: conductionNumber }
+      ]
+    });
+    
+    if (existingVehicle) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vehicle with this conduction number already exists' 
+      });
+    }
+    
+    // Use conductionNumber as unitId
+    const unitId = conductionNumber;
+    
+    const newInventoryItem = new Inventory({
+      unitName,
+      unitId,
+      variation,
+      conductionNumber,
+      bodyColor,
+      status: finalStatus,
+      engineNumber,
+      keyNumber,
+      plateNumber,
+      chassisNumber,
+      notes,
+      addedBy: addedBy || 'System',
+      addedDate: new Date()
+    });
+    
+    const savedItem = await newInventoryItem.save();
+    console.log('✅ Added inventory item:', savedItem.unitId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Vehicle added to inventory successfully',
+      data: savedItem 
+    });
+  } catch (error) {
+    console.error('❌ Add inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update inventory item
+app.put('/updateInventoryItem/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get current item to validate status transitions
+    const currentItem = await Inventory.findById(id);
+    if (!currentItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+
+    // If status is being updated, validate the transition
+    if (req.body.status && req.body.status !== currentItem.status) {
+      const newStatus = req.body.status;
+      const currentStatus = currentItem.status;
+      
+      // Status transition rules
+      const validTransitions = {
+        'In Stockyard': ['Available'],
+        'Available': ['In Stockyard', 'Pending'], // Pending set by allocation
+        'Pending': ['Available', 'In Transit'], // In Transit when driver accepts
+        'In Transit': ['Available'], // When arrives at Isuzu Pasig
+        'Preparing': ['Released'], // Released only by Release button
+        'Released': [] // Final state
+      };
+
+      // Prevent manual setting of "Released" - must be via Release button endpoint
+      if (newStatus === 'Released') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Status "Released" cannot be set manually. Use the Release button action.' 
+        });
+      }
+
+      // Validate transition
+      const allowedTransitions = validTransitions[currentStatus] || [];
+      if (!allowedTransitions.includes(newStatus)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid status transition from "${currentStatus}" to "${newStatus}". Allowed: ${allowedTransitions.join(', ') || 'None'}` 
+        });
+      }
+    }
+    
+    const updateData = {
+      ...req.body,
+      lastUpdatedBy: req.body.lastUpdatedBy || 'System',
+      dateUpdated: new Date()
+    };
+    
+    const updatedItem = await Inventory.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+    
+    console.log('✅ Updated inventory item:', updatedItem.unitId);
+    res.json({ 
+      success: true, 
+      message: 'Inventory item updated successfully',
+      data: updatedItem 
+    });
+  } catch (error) {
+    console.error('❌ Update inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete inventory item
+app.delete('/deleteInventoryItem/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deletedItem = await Inventory.findByIdAndDelete(id);
+    
+    if (!deletedItem) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Inventory item not found' 
+      });
+    }
+    
+    console.log('✅ Deleted inventory item:', deletedItem.unitId);
+    res.json({ 
+      success: true, 
+      message: 'Inventory item deleted successfully',
+      data: deletedItem 
+    });
+  } catch (error) {
+    console.error('❌ Delete inventory error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 console.log('');
 console.log('🔥 ADDITIONAL UNIFIED MOBILE ENDPOINTS:');
-console.log('  📦 INVENTORY:');
+console.log('  � VEHICLE MODELS:');
+console.log('    - GET  /getVehicleModels');
+console.log('    - GET  /getUnitNames');
+console.log('    - GET  /getVariations/:unitName');
+console.log('    - POST /validateUnitVariation');
+console.log('');
+console.log('  �📦 INVENTORY:');
 console.log('    - GET  /getInventory');
 console.log('    - POST /addToInventory');
 console.log('    - PUT  /updateInventoryItem/:id');
+console.log('    - DELETE /deleteInventoryItem/:id');
 console.log('');
 console.log('  🔧 SERVICE REQUESTS:');
 console.log('    - GET  /getServiceRequests');
