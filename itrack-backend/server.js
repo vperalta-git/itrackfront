@@ -1408,6 +1408,95 @@ app.delete('/deleteAllocation/:id', async (req, res) => {
   }
 });
 
+// ========== UNIT ALLOCATION ENDPOINTS (Sales Agent Assignment) ==========
+
+const UnitAllocation = require('./webfiles/models/UnitAllocation');
+
+// Get all unit allocations
+app.get('/api/getUnitAllocations', async (req, res) => {
+  try {
+    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} unit allocations`);
+    res.json(allocations);
+  } catch (error) {
+    console.error('❌ Get unit allocations error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create new unit allocation
+app.post('/api/createUnitAllocation', async (req, res) => {
+  try {
+    const allocationData = req.body;
+    console.log('📋 Creating unit allocation:', allocationData);
+    
+    // Check if unit is already allocated
+    const existingAllocation = await UnitAllocation.findOne({ unitId: allocationData.unitId });
+    if (existingAllocation) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This unit is already allocated to a sales agent' 
+      });
+    }
+    
+    const newAllocation = new UnitAllocation(allocationData);
+    await newAllocation.save();
+    
+    // Update inventory to mark unit as assigned to agent
+    if (allocationData.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: allocationData.unitId },
+        { 
+          assignedAgent: allocationData.assignedAgent,
+          lastUpdatedBy: allocationData.allocatedBy || 'System',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${allocationData.unitId} assignedAgent to "${allocationData.assignedAgent}"`);
+    }
+    
+    console.log('✅ Created unit allocation:', newAllocation.unitName);
+    res.json({ success: true, message: 'Unit allocated successfully', data: newAllocation });
+  } catch (error) {
+    console.error('❌ Create unit allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete unit allocation
+app.delete('/api/deleteUnitAllocation/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`📋 Deleting unit allocation ${id}`);
+    
+    const deletedAllocation = await UnitAllocation.findByIdAndDelete(id);
+    
+    if (!deletedAllocation) {
+      return res.status(404).json({ success: false, message: 'Unit allocation not found' });
+    }
+    
+    // When allocation is deleted, remove agent assignment from inventory
+    if (deletedAllocation.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deletedAllocation.unitId },
+        { 
+          assignedAgent: null,
+          lastUpdatedBy: 'System - Allocation Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Removed agent assignment from vehicle ${deletedAllocation.unitId}`);
+    }
+    
+    console.log('✅ Deleted unit allocation:', deletedAllocation.unitName);
+    res.json({ success: true, message: 'Unit allocation deleted successfully', data: deletedAllocation });
+  } catch (error) {
+    console.error('❌ Delete unit allocation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== DISPATCH ASSIGNMENT ENDPOINTS ==========
 
 // Get dispatch assignments
