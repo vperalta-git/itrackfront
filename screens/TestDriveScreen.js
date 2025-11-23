@@ -31,12 +31,29 @@ export default function TestDriveScreen() {
     customerName: '',
     customerPhone: '',
     customerEmail: '',
-    unitId: '',
+    vehicleId: '',
     unitName: '',
+    variation: '',
+    bodyColor: '',
     scheduledDate: '',
     scheduledTime: '',
     notes: ''
   });
+
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+
+  const unitModels = [
+    'Isuzu D-Max',
+    'Isuzu MU-X',
+    'Isuzu Traviz',
+    'Isuzu QLR Series',
+    'Isuzu NLR Series',
+    'Isuzu NMR Series',
+    'Isuzu NPR Series'
+  ];
 
   // Fetch test drives
   const fetchTestDrives = useCallback(async () => {
@@ -63,7 +80,27 @@ export default function TestDriveScreen() {
 
   useEffect(() => {
     fetchTestDrives();
+    fetchVehicles();
   }, [fetchTestDrives]);
+
+  // Fetch available vehicles
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/getStock'));
+      const data = await response.json();
+      if (data.success) {
+        setVehicles(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    }
+  };
+
+  // Get filtered vehicles by selected model
+  const getFilteredVehicles = () => {
+    if (!selectedModel) return [];
+    return vehicles.filter(v => v.unitName?.toLowerCase().includes(selectedModel.toLowerCase().replace('isuzu ', '')));
+  };
 
   // Get filtered test drives
   const getFilteredTestDrives = () => {
@@ -80,7 +117,8 @@ export default function TestDriveScreen() {
       filtered = filtered.filter(td => 
         td.customerName?.toLowerCase().includes(searchLower) ||
         td.unitName?.toLowerCase().includes(searchLower) ||
-        td.unitId?.toLowerCase().includes(searchLower)
+        td.variation?.toLowerCase().includes(searchLower) ||
+        td.bodyColor?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -114,12 +152,15 @@ export default function TestDriveScreen() {
           customerName: '',
           customerPhone: '',
           customerEmail: '',
-          unitId: '',
+          vehicleId: '',
           unitName: '',
+          variation: '',
+          bodyColor: '',
           scheduledDate: '',
           scheduledTime: '',
           notes: ''
         });
+        setSelectedModel('');
         fetchTestDrives();
       } else {
         Alert.alert('Error', data.message || 'Failed to schedule test drive');
@@ -170,8 +211,15 @@ export default function TestDriveScreen() {
       </View>
       
       <View style={styles.vehicleInfo}>
-        <Text style={styles.vehicleName}>{item.unitName}</Text>
-        <Text style={styles.vehicleId}>ID: {item.unitId}</Text>
+        <Text style={styles.vehicleName}>
+          {item.unitName || 'N/A'}
+        </Text>
+        {item.variation && (
+          <Text style={styles.vehicleVariation}>{item.variation}</Text>
+        )}
+        {item.bodyColor && (
+          <Text style={styles.vehicleColor}>Color: {item.bodyColor}</Text>
+        )}
       </View>
 
       {item.scheduledDate && (
@@ -293,22 +341,32 @@ export default function TestDriveScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Unit ID *</Text>
-                <TextInput
+                <Text style={styles.inputLabel}>Vehicle Model *</Text>
+                <TouchableOpacity 
                   style={styles.input}
-                  value={newTestDrive.unitId}
-                  onChangeText={(text) => setNewTestDrive({...newTestDrive, unitId: text})}
-                />
+                  onPress={() => setShowModelPicker(true)}
+                >
+                  <Text style={selectedModel ? styles.inputText : styles.placeholder}>
+                    {selectedModel || 'Select vehicle model'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Unit Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newTestDrive.unitName}
-                  onChangeText={(text) => setNewTestDrive({...newTestDrive, unitName: text})}
-                />
-              </View>
+              {selectedModel && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Vehicle Unit *</Text>
+                  <TouchableOpacity 
+                    style={styles.input}
+                    onPress={() => setShowVehiclePicker(true)}
+                  >
+                    <Text style={newTestDrive.unitName ? styles.inputText : styles.placeholder}>
+                      {newTestDrive.unitName 
+                        ? `${newTestDrive.unitName} - ${newTestDrive.variation} (${newTestDrive.bodyColor})`
+                        : 'Select vehicle unit'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Notes</Text>
@@ -335,6 +393,77 @@ export default function TestDriveScreen() {
                 <Text style={styles.saveBtnText}>Schedule</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Model Picker Modal */}
+      <Modal visible={showModelPicker} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Vehicle Model</Text>
+              <TouchableOpacity onPress={() => setShowModelPicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {unitModels.map((model, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    setSelectedModel(model);
+                    setNewTestDrive({...newTestDrive, vehicleId: '', unitName: '', variation: '', bodyColor: ''});
+                    setShowModelPicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>{model}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Vehicle Unit Picker Modal */}
+      <Modal visible={showVehiclePicker} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Vehicle Unit</Text>
+              <TouchableOpacity onPress={() => setShowVehiclePicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {getFilteredVehicles().map((vehicle) => (
+                <TouchableOpacity
+                  key={vehicle._id}
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    setNewTestDrive({
+                      ...newTestDrive,
+                      vehicleId: vehicle._id,
+                      unitName: vehicle.unitName,
+                      variation: vehicle.variation || '',
+                      bodyColor: vehicle.bodyColor || ''
+                    });
+                    setShowVehiclePicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>
+                    {vehicle.unitName} - {vehicle.variation} ({vehicle.bodyColor})
+                  </Text>
+                  <Text style={styles.pickerItemSubtext}>ID: {vehicle.unitId}</Text>
+                </TouchableOpacity>
+              ))}
+              {getFilteredVehicles().length === 0 && (
+                <View style={styles.emptyPicker}>
+                  <Text style={styles.emptyPickerText}>No vehicles available for {selectedModel}</Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -399,7 +528,8 @@ const styles = StyleSheet.create({
   statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   vehicleInfo: { marginBottom: 12 },
   vehicleName: { fontSize: 16, fontWeight: '600', color: '#333' },
-  vehicleId: { fontSize: 14, color: '#666' },
+  vehicleVariation: { fontSize: 14, color: '#666', marginTop: 2 },
+  vehicleColor: { fontSize: 14, color: '#666', marginTop: 2 },
   scheduleInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   scheduleText: { marginLeft: 8, fontSize: 14, color: '#666' },
   actionButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
@@ -455,6 +585,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f8f9fa',
   },
+  inputText: { fontSize: 16, color: '#333' },
+  placeholder: { fontSize: 16, color: '#999' },
   textArea: { height: 80, textAlignVertical: 'top' },
   modalFooter: {
     flexDirection: 'row',
@@ -473,4 +605,20 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: '#666', fontWeight: '600' },
   saveBtn: { backgroundColor: '#e50914' },
   saveBtnText: { color: '#fff', fontWeight: '600' },
+  // Picker Modal styles
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: width * 0.9,
+    maxHeight: '60%',
+  },
+  pickerItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  pickerItemText: { fontSize: 16, color: '#333', fontWeight: '500' },
+  pickerItemSubtext: { fontSize: 12, color: '#666', marginTop: 4 },
+  emptyPicker: { padding: 20, alignItems: 'center' },
+  emptyPickerText: { fontSize: 14, color: '#666' },
 });
