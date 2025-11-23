@@ -574,9 +574,15 @@ const DriverAllocation = () => {
                   onValueChange={val => setSelectedDriver(val)}
                 >
                   <Picker.Item label="Select Driver..." value="" />
-                  {drivers.map(d => (
-                    <Picker.Item key={d._id} label={d.accountName || d.username} value={d.username} />
-                  ))}
+                  {drivers
+                    .filter(d => d.accountName || d.username)
+                    .map(d => (
+                      <Picker.Item 
+                        key={d._id} 
+                        label={d.accountName || d.username || 'Unknown Driver'} 
+                        value={d.username || d.email || d._id} 
+                      />
+                    ))}
                 </Picker>
               </View>
 

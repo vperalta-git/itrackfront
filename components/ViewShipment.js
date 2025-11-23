@@ -28,8 +28,11 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [googleApiKey, setGoogleApiKey] = useState('AIzaSyAT5fZoyDVluzfdq4Rz2uuVJDocqBLDTGo');
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
   const mapRef = useRef(null);
   const locationSubscription = useRef(null);
+  const timerInterval = useRef(null);
 
   useEffect(() => {
     if (!isOpen || !data?._id) {
@@ -38,11 +41,16 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
         locationSubscription.current.remove();
         locationSubscription.current = null;
       }
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+        timerInterval.current = null;
+      }
       return;
     }
 
     initializeLocationTracking();
     fetchLocationHistory();
+    startElapsedTimer();
 
     // Cleanup function
     return () => {
@@ -50,8 +58,98 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
         locationSubscription.current.remove();
         locationSubscription.current = null;
       }
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+        timerInterval.current = null;
+      }
     };
   }, [isOpen, data?._id]);
+
+  const startElapsedTimer = () => {
+    // Only start timer if status is "In Transit" and routeStarted exists
+    if (data?.status?.toLowerCase() === 'in transit' && data?.routeInfo?.routeStarted) {
+      // Clear any existing timer
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+      }
+
+      // Calculate initial elapsed time
+      const startTime = new Date(data.routeInfo.routeStarted).getTime();
+      const updateTimer = () => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000); // in seconds
+        setElapsedTime(elapsed);
+      };
+
+      updateTimer(); // Initial update
+      timerInterval.current = setInterval(updateTimer, 1000); // Update every second
+    }
+  };
+
+  const formatElapsedTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  const formatActualDuration = (seconds) => {
+    if (!seconds) return 'N/A';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    }
+  };
+
+  const handleCompleteDelivery = async () => {
+    Alert.alert(
+      'Complete Delivery',
+      'Mark this delivery as completed and remove from active allocations?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete',
+          style: 'default',
+          onPress: async () => {
+            setIsCompleting(true);
+            try {
+              const response = await fetch(buildApiUrl('/completeAllocation'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ allocationId: data._id })
+              });
+
+              const result = await response.json();
+
+              if (result.success) {
+                Alert.alert('Success', 'Delivery completed successfully!');
+                onClose();
+              } else {
+                Alert.alert('Error', result.message || 'Failed to complete delivery');
+              }
+            } catch (error) {
+              console.error('Complete delivery error:', error);
+              Alert.alert('Error', 'Failed to complete delivery. Please try again.');
+            } finally {
+              setIsCompleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const initializeLocationTracking = async () => {
     // Skip location tracking for pending shipments
@@ -824,6 +922,24 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                           </Text>
                         </View>
                       )}
+
+                      {/* Elapsed Time - Only show during In Transit */}
+                      {data?.status?.toLowerCase() === 'in transit' && data?.routeInfo?.routeStarted && (
+                        <View style={[styles.routeMetrics, { backgroundColor: '#dbeafe', marginTop: 8 }]}>
+                          <Text style={[styles.routeMetricText, { color: '#1e40af' }]}>
+                            🚚 Elapsed Time: {formatElapsedTime(elapsedTime)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Actual Delivery Time - Only show when completed */}
+                      {data?.status?.toLowerCase() === 'delivered' && data?.routeInfo?.actualDuration && (
+                        <View style={[styles.routeMetrics, { backgroundColor: '#d1fae5', marginTop: 8 }]}>
+                          <Text style={[styles.routeMetricText, { color: '#065f46' }]}>
+                            ✅ Actual Delivery Time: {formatActualDuration(data.routeInfo.actualDuration)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 )}
@@ -864,6 +980,27 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
               </View>
             )}
           </ScrollView>
+
+          {/* Action Buttons */}
+          {data?.status?.toLowerCase() === 'in transit' && (
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity 
+                style={[styles.deliveredButton, { backgroundColor: '#10b981' }]}
+                onPress={handleCompleteDelivery}
+                activeOpacity={0.8}
+                disabled={isCompleting}
+              >
+                {isCompleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Text style={styles.deliveredButtonIcon}>✓</Text>
+                    <Text style={styles.deliveredButtonText}>Complete Delivery</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Vehicle Delivered Button - Only show for Delivered status */}
           {data?.status?.toLowerCase() === 'delivered' && (
