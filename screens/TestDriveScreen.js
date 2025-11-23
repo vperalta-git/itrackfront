@@ -21,11 +21,22 @@ const { width } = Dimensions.get('window');
 
 export default function TestDriveScreen() {
   const [testDrives, setTestDrives] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  
+  const [newInventoryItem, setNewInventoryItem] = useState({
+    unitName: '',
+    unitId: '',
+    bodyColor: '',
+    variation: ''
+  });
   
   const [newTestDrive, setNewTestDrive] = useState({
     customerName: '',
@@ -81,7 +92,21 @@ export default function TestDriveScreen() {
   useEffect(() => {
     fetchTestDrives();
     fetchVehicles();
+    fetchInventory();
+    loadUserInfo();
   }, [fetchTestDrives]);
+
+  // Load user info
+  const loadUserInfo = async () => {
+    try {
+      const role = await AsyncStorage.getItem('role');
+      const name = await AsyncStorage.getItem('accountName');
+      setUserRole(role);
+      setCurrentUser({ name, role });
+    } catch (error) {
+      console.error('Error loading user info:', error);
+    }
+  };
 
   // Fetch available vehicles
   const fetchVehicles = async () => {
@@ -96,10 +121,98 @@ export default function TestDriveScreen() {
     }
   };
 
+  // Fetch test drive inventory
+  const fetchInventory = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'));
+      const data = await response.json();
+      if (data.success) {
+        setInventory(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+  };
+
   // Get filtered vehicles by selected model
   const getFilteredVehicles = () => {
     if (!selectedModel) return [];
     return vehicles.filter(v => v.unitName?.toLowerCase().includes(selectedModel.toLowerCase().replace('isuzu ', '')));
+  };
+
+  // Add inventory item
+  const handleAddInventory = async () => {
+    if (!newInventoryItem.unitName || !newInventoryItem.unitId || !newInventoryItem.bodyColor || !newInventoryItem.variation) {
+      Alert.alert('Error', 'All fields are required');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newInventoryItem),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Success', 'Test drive unit added successfully');
+        setShowInventoryModal(false);
+        setNewInventoryItem({ unitName: '', unitId: '', bodyColor: '', variation: '' });
+        fetchInventory();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to add unit');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add unit');
+    }
+  };
+
+  // Delete inventory item
+  const handleDeleteInventory = (id, unitName) => {
+    Alert.alert(
+      'Confirm Delete',
+      `Are you sure you want to delete "${unitName}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${id}`), {
+                method: 'DELETE',
+              });
+              const data = await response.json();
+              if (data.success) {
+                Alert.alert('Success', 'Deleted successfully');
+                fetchInventory();
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete unit');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Approve test drive (admin only)
+  const handleApproveTestDrive = async (id) => {
+    try {
+      const response = await fetch(buildApiUrl(`/updateTestDrive/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Approved' }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Test drive approved');
+        fetchTestDrives();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to approve test drive');
+    }
   };
 
   // Get filtered test drives
@@ -233,41 +346,111 @@ export default function TestDriveScreen() {
       )}
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => {
-            Alert.alert(
-              'Update Status',
-              'Choose new status:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Scheduled', onPress: () => updateTestDriveStatus(item._id, 'Scheduled') },
-                { text: 'In Progress', onPress: () => updateTestDriveStatus(item._id, 'In Progress') },
-                { text: 'Completed', onPress: () => updateTestDriveStatus(item._id, 'Completed') },
-                { text: 'Cancelled', onPress: () => updateTestDriveStatus(item._id, 'Cancelled') },
-              ]
-            );
-          }}
-        >
-          <MaterialIcons name="edit" size={16} color="#007AFF" />
-          <Text style={styles.actionBtnText}>Update</Text>
-        </TouchableOpacity>
+        {userRole === 'admin' && item.status === 'Scheduled' && (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.approveBtn]}
+            onPress={() => handleApproveTestDrive(item._id)}
+          >
+            <MaterialIcons name="check-circle" size={16} color="#28a745" />
+            <Text style={[styles.actionBtnText, { color: '#28a745' }]}>Approve</Text>
+          </TouchableOpacity>
+        )}
+        {(userRole === 'admin' || item.createdBy === currentUser?.name) && (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => {
+              Alert.alert(
+                'Update Status',
+                'Choose new status:',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Scheduled', onPress: () => updateTestDriveStatus(item._id, 'Scheduled') },
+                  { text: 'In Progress', onPress: () => updateTestDriveStatus(item._id, 'In Progress') },
+                  { text: 'Completed', onPress: () => updateTestDriveStatus(item._id, 'Completed') },
+                  { text: 'Cancelled', onPress: () => updateTestDriveStatus(item._id, 'Cancelled') },
+                ]
+              );
+            }}
+          >
+            <MaterialIcons name="edit" size={16} color="#007AFF" />
+            <Text style={styles.actionBtnText}>Update</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Test Drive</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <MaterialIcons name="add" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Schedule</Text>
-        </TouchableOpacity>
+  // Render inventory item
+  const renderInventoryItem = ({ item }) => (
+    <View style={styles.inventoryCard}>
+      <View style={styles.inventoryInfo}>
+        <Text style={styles.inventoryUnitName}>{item.unitName}</Text>
+        <Text style={styles.inventoryDetail}>Conduction: {item.unitId}</Text>
+        <Text style={styles.inventoryDetail}>Color: {item.bodyColor}</Text>
+        <Text style={styles.inventoryDetail}>Variation: {item.variation}</Text>
       </View>
+      {userRole === 'admin' && (
+        <View style={styles.inventoryActions}>
+          <TouchableOpacity
+            style={styles.deleteInventoryBtn}
+            onPress={() => handleDeleteInventory(item._id, item.unitName)}
+          >
+            <MaterialIcons name="delete" size={20} color="#dc3545" />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Test Drive Inventory Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Test Drive Inventory</Text>
+          {userRole === 'admin' && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowInventoryModal(true)}
+            >
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {loading ? (
+          <UniformLoading message="Loading inventory..." />
+        ) : (
+          <FlatList
+            data={inventory}
+            keyExtractor={(item) => item._id}
+            renderItem={renderInventoryItem}
+            scrollEnabled={false}
+            contentContainerStyle={styles.inventoryList}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No inventory units</Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+
+      {/* Scheduled Test Drives Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Scheduled Test Drives</Text>
+          {userRole === 'sales agent' && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowAddModal(true)}
+            >
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Schedule</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
@@ -298,8 +481,9 @@ export default function TestDriveScreen() {
           }
         />
       )}
+      </View>
 
-      {/* Add Modal */}
+      {/* Add Test Drive Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -413,8 +597,14 @@ export default function TestDriveScreen() {
                   key={index}
                   style={styles.pickerItem}
                   onPress={() => {
-                    setSelectedModel(model);
-                    setNewTestDrive({...newTestDrive, vehicleId: '', unitName: '', variation: '', bodyColor: ''});
+                    if (showInventoryModal) {
+                      // For inventory modal
+                      setNewInventoryItem({...newInventoryItem, unitName: model});
+                    } else {
+                      // For schedule test drive modal
+                      setSelectedModel(model);
+                      setNewTestDrive({...newTestDrive, vehicleId: '', unitName: '', variation: '', bodyColor: ''});
+                    }
                     setShowModelPicker(false);
                   }}
                 >
@@ -467,22 +657,123 @@ export default function TestDriveScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Add Inventory Modal */}
+      <Modal visible={showInventoryModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Test Drive Unit</Text>
+              <TouchableOpacity onPress={() => setShowInventoryModal(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Unit Name *</Text>
+                <TouchableOpacity 
+                  style={styles.input}
+                  onPress={() => setShowModelPicker(true)}
+                >
+                  <Text style={newInventoryItem.unitName ? styles.inputText : styles.placeholder}>
+                    {newInventoryItem.unitName || 'Select unit name'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Conduction Number *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.unitId}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, unitId: text})}
+                  placeholder="Enter conduction number"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Body Color *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.bodyColor}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, bodyColor: text})}
+                  placeholder="Enter body color"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Variation *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.variation}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, variation: text})}
+                  placeholder="Enter variation"
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowInventoryModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveBtn]}
+                onPress={handleAddInventory}
+              >
+                <Text style={styles.saveBtnText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: {
+  section: {
+    backgroundColor: '#fff',
+    marginBottom: 16,
+    padding: 20,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
     borderBottomColor: '#e0e0e0',
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  inventoryList: { paddingVertical: 8 },
+  inventoryCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  inventoryInfo: { flex: 1 },
+  inventoryUnitName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  inventoryDetail: { fontSize: 13, color: '#666', marginTop: 2 },
+  inventoryActions: { marginLeft: 12 },
+  deleteInventoryBtn: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#dc3545',
+  },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -492,7 +783,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 4 },
-  searchContainer: { padding: 20, backgroundColor: '#fff' },
+  searchContainer: { padding: 16, backgroundColor: '#f8f9fa' },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -504,12 +795,13 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: '#333' },
-  listContainer: { padding: 20 },
+  listContainer: { paddingVertical: 16 },
   testDriveCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginHorizontal: 4,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -532,7 +824,7 @@ const styles = StyleSheet.create({
   vehicleColor: { fontSize: 14, color: '#666', marginTop: 2 },
   scheduleInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   scheduleText: { marginLeft: 8, fontSize: 14, color: '#666' },
-  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
+  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -542,6 +834,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8ff',
     borderWidth: 1,
     borderColor: '#007AFF',
+    marginLeft: 8,
+  },
+  approveBtn: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#28a745',
   },
   actionBtnText: { marginLeft: 4, fontSize: 14, fontWeight: '500', color: '#007AFF' },
   emptyContainer: {
