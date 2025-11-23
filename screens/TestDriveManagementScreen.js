@@ -1,732 +1,865 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
+  RefreshControl,
   Alert,
+  TextInput,
   Modal,
   ScrollView,
-  StyleSheet,
-  RefreshControl,
-  Dimensions
+  Dimensions,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message';
 import { buildApiUrl } from '../constants/api';
-import { useTheme } from '../context/ThemeContext';
+import UniformLoading from '../components/UniformLoading';
 
 const { width } = Dimensions.get('window');
 
-const TestDriveManagementScreen = ({ navigation }) => {
-  const { isDarkMode, theme } = useTheme();
-  
-  // Vehicle Management States
-  const [testDriveVehicles, setTestDriveVehicles] = useState([]);
+export default function TestDriveManagementScreen() {
+  const [testDrives, setTestDrives] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [newVehicle, setNewVehicle] = useState({
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  
+  const [newInventoryItem, setNewInventoryItem] = useState({
     unitName: '',
     unitId: '',
-    vehicleType: '',
-    model: '',
-    status: '',
+    bodyColor: '',
+    variation: ''
+  });
+  
+  const [newTestDrive, setNewTestDrive] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    vehicleId: '',
+    unitName: '',
+    variation: '',
+    bodyColor: '',
+    scheduledDate: '',
+    scheduledTime: '',
     notes: ''
   });
 
-  // Search and Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [filteredVehicles, setFilteredVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
 
-  const statusOptions = [
-    'All',
-    'Available',
-    'In Use',
-    'Maintenance',
-    'Reserved'
+  const unitModels = [
+    'Isuzu D-Max',
+    'Isuzu MU-X',
+    'Isuzu Traviz',
+    'Isuzu QLR Series',
+    'Isuzu NLR Series',
+    'Isuzu NMR Series',
+    'Isuzu NPR Series'
   ];
 
-  const vehicleTypeOptions = [
-    'Light Commercial Vehicle',
-    'Heavy Commercial Vehicle',
-    'Passenger Vehicle',
-    'Special Purpose Vehicle'
-  ];
-
-  useEffect(() => {
-    fetchTestDriveVehicles();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [testDriveVehicles, searchQuery, statusFilter]);
-
-  const applyFilters = () => {
-    let filtered = [...testDriveVehicles];
-    
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(vehicle =>
-        vehicle.unitName.toLowerCase().includes(query) ||
-        vehicle.unitId.toLowerCase().includes(query) ||
-        vehicle.model.toLowerCase().includes(query) ||
-        vehicle.vehicleType.toLowerCase().includes(query)
-      );
-    }
-    
-    // Status filter
-    if (statusFilter && statusFilter !== 'All') {
-      filtered = filtered.filter(vehicle => vehicle.status === statusFilter);
-    }
-    
-    setFilteredVehicles(filtered);
-  };
-
-  // ========== VEHICLE MANAGEMENT FUNCTIONS ==========
-
-  const fetchTestDriveVehicles = async () => {
+  // Fetch test drives
+  const fetchTestDrives = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'));
-      const result = await response.json();
+      const response = await fetch(buildApiUrl('/getTestDrives'));
+      const data = await response.json();
       
-      if (result.success) {
-        setTestDriveVehicles(result.data);
-        Toast.show({
-          type: 'success',
-          text1: 'Vehicles Loaded',
-          text2: `Found ${result.data.length} test drive vehicles`
-        });
+      if (data.success) {
+        setTestDrives(data.data || []);
       } else {
-        throw new Error(result.message);
+        console.warn('Failed to fetch test drives:', data.message);
+        setTestDrives([]);
       }
     } catch (error) {
-      console.error('Error fetching test drive vehicles:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to load test drive vehicles'
-      });
+      console.error('Error fetching test drives:', error);
+      Alert.alert('Error', 'Failed to load test drives');
+      setTestDrives([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const saveTestDriveVehicle = async () => {
+  useEffect(() => {
+    fetchTestDrives();
+    fetchVehicles();
+    fetchInventory();
+    loadUserInfo();
+  }, [fetchTestDrives]);
+
+  // Load user info
+  const loadUserInfo = async () => {
     try {
-      if (!newVehicle.unitName || !newVehicle.unitId || !newVehicle.vehicleType || !newVehicle.model) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-
-      const adminName = await AsyncStorage.getItem('accountName');
-      const isEdit = newVehicle._id;
-      
-      const url = isEdit 
-        ? buildApiUrl(`/api/testdrive-vehicles/${newVehicle._id}`)
-        : buildApiUrl('/api/testdrive-vehicles');
-      
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...newVehicle,
-          addedBy: adminName || 'Admin',
-          updatedBy: isEdit ? (adminName || 'Admin') : undefined
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        Toast.show({
-          type: 'success',
-          text1: isEdit ? 'Vehicle Updated' : 'Vehicle Added',
-          text2: `Test drive vehicle ${isEdit ? 'updated' : 'added'} successfully`
-        });
-        
-        resetVehicleForm();
-        setShowAddVehicleModal(false);
-        fetchTestDriveVehicles();
-      } else {
-        Alert.alert('Error', result.error || `Failed to ${isEdit ? 'update' : 'add'} vehicle`);
-      }
+      const role = await AsyncStorage.getItem('role');
+      const name = await AsyncStorage.getItem('accountName');
+      setUserRole(role);
+      setCurrentUser({ name, role });
     } catch (error) {
-      console.error('Error saving test drive vehicle:', error);
-      Alert.alert('Error', `Failed to ${newVehicle._id ? 'update' : 'add'} vehicle`);
+      console.error('Error loading user info:', error);
     }
   };
 
-  const resetVehicleForm = () => {
-    setNewVehicle({
-      unitName: '',
-      unitId: '',
-      vehicleType: 'Light Commercial Vehicle',
-      model: '',
-      status: 'Available',
-      notes: ''
-    });
+  // Fetch available vehicles
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/getStock'));
+      const data = await response.json();
+      if (data.success) {
+        setVehicles(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    }
   };
 
-
-
-  const deleteVehicle = async (vehicleId) => {
+  // Fetch test drive inventory
+  const fetchInventory = async () => {
     try {
-      Alert.alert(
-        'Delete Vehicle',
-        'Are you sure you want to delete this test drive vehicle?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${vehicleId}`), {
-                method: 'DELETE'
-              });
-
-              const result = await response.json();
-              
-              if (result.success) {
-                Toast.show({
-                  type: 'success',
-                  text1: 'Vehicle Deleted',
-                  text2: 'Test drive vehicle deleted successfully'
-                });
-                fetchTestDriveVehicles();
-              } else {
-                Alert.alert('Error', result.error || 'Failed to delete vehicle');
-              }
-            }
-          }
-        ]
-      );
+      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'));
+      const data = await response.json();
+      if (data.success) {
+        setInventory(data.data || []);
+      }
     } catch (error) {
-      console.error('Error deleting vehicle:', error);
-      Alert.alert('Error', 'Failed to delete vehicle');
+      console.error('Error fetching inventory:', error);
+    }
+  };
+
+  // Get filtered vehicles by selected model
+  const getFilteredVehicles = () => {
+    if (!selectedModel) return [];
+    return vehicles.filter(v => v.unitName?.toLowerCase().includes(selectedModel.toLowerCase().replace('isuzu ', '')));
+  };
+
+  // Add inventory item
+  const handleAddInventory = async () => {
+    if (!newInventoryItem.unitName || !newInventoryItem.unitId || !newInventoryItem.bodyColor || !newInventoryItem.variation) {
+      Alert.alert('Error', 'All fields are required');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/testdrive-vehicles'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newInventoryItem),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Success', 'Test drive unit added successfully');
+        setShowInventoryModal(false);
+        setNewInventoryItem({ unitName: '', unitId: '', bodyColor: '', variation: '' });
+        fetchInventory();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to add unit');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add unit');
+    }
+  };
+
+  // Delete inventory item
+  const handleDeleteInventory = (id, unitName) => {
+    Alert.alert(
+      'Confirm Delete',
+      `Are you sure you want to delete "${unitName}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(buildApiUrl(`/api/testdrive-vehicles/${id}`), {
+                method: 'DELETE',
+              });
+              const data = await response.json();
+              if (data.success) {
+                Alert.alert('Success', 'Deleted successfully');
+                fetchInventory();
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete unit');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Approve test drive (admin only)
+  const handleApproveTestDrive = async (id) => {
+    try {
+      const response = await fetch(buildApiUrl(`/updateTestDrive/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Approved' }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Test drive approved');
+        fetchTestDrives();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to approve test drive');
+    }
+  };
+
+  // Get filtered test drives
+  const getFilteredTestDrives = () => {
+    let filtered = testDrives;
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(td => 
+        td.status?.toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(td => 
+        td.customerName?.toLowerCase().includes(searchLower) ||
+        td.unitName?.toLowerCase().includes(searchLower) ||
+        td.variation?.toLowerCase().includes(searchLower) ||
+        td.bodyColor?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return filtered;
+  };
+
+  // Add new test drive
+  const handleAddTestDrive = async () => {
+    if (!newTestDrive.customerName || !newTestDrive.customerPhone || !newTestDrive.unitId) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/createTestDrive'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newTestDrive,
+          createdBy: await AsyncStorage.getItem('accountName') || 'System',
+          status: 'Scheduled'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        Alert.alert('Success', 'Test drive scheduled successfully');
+        setShowAddModal(false);
+        setNewTestDrive({
+          customerName: '',
+          customerPhone: '',
+          customerEmail: '',
+          vehicleId: '',
+          unitName: '',
+          variation: '',
+          bodyColor: '',
+          scheduledDate: '',
+          scheduledTime: '',
+          notes: ''
+        });
+        setSelectedModel('');
+        fetchTestDrives();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to schedule test drive');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to schedule test drive');
+    }
+  };
+
+  // Update test drive status
+  const updateTestDriveStatus = async (id, newStatus) => {
+    try {
+      const response = await fetch(buildApiUrl(`/updateTestDrive/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', `Status updated to ${newStatus}`);
+        fetchTestDrives();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update status');
     }
   };
 
   const getStatusColor = (status) => {
-    const colors = {
-      'Available': '#4CAF50',
-      'In Use': '#FF9800',
-      'Maintenance': '#f44336',
-      'Reserved': '#2196F3'
-    };
-    return colors[status] || '#9E9E9E';
+    switch (status?.toLowerCase()) {
+      case 'scheduled': return '#007bff';
+      case 'in progress': return '#ffc107';
+      case 'completed': return '#28a745';
+      case 'cancelled': return '#dc3545';
+      default: return '#6c757d';
+    }
   };
 
-
-
-  const renderVehicleCard = ({ item }) => {
-    const styles = createStyles(theme);
-    
-    return (
-      <View style={styles.vehicleCard}>
-        <View style={styles.vehicleInfo}>
-          <Text style={styles.vehicleName}>{item.unitName}</Text>
-          <Text style={styles.vehicleId}>Unit ID: {item.unitId}</Text>
-          <Text style={styles.vehicleType}>Type: {item.vehicleType}</Text>
-          <Text style={styles.vehicleModel}>Model: {item.model}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status}</Text>
-          </View>
-          {item.notes && (
-            <Text style={styles.vehicleNotes}>Notes: {item.notes}</Text>
-          )}
+  const renderTestDriveItem = ({ item }) => (
+    <View style={styles.testDriveCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.customerInfo}>
+          <Text style={styles.customerName}>{item.customerName}</Text>
+          <Text style={styles.customerPhone}>{item.customerPhone}</Text>
         </View>
-        <View style={styles.vehicleActions}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{item.status}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.vehicleInfo}>
+        <Text style={styles.vehicleName}>
+          {item.unitName || 'N/A'}
+        </Text>
+        {item.variation && (
+          <Text style={styles.vehicleVariation}>{item.variation}</Text>
+        )}
+        {item.bodyColor && (
+          <Text style={styles.vehicleColor}>Color: {item.bodyColor}</Text>
+        )}
+      </View>
+
+      {item.scheduledDate && (
+        <View style={styles.scheduleInfo}>
+          <MaterialIcons name="schedule" size={16} color="#666" />
+          <Text style={styles.scheduleText}>
+            {new Date(item.scheduledDate).toLocaleDateString()} 
+            {item.scheduledTime && ` at ${item.scheduledTime}`}
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.actionButtons}>
+        {userRole === 'admin' && item.status === 'Scheduled' && (
           <TouchableOpacity
-            style={styles.editVehicleButton}
+            style={[styles.actionBtn, styles.approveBtn]}
+            onPress={() => handleApproveTestDrive(item._id)}
+          >
+            <MaterialIcons name="check-circle" size={16} color="#28a745" />
+            <Text style={[styles.actionBtnText, { color: '#28a745' }]}>Approve</Text>
+          </TouchableOpacity>
+        )}
+        {(userRole === 'admin' || item.createdBy === currentUser?.name) && (
+          <TouchableOpacity
+            style={styles.actionBtn}
             onPress={() => {
-              setNewVehicle(item);
-              setShowAddVehicleModal(true);
+              Alert.alert(
+                'Update Status',
+                'Choose new status:',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Scheduled', onPress: () => updateTestDriveStatus(item._id, 'Scheduled') },
+                  { text: 'In Progress', onPress: () => updateTestDriveStatus(item._id, 'In Progress') },
+                  { text: 'Completed', onPress: () => updateTestDriveStatus(item._id, 'Completed') },
+                  { text: 'Cancelled', onPress: () => updateTestDriveStatus(item._id, 'Cancelled') },
+                ]
+              );
             }}
           >
-            <Text style={styles.editVehicleButtonText}>Edit</Text>
+            <MaterialIcons name="edit" size={16} color="#007AFF" />
+            <Text style={styles.actionBtnText}>Update</Text>
           </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  // Render inventory item
+  const renderInventoryItem = ({ item }) => (
+    <View style={styles.inventoryCard}>
+      <View style={styles.inventoryInfo}>
+        <Text style={styles.inventoryUnitName}>{item.unitName}</Text>
+        <Text style={styles.inventoryDetail}>Conduction: {item.unitId}</Text>
+        <Text style={styles.inventoryDetail}>Color: {item.bodyColor}</Text>
+        <Text style={styles.inventoryDetail}>Variation: {item.variation}</Text>
+      </View>
+      {userRole === 'admin' && (
+        <View style={styles.inventoryActions}>
           <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => deleteVehicle(item._id)}
+            style={styles.deleteInventoryBtn}
+            onPress={() => handleDeleteInventory(item._id, item.unitName)}
           >
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <MaterialIcons name="delete" size={20} color="#dc3545" />
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  };
-
-  const getVehicleStats = () => {
-    const total = testDriveVehicles.length;
-    const available = testDriveVehicles.filter(v => v.status === 'Available').length;
-    const inUse = testDriveVehicles.filter(v => v.status === 'In Use').length;
-    const maintenance = testDriveVehicles.filter(v => v.status === 'Maintenance').length;
-    const reserved = testDriveVehicles.filter(v => v.status === 'Reserved').length;
-    
-    return { total, available, inUse, maintenance, reserved };
-  };
-
-  const styles = createStyles(theme);
-  const vehicleStats = getVehicleStats();
+      )}
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Header with Title and Add Button */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Test Drive Vehicle Management</Text>
-        <TouchableOpacity
-          style={styles.addVehicleButton}
-          onPress={() => {
-            resetVehicleForm();
-            setShowAddVehicleModal(true);
-          }}
-        >
-          <Text style={styles.addVehicleButtonText}>+ Add Vehicle</Text>
-        </TouchableOpacity>
+    <ScrollView style={styles.container}>
+      {/* Test Drive Inventory Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Test Drive Inventory</Text>
+          {userRole === 'admin' && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowInventoryModal(true)}
+            >
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {loading ? (
+          <UniformLoading message="Loading inventory..." />
+        ) : (
+          <FlatList
+            data={inventory}
+            keyExtractor={(item) => item._id}
+            renderItem={renderInventoryItem}
+            scrollEnabled={false}
+            contentContainerStyle={styles.inventoryList}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No inventory units</Text>
+              </View>
+            }
+          />
+        )}
       </View>
 
-      {/* Stats Header */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{vehicleStats.total}</Text>
-          <Text style={styles.statLabel}>Total</Text>
+      {/* Scheduled Test Drives Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Scheduled Test Drives</Text>
+          {userRole === 'sales agent' && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowAddModal(true)}
+            >
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Schedule</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{vehicleStats.available}</Text>
-          <Text style={styles.statLabel}>Available</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{vehicleStats.inUse}</Text>
-          <Text style={styles.statLabel}>In Use</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{vehicleStats.maintenance}</Text>
-          <Text style={styles.statLabel}>Maintenance</Text>
-        </View>
-      </View>
-      
-      {/* Search and Filter */}
+
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, ID, model, or type..."
-          placeholderTextColor={theme.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <Picker
-          selectedValue={statusFilter}
-          onValueChange={setStatusFilter}
-          style={styles.filterPicker}
-        >
-          {statusOptions.map((status) => (
-            <Picker.Item key={status} label={status} value={status} />
-          ))}
-        </Picker>
-      </View>
-      
-      {/* Vehicles List */}
-      <FlatList
-        data={filteredVehicles}
-        keyExtractor={(item) => item._id || item.unitId}
-        renderItem={renderVehicleCard}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={fetchTestDriveVehicles}
-            tintColor={theme.primary}
+        <View style={styles.searchBox}>
+          <MaterialIcons name="search" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search test drives..."
+            value={searchTerm}
+            onChangeText={setSearchTerm}
           />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {loading ? 'Loading vehicles...' : 'No test drive vehicles found'}
-            </Text>
-            {!loading && (
-              <TouchableOpacity
-                style={styles.addFirstVehicleButton}
-                onPress={() => {
-                  resetVehicleForm();
-                  setShowAddVehicleModal(true);
-                }}
-              >
-                <Text style={styles.addFirstVehicleButtonText}>Add First Vehicle</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        }
-        contentContainerStyle={styles.listContainer}
-      />
-      
-      {/* Add Vehicle Modal */}
-      <Modal
-        visible={showAddVehicleModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAddVehicleModal(false)}
-      >
+        </View>
+      </View>
+
+      {loading ? (
+        <UniformLoading message="Loading test drives..." />
+      ) : (
+        <FlatList
+          data={getFilteredTestDrives()}
+          keyExtractor={(item) => item._id}
+          renderItem={renderTestDriveItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTestDrives(); }} />}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="directions-car" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No test drives scheduled</Text>
+            </View>
+          }
+        />
+      )}
+      </View>
+
+      {/* Add Test Drive Modal */}
+      <Modal visible={showAddModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.addVehicleModal}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {newVehicle.unitId ? 'Edit Vehicle' : 'Add Test Drive Vehicle'}
-              </Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setShowAddVehicleModal(false);
-                  resetVehicleForm();
-                }}
-              >
-                <Text style={styles.closeButtonText}>×</Text>
+              <Text style={styles.modalTitle}>Schedule Test Drive</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
-            <ScrollView style={styles.modalContent}>
+
+            <ScrollView style={styles.modalBody}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Vehicle Name</Text>
+                <Text style={styles.inputLabel}>Customer Name *</Text>
                 <TextInput
                   style={styles.input}
-                  value={newVehicle.unitName}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, unitName: text})}
-                  placeholder="Enter vehicle name"
+                  value={newTestDrive.customerName}
+                  onChangeText={(text) => setNewTestDrive({...newTestDrive, customerName: text})}
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Unit ID</Text>
+                <Text style={styles.inputLabel}>Customer Phone *</Text>
                 <TextInput
                   style={styles.input}
-                  value={newVehicle.unitId}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, unitId: text})}
-                  placeholder="Enter unit ID"
-                  editable={!newVehicle._id} // Disable editing for existing vehicles
+                  value={newTestDrive.customerPhone}
+                  onChangeText={(text) => setNewTestDrive({...newTestDrive, customerPhone: text})}
+                  keyboardType="phone-pad"
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Vehicle Type</Text>
-                <Picker
-                  selectedValue={newVehicle.vehicleType}
-                  onValueChange={(value) => setNewVehicle({...newVehicle, vehicleType: value})}
-                  style={styles.picker}
+                <Text style={styles.inputLabel}>Customer Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newTestDrive.customerEmail}
+                  onChangeText={(text) => setNewTestDrive({...newTestDrive, customerEmail: text})}
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Vehicle Model *</Text>
+                <TouchableOpacity 
+                  style={styles.input}
+                  onPress={() => setShowModelPicker(true)}
                 >
-                  <Picker.Item label="Light Commercial Vehicle" value="Light Commercial Vehicle" />
-                  <Picker.Item label="Heavy Commercial Vehicle" value="Heavy Commercial Vehicle" />
-                  <Picker.Item label="Passenger Vehicle" value="Passenger Vehicle" />
-                  <Picker.Item label="Special Purpose Vehicle" value="Special Purpose Vehicle" />
-                </Picker>
+                  <Text style={selectedModel ? styles.inputText : styles.placeholder}>
+                    {selectedModel || 'Select vehicle model'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Model</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newVehicle.model}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, model: text})}
-                  placeholder="Enter vehicle model"
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Status</Text>
-                <Picker
-                  selectedValue={newVehicle.status}
-                  onValueChange={(value) => setNewVehicle({...newVehicle, status: value})}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Available" value="Available" />
-                  <Picker.Item label="In Use" value="In Use" />
-                  <Picker.Item label="Maintenance" value="Maintenance" />
-                </Picker>
-              </View>
-              
+
+              {selectedModel && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Vehicle Unit *</Text>
+                  <TouchableOpacity 
+                    style={styles.input}
+                    onPress={() => setShowVehiclePicker(true)}
+                  >
+                    <Text style={newTestDrive.unitName ? styles.inputText : styles.placeholder}>
+                      {newTestDrive.unitName 
+                        ? `${newTestDrive.unitName} - ${newTestDrive.variation} (${newTestDrive.bodyColor})`
+                        : 'Select vehicle unit'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Notes</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
-                  value={newVehicle.notes}
-                  onChangeText={(text) => setNewVehicle({...newVehicle, notes: text})}
-                  placeholder="Enter any additional notes"
-                  multiline={true}
-                  numberOfLines={3}
+                  value={newTestDrive.notes}
+                  onChangeText={(text) => setNewTestDrive({...newTestDrive, notes: text})}
+                  multiline
                 />
               </View>
             </ScrollView>
-            
-            <View style={styles.modalActions}>
+
+            <View style={styles.modalFooter}>
               <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowAddVehicleModal(false);
-                  resetVehicleForm();
-                }}
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowAddModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity
-                style={styles.saveButton}
-                onPress={saveTestDriveVehicle}
+                style={[styles.modalBtn, styles.saveBtn]}
+                onPress={handleAddTestDrive}
               >
-                <Text style={styles.saveButtonText}>
-                  {newVehicle._id ? 'Update' : 'Add'} Vehicle
-                </Text>
+                <Text style={styles.saveBtnText}>Schedule</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </View>
-  );
-};
 
-const createStyles = (theme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.background,
+      {/* Model Picker Modal */}
+      <Modal visible={showModelPicker} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Vehicle Model</Text>
+              <TouchableOpacity onPress={() => setShowModelPicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {unitModels.map((model, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    if (showInventoryModal) {
+                      // For inventory modal
+                      setNewInventoryItem({...newInventoryItem, unitName: model});
+                    } else {
+                      // For schedule test drive modal
+                      setSelectedModel(model);
+                      setNewTestDrive({...newTestDrive, vehicleId: '', unitName: '', variation: '', bodyColor: ''});
+                    }
+                    setShowModelPicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>{model}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Vehicle Unit Picker Modal */}
+      <Modal visible={showVehiclePicker} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Vehicle Unit</Text>
+              <TouchableOpacity onPress={() => setShowVehiclePicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {getFilteredVehicles().map((vehicle) => (
+                <TouchableOpacity
+                  key={vehicle._id}
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    setNewTestDrive({
+                      ...newTestDrive,
+                      vehicleId: vehicle._id,
+                      unitName: vehicle.unitName,
+                      variation: vehicle.variation || '',
+                      bodyColor: vehicle.bodyColor || ''
+                    });
+                    setShowVehiclePicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>
+                    {vehicle.unitName} - {vehicle.variation} ({vehicle.bodyColor})
+                  </Text>
+                  <Text style={styles.pickerItemSubtext}>ID: {vehicle.unitId}</Text>
+                </TouchableOpacity>
+              ))}
+              {getFilteredVehicles().length === 0 && (
+                <View style={styles.emptyPicker}>
+                  <Text style={styles.emptyPickerText}>No vehicles available for {selectedModel}</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Inventory Modal */}
+      <Modal visible={showInventoryModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Test Drive Unit</Text>
+              <TouchableOpacity onPress={() => setShowInventoryModal(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Unit Name *</Text>
+                <TouchableOpacity 
+                  style={styles.input}
+                  onPress={() => setShowModelPicker(true)}
+                >
+                  <Text style={newInventoryItem.unitName ? styles.inputText : styles.placeholder}>
+                    {newInventoryItem.unitName || 'Select unit name'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Conduction Number *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.unitId}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, unitId: text})}
+                  placeholder="Enter conduction number"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Body Color *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.bodyColor}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, bodyColor: text})}
+                  placeholder="Enter body color"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Variation *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newInventoryItem.variation}
+                  onChangeText={(text) => setNewInventoryItem({...newInventoryItem, variation: text})}
+                  placeholder="Enter variation"
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowInventoryModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveBtn]}
+                onPress={handleAddInventory}
+              >
+                <Text style={styles.saveBtnText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  section: {
+    backgroundColor: '#fff',
+    marginBottom: 16,
+    padding: 20,
   },
-  
-  header: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: theme.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e0e0e0',
   },
-  
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.textPrimary,
-  },
-  statsContainer: {
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  inventoryList: { paddingVertical: 8 },
+  inventoryCard: {
     flexDirection: 'row',
-    backgroundColor: theme.surface,
-    padding: 15,
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  
-  statCard: {
     alignItems: 'center',
-  },
-  
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.primary,
-  },
-  
-  statLabel: {
-    fontSize: 12,
-    color: theme.textSecondary,
-    marginTop: 2,
-  },
-  
-  searchContainer: {
-    flexDirection: 'row',
-    padding: 15,
-    backgroundColor: theme.surface,
-    alignItems: 'center',
-    gap: 10,
-  },
-  
-  searchInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: theme.border,
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: theme.background,
-    color: theme.textPrimary,
-  },
-  
-  filterPicker: {
-    width: 120,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 8,
-    backgroundColor: theme.background,
+    borderColor: '#e0e0e0',
   },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  vehicleCard: {
-    backgroundColor: theme.surface,
-    margin: 10,
-    padding: 15,
-    borderRadius: 8,
+  inventoryInfo: { flex: 1 },
+  inventoryUnitName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  inventoryDetail: { fontSize: 13, color: '#666', marginTop: 2 },
+  inventoryActions: { marginLeft: 12 },
+  deleteInventoryBtn: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: '#dc3545',
+  },
+  addButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  
-  vehicleInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  
-  vehicleName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.textPrimary,
-    marginBottom: 5,
-  },
-  
-  vehicleId: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    marginBottom: 3,
-  },
-  
-  vehicleType: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    marginBottom: 3,
-  },
-  
-  vehicleModel: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    marginBottom: 8,
-  },
-  
-  vehicleNotes: {
-    fontSize: 12,
-    color: theme.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 5,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 15,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  
-  statusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  
-  vehicleActions: {
     alignItems: 'center',
-    gap: 8,
-  },
-  
-  editVehicleButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
-  },
-  
-  editVehicleButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  
-  statusButton: {
-    backgroundColor: '#FF9800',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
-  },
-  
-  statusButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  
-  deleteButton: {
-    backgroundColor: '#f44336',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
-  },
-  
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  addVehicleButton: {
-    backgroundColor: theme.primary,
-    paddingHorizontal: 15,
+    backgroundColor: '#e50914',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  
-  addVehicleButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 4 },
+  searchContainer: { padding: 16, backgroundColor: '#f8f9fa' },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: '#333' },
+  listContainer: { paddingVertical: 16 },
+  testDriveCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  customerInfo: { flex: 1 },
+  customerName: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  customerPhone: { fontSize: 14, color: '#666' },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  vehicleInfo: { marginBottom: 12 },
+  vehicleName: { fontSize: 16, fontWeight: '600', color: '#333' },
+  vehicleVariation: { fontSize: 14, color: '#666', marginTop: 2 },
+  vehicleColor: { fontSize: 14, color: '#666', marginTop: 2 },
+  scheduleInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  scheduleText: { marginLeft: 8, fontSize: 14, color: '#666' },
+  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    marginLeft: 8,
+  },
+  approveBtn: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#28a745',
+  },
+  actionBtnText: { marginLeft: 4, fontSize: 14, fontWeight: '500', color: '#007AFF' },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
+    paddingVertical: 60,
   },
-  
-  emptyText: {
-    fontSize: 16,
-    color: theme.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  
-  addFirstVehicleButton: {
-    backgroundColor: theme.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  
-  addFirstVehicleButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  // Add Vehicle Modal Styles
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#333', marginTop: 16 },
+  // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  addVehicleModal: {
-    backgroundColor: theme.surface,
-    margin: 20,
-    marginTop: 50,
-    borderRadius: 10,
-    maxHeight: '85%',
-    borderWidth: 1,
-    borderColor: theme.border,
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: width * 0.9,
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -734,109 +867,55 @@ const createStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    backgroundColor: theme.primary,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    borderBottomColor: '#e0e0e0',
   },
-  
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  
-  closeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  closeButtonText: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  
-  modalContent: {
-    padding: 20,
-    maxHeight: 400,
-  },
-  
-  inputGroup: {
-    marginBottom: 15,
-  },
-  
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.textPrimary,
-    marginBottom: 5,
-  },
-  
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  modalBody: { padding: 20, maxHeight: 400 },
+  inputGroup: { marginBottom: 20 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
   input: {
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: '#e0e0e0',
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: theme.background,
-    color: theme.textPrimary,
+    backgroundColor: '#f8f9fa',
   },
-  
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  
-  picker: {
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 8,
-    backgroundColor: theme.background,
-    color: theme.textPrimary,
-  },
-  
-  modalActions: {
+  inputText: { fontSize: 16, color: '#333' },
+  placeholder: { fontSize: 16, color: '#999' },
+  textArea: { height: 80, textAlignVertical: 'top' },
+  modalFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: theme.border,
+    borderTopColor: '#e0e0e0',
   },
-  
-  cancelButton: {
+  modalBtn: {
     flex: 1,
-    backgroundColor: theme.textSecondary,
-    padding: 15,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginRight: 10,
+    marginHorizontal: 5,
   },
-  
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  cancelBtn: { backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e0e0e0' },
+  cancelBtnText: { color: '#666', fontWeight: '600' },
+  saveBtn: { backgroundColor: '#e50914' },
+  saveBtnText: { color: '#fff', fontWeight: '600' },
+  // Picker Modal styles
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: width * 0.9,
+    maxHeight: '60%',
   },
-  
-  saveButton: {
-    flex: 1,
-    backgroundColor: theme.primary,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginLeft: 10,
+  pickerItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-  
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  pickerItemText: { fontSize: 16, color: '#333', fontWeight: '500' },
+  pickerItemSubtext: { fontSize: 12, color: '#666', marginTop: 4 },
+  emptyPicker: { padding: 20, alignItems: 'center' },
+  emptyPickerText: { fontSize: 14, color: '#666' },
 });
-
-export default TestDriveManagementScreen;
