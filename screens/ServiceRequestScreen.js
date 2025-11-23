@@ -433,7 +433,7 @@ export default function ServiceRequestScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Requested Services *</Text>
-              <View style={styles.servicesGrid}>
+              <View style={styles.servicesContainer}>
                 {availableServices.map(service => (
                   <TouchableOpacity
                     key={service}
@@ -443,15 +443,27 @@ export default function ServiceRequestScreen() {
                     ]}
                     onPress={() => toggleService(service)}
                   >
-                    <Text style={[
-                      styles.serviceOptionText,
-                      newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
-                    ]}>
-                      {formatServiceName(service)}
-                    </Text>
-                    {newRequest.requestedServices.includes(service) && (
-                      <MaterialIcons name="check" size={16} color="#fff" />
-                    )}
+                    <View style={styles.serviceOptionLeft}>
+                      <View style={[
+                        styles.serviceCheckbox,
+                        newRequest.requestedServices.includes(service) && styles.serviceCheckboxActive
+                      ]}>
+                        {newRequest.requestedServices.includes(service) && (
+                          <MaterialIcons name="check" size={18} color="#fff" />
+                        )}
+                      </View>
+                      <Text style={[
+                        styles.serviceOptionText,
+                        newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
+                      ]}>
+                        {formatServiceName(service)}
+                      </Text>
+                    </View>
+                    <MaterialIcons 
+                      name="arrow-forward-ios" 
+                      size={16} 
+                      color={newRequest.requestedServices.includes(service) ? '#fff' : '#ccc'} 
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1104,37 +1116,62 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  servicesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  servicesContainer: {
+    gap: 8,
   },
   serviceOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    minWidth: 120,
-    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   serviceOptionActive: {
     backgroundColor: '#DC2626',
     borderColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  serviceOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  serviceCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceCheckboxActive: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
   },
   serviceOptionText: {
-    color: '#666',
-    fontSize: 14,
-    marginRight: 6,
+    color: '#374151',
+    fontSize: 15,
     fontWeight: '500',
+    flex: 1,
   },
   serviceOptionTextActive: {
     color: '#ffffff',
+    fontWeight: '600',
   },
   modalFooter: {
     flexDirection: 'row',
