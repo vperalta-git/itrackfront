@@ -982,7 +982,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
           </ScrollView>
 
           {/* Action Buttons */}
-          {data?.status?.toLowerCase() === 'in transit' && (
+          {(data?.status?.toLowerCase() === 'in transit' || data?.status?.toLowerCase() === 'pending') && (
             <View style={styles.bottomButtonContainer}>
               <TouchableOpacity 
                 style={[styles.deliveredButton, { backgroundColor: '#10b981' }]}
