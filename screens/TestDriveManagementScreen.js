@@ -101,8 +101,10 @@ export default function TestDriveManagementScreen() {
     try {
       const role = await AsyncStorage.getItem('role');
       const name = await AsyncStorage.getItem('accountName');
-      setUserRole(role);
-      setCurrentUser({ name, role });
+      const normalizedRole = role?.toLowerCase(); // Normalize to lowercase
+      setUserRole(normalizedRole);
+      setCurrentUser({ name, role: normalizedRole });
+      console.log('👤 User loaded:', { name, role: normalizedRole });
     } catch (error) {
       console.error('Error loading user info:', error);
     }
@@ -131,6 +133,8 @@ export default function TestDriveManagementScreen() {
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
+      // Set empty array if API not available yet
+      setInventory([]);
     }
   };
 
@@ -402,86 +406,103 @@ export default function TestDriveManagementScreen() {
     </View>
   );
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Test Drive Inventory Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Test Drive Inventory</Text>
-          {userRole === 'admin' && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowInventoryModal(true)}
-            >
-              <MaterialIcons name="add" size={20} color="#fff" />
-              <Text style={styles.addButtonText}>Add</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+  // Render section headers and content
+  const renderContent = () => {
+    return (
+      <View style={styles.contentContainer}>
+        {/* Test Drive Inventory Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Test Drive Inventory</Text>
+            {userRole === 'admin' && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => setShowInventoryModal(true)}
+              >
+                <MaterialIcons name="add" size={20} color="#fff" />
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {loading ? (
-          <UniformLoading message="Loading inventory..." />
-        ) : (
-          <FlatList
-            data={inventory}
-            keyExtractor={(item) => item._id}
-            renderItem={renderInventoryItem}
-            scrollEnabled={false}
-            contentContainerStyle={styles.inventoryList}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No inventory units</Text>
+          {inventory.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No inventory units</Text>
+            </View>
+          ) : (
+            inventory.map((item) => (
+              <View key={item._id}>
+                {renderInventoryItem({ item })}
               </View>
-            }
-          />
-        )}
-      </View>
-
-      {/* Scheduled Test Drives Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Scheduled Test Drives</Text>
-          {userRole === 'sales agent' && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowAddModal(true)}
-            >
-              <MaterialIcons name="add" size={20} color="#fff" />
-              <Text style={styles.addButtonText}>Schedule</Text>
-            </TouchableOpacity>
+            ))
           )}
         </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={20} color="#666" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search test drives..."
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-      </View>
+        {/* Scheduled Test Drives Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Scheduled Test Drives</Text>
+            {userRole === 'sales agent' && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => setShowAddModal(true)}
+              >
+                <MaterialIcons name="add" size={20} color="#fff" />
+                <Text style={styles.addButtonText}>Schedule</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-      {loading ? (
-        <UniformLoading message="Loading test drives..." />
-      ) : (
-        <FlatList
-          data={getFilteredTestDrives()}
-          keyExtractor={(item) => item._id}
-          renderItem={renderTestDriveItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTestDrives(); }} />}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBox}>
+              <MaterialIcons name="search" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search test drives..."
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+              />
+            </View>
+          </View>
+
+          {getFilteredTestDrives().length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialIcons name="directions-car" size={64} color="#ccc" />
               <Text style={styles.emptyText}>No test drives scheduled</Text>
             </View>
-          }
-        />
-      )}
+          ) : (
+            getFilteredTestDrives().map((item) => (
+              <View key={item._id}>
+                {renderTestDriveItem({ item })}
+              </View>
+            ))
+          )}
+        </View>
       </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {loading ? (
+        <UniformLoading message="Loading..." />
+      ) : (
+        <ScrollView 
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={() => { 
+                setRefreshing(true); 
+                fetchTestDrives(); 
+                fetchInventory();
+              }} 
+            />
+          }
+        >
+          {renderContent()}
+        </ScrollView>
+      )}
 
       {/* Add Test Drive Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent={true}>
@@ -730,12 +751,14 @@ export default function TestDriveManagementScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
+  scrollView: { flex: 1 },
+  contentContainer: { flexGrow: 1 },
   section: {
     backgroundColor: '#fff',
     marginBottom: 16,
