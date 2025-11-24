@@ -442,28 +442,14 @@ export default function ServiceRequestScreen() {
                       newRequest.requestedServices.includes(service) && styles.serviceOptionActive
                     ]}
                     onPress={() => toggleService(service)}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.serviceOptionLeft}>
-                      <View style={[
-                        styles.serviceCheckbox,
-                        newRequest.requestedServices.includes(service) && styles.serviceCheckboxActive
-                      ]}>
-                        {newRequest.requestedServices.includes(service) && (
-                          <MaterialIcons name="check" size={18} color="#fff" />
-                        )}
-                      </View>
-                      <Text style={[
-                        styles.serviceOptionText,
-                        newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
-                      ]}>
-                        {formatServiceName(service)}
-                      </Text>
-                    </View>
-                    <MaterialIcons 
-                      name="arrow-forward-ios" 
-                      size={16} 
-                      color={newRequest.requestedServices.includes(service) ? '#fff' : '#ccc'} 
-                    />
+                    <Text style={[
+                      styles.serviceOptionText,
+                      newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
+                    ]}>
+                      {formatServiceName(service)}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1122,10 +1108,10 @@ const styles = StyleSheet.create({
   serviceOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#e5e7eb',
@@ -1139,35 +1125,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC2626',
     borderColor: '#DC2626',
     shadowColor: '#DC2626',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  serviceOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  serviceCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  serviceCheckboxActive: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   serviceOptionText: {
     color: '#374151',
     fontSize: 15,
     fontWeight: '500',
-    flex: 1,
+    textAlign: 'center',
   },
   serviceOptionTextActive: {
     color: '#ffffff',

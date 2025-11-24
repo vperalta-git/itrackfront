@@ -67,14 +67,20 @@ function AgentDrawer() {
           shadowRadius: 3,
         },
         headerTintColor: '#ffffff',
-        drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerActiveTintColor: '#ffffff',
+        drawerLabelStyle: { fontSize: 16, fontWeight: '600' },
         drawerStyle: { backgroundColor: '#e50914' },
         drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        drawerItemStyle: { 
+          marginVertical: 4,
+          borderRadius: 8,
+          paddingVertical: 4,
+        },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.25)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.75)',
         headerTitleStyle: { fontWeight: '700' },
+        drawerPressColor: 'rgba(255,255,255,0.15)',
+        drawerType: 'front',
       }}
     >
       <Drawer.Screen 
@@ -125,14 +131,20 @@ function AdminDrawer() {
           shadowRadius: 3,
         },
         headerTintColor: '#ffffff',
-        drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerActiveTintColor: '#ffffff',
+        drawerLabelStyle: { fontSize: 16, fontWeight: '600' },
         drawerStyle: { backgroundColor: '#e50914' },
         drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        drawerItemStyle: { 
+          marginVertical: 4,
+          borderRadius: 8,
+          paddingVertical: 4,
+        },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.25)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.75)',
         headerTitleStyle: { fontWeight: '700' },
+        drawerPressColor: 'rgba(255,255,255,0.15)',
+        drawerType: 'front',
       }}
     >
       <Drawer.Screen 
@@ -203,14 +215,20 @@ function ManagerDrawer() {
           shadowRadius: 3,
         },
         headerTintColor: '#ffffff',
-        drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerActiveTintColor: '#ffffff',
+        drawerLabelStyle: { fontSize: 16, fontWeight: '600' },
         drawerStyle: { backgroundColor: '#e50914' },
         drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        drawerItemStyle: { 
+          marginVertical: 4,
+          borderRadius: 8,
+          paddingVertical: 4,
+        },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.25)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.75)',
         headerTitleStyle: { fontWeight: '700' },
+        drawerPressColor: 'rgba(255,255,255,0.15)',
+        drawerType: 'front',
       }}
     >
       <Drawer.Screen 
@@ -266,14 +284,20 @@ function SupervisorDrawer() {
           shadowRadius: 3,
         },
         headerTintColor: '#ffffff',
-        drawerActiveTintColor: '#e50914',
-        drawerLabelStyle: { fontSize: 16, fontWeight: '500' },
+        drawerActiveTintColor: '#ffffff',
+        drawerLabelStyle: { fontSize: 16, fontWeight: '600' },
         drawerStyle: { backgroundColor: '#e50914' },
         drawerContentStyle: { backgroundColor: '#e50914' },
-        drawerItemStyle: { marginVertical: 2 },
-        drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
-        drawerInactiveTintColor: 'rgba(255,255,255,0.85)',
+        drawerItemStyle: { 
+          marginVertical: 4,
+          borderRadius: 8,
+          paddingVertical: 4,
+        },
+        drawerActiveBackgroundColor: 'rgba(255,255,255,0.25)',
+        drawerInactiveTintColor: 'rgba(255,255,255,0.75)',
         headerTitleStyle: { fontWeight: '700' },
+        drawerPressColor: 'rgba(255,255,255,0.15)',
+        drawerType: 'front',
       }}
     >
       <Drawer.Screen 
