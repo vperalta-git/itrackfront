@@ -586,47 +586,6 @@ const DriverAllocation = () => {
                 </Picker>
               </View>
 
-              {/* Customer Information Section */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Customer Information</Text>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Customer Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Customer Full Name"
-                  value={newAllocation.customerName}
-                  onChangeText={text => setNewAllocation({ ...newAllocation, customerName: text })}
-                  placeholderTextColor="#94a3b8"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Customer Email *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="customer@email.com"
-                  value={newAllocation.customerEmail}
-                  onChangeText={text => setNewAllocation({ ...newAllocation, customerEmail: text })}
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Customer Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="+63 900 000 0000"
-                  value={newAllocation.customerPhone}
-                  onChangeText={text => setNewAllocation({ ...newAllocation, customerPhone: text })}
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
               {/* Enhanced Route Selection */}
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>📍 Route Planning</Text>
@@ -686,71 +645,6 @@ const DriverAllocation = () => {
                     </View>
                     <Text style={styles.selectRouteArrow}>›</Text>
                   </TouchableOpacity>
-                )}
-
-                {/* Legacy Quick Selection (fallback) */}
-                {!selectedRoute && (
-                  <>
-                    <Text style={styles.orDivider}>— OR —</Text>
-                    
-                    <View style={styles.legacyLocationContainer}>
-                      <Text style={styles.inputLabel}>Quick Pickup Selection</Text>
-                      <View style={styles.locationButtonsContainer}>
-                        <TouchableOpacity 
-                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
-                          onPress={() => setPickupPoint('Isuzu Laguna Stockyard')}
-                        >
-                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
-                            Laguna Stockyard
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.quickLocationBtn, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
-                          onPress={() => setPickupPoint('Isuzu Pasig')}
-                        >
-                          <Text style={[styles.quickLocationText, pickupPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
-                            Pasig
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter pickup location"
-                        value={pickupPoint}
-                        onChangeText={setPickupPoint}
-                        placeholderTextColor="#94a3b8"
-                      />
-
-                      <Text style={[styles.inputLabel, { marginTop: 12 }]}>Quick Drop-off Selection</Text>
-                      <View style={styles.locationButtonsContainer}>
-                        <TouchableOpacity 
-                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationBtn]}
-                          onPress={() => setDropoffPoint('Isuzu Laguna Stockyard')}
-                        >
-                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Laguna Stockyard' && styles.selectedLocationText]}>
-                            Laguna Stockyard
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.quickLocationBtn, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationBtn]}
-                          onPress={() => setDropoffPoint('Isuzu Pasig')}
-                        >
-                          <Text style={[styles.quickLocationText, dropoffPoint === 'Isuzu Pasig' && styles.selectedLocationText]}>
-                            Pasig
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter drop-off location"
-                        value={dropoffPoint}
-                        onChangeText={setDropoffPoint}
-                        placeholderTextColor="#94a3b8"
-                      />
-                    </View>
-                  </>
                 )}
               </View>
             </View>
