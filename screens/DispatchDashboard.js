@@ -22,6 +22,7 @@ const AVAILABLE_SERVICES = [
 
 export default function DispatchDashboard({ navigation }) {
   const [serviceRequests, setServiceRequests] = useState([]);
+  const [originalRequests, setOriginalRequests] = useState([]); // Store original backend requests
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -59,13 +60,17 @@ export default function DispatchDashboard({ navigation }) {
           !req.releasedToCustomer
         );
 
-        // Group by unitId to combine duplicate vehicles
+        // Store original requests for individual updates
+        setOriginalRequests(activeRequests);
+
+        // Group by unitId to combine duplicate vehicles for DISPLAY only
         const groupedRequests = {};
         activeRequests.forEach(req => {
           const key = `${req.unitId}-${req.unitName}`;
           if (!groupedRequests[key]) {
             groupedRequests[key] = {
               ...req,
+              groupKey: key,
               allServices: [...(req.service || [])],
               allCompletedServices: [...(req.completedServices || [])],
               allPendingServices: [...(req.pendingServices || [])],
@@ -168,45 +173,57 @@ export default function DispatchDashboard({ navigation }) {
         return;
       }
 
-      let updatedCompletedServices = [...(request.completedServices || [])];
-      let updatedPendingServices = [...(request.pendingServices || request.service || [])];
+      // Find which original request(s) contain this specific service
+      const affectedOriginalRequests = originalRequests.filter(origReq => 
+        request.requestIds.includes(origReq._id) && 
+        origReq.service?.includes(serviceId)
+      );
 
-      if (completed) {
-        // Mark as completed
-        if (!updatedCompletedServices.includes(serviceId)) {
-          updatedCompletedServices.push(serviceId);
-        }
-        updatedPendingServices = updatedPendingServices.filter(s => s !== serviceId);
-      } else {
-        // Mark as pending
-        updatedCompletedServices = updatedCompletedServices.filter(s => s !== serviceId);
-        if (!updatedPendingServices.includes(serviceId)) {
-          updatedPendingServices.push(serviceId);
-        }
+      if (affectedOriginalRequests.length === 0) {
+        Alert.alert('Error', 'Could not find the service request to update');
+        return;
       }
 
-      console.log('New service arrays:', {
-        updatedCompleted: updatedCompletedServices,
-        updatedPending: updatedPendingServices
-      });
+      console.log('Affected original requests:', affectedOriginalRequests.map(r => ({ 
+        id: r._id, 
+        services: r.service,
+        completed: r.completedServices 
+      })));
 
-      // Check if all services are completed
-      const allCompleted = request.service?.length > 0 && 
-                          updatedCompletedServices.length === request.service.length;
+      // Update each affected request individually
+      const updatePromises = affectedOriginalRequests.map(async (origReq) => {
+        let updatedCompletedServices = [...(origReq.completedServices || [])];
+        let updatedPendingServices = [...(origReq.pendingServices || origReq.service || [])];
 
-      const updateData = {
-        completedServices: updatedCompletedServices,
-        pendingServices: updatedPendingServices,
-        status: allCompleted ? 'Completed' : 'In Progress',
-        completedBy: allCompleted ? accountName : request.completedBy,
-        completedAt: allCompleted ? new Date().toISOString() : request.completedAt
-      };
+        if (completed) {
+          // Mark as completed
+          if (!updatedCompletedServices.includes(serviceId)) {
+            updatedCompletedServices.push(serviceId);
+          }
+          updatedPendingServices = updatedPendingServices.filter(s => s !== serviceId);
+        } else {
+          // Mark as pending
+          updatedCompletedServices = updatedCompletedServices.filter(s => s !== serviceId);
+          if (!updatedPendingServices.includes(serviceId)) {
+            updatedPendingServices.push(serviceId);
+          }
+        }
 
-      console.log('Sending update to backend:', updateData);
+        // Check if all services are completed for THIS specific request
+        const allCompleted = origReq.service?.length > 0 && 
+                            updatedCompletedServices.length === origReq.service.length;
 
-      // Update all related request IDs
-      const updatePromises = request.requestIds.map(async (id) => {
-        const response = await fetch(buildApiUrl(`/updateServiceRequest/${id}`), {
+        const updateData = {
+          completedServices: updatedCompletedServices,
+          pendingServices: updatedPendingServices,
+          status: allCompleted ? 'Completed' : 'In Progress',
+          completedBy: allCompleted ? accountName : origReq.completedBy,
+          completedAt: allCompleted ? new Date().toISOString() : origReq.completedAt
+        };
+
+        console.log(`Updating request ${origReq._id}:`, updateData);
+
+        const response = await fetch(buildApiUrl(`/updateServiceRequest/${origReq._id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData)
@@ -234,15 +251,17 @@ export default function DispatchDashboard({ navigation }) {
 
       await Promise.all(updatePromises);
       
-      console.log('Update successful, refreshing local state');
+      console.log('Update successful, refreshing data');
       
-      // Update local state
-      setServiceRequests(prev => 
-        prev.map(req => req._id === request._id ? { ...req, ...updateData } : req)
-      );
+      // Refresh from backend to get latest state
+      await fetchServiceRequests();
       
-      if (selectedRequest?._id === request._id) {
-        setSelectedRequest({ ...selectedRequest, ...updateData });
+      // Update the selected request in the modal
+      if (selectedRequest?.groupKey === request.groupKey) {
+        const updatedGrouped = serviceRequests.find(r => r.groupKey === request.groupKey);
+        if (updatedGrouped) {
+          setSelectedRequest(updatedGrouped);
+        }
       }
 
       // Show success feedback
