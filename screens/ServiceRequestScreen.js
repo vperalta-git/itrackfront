@@ -137,35 +137,45 @@ export default function ServiceRequestScreen() {
     }
 
     try {
+      console.log('📤 Creating service request...');
+      const requestBody = {
+        unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
+        unitName: newRequest.selectedVehicle.unitName,
+        service: newRequest.requestedServices,
+        serviceTime: null,
+        status: 'Pending',
+        preparedBy: await AsyncStorage.getItem('accountName') || 'System',
+        dateCreated: new Date().toISOString(),
+        completedAt: null,
+        completedBy: null
+      };
+      
+      console.log('📦 Request payload:', requestBody);
+      
       const response = await fetch(buildApiUrl('/createServiceRequest'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
-          unitName: newRequest.selectedVehicle.unitName,
-          vehicleRegNo: newRequest.selectedVehicle.vin || newRequest.selectedVehicle.unitId,
-          service: newRequest.requestedServices,
-          requestedServices: newRequest.requestedServices,
-          notes: newRequest.notes,
-          createdBy: await AsyncStorage.getItem('accountName') || 'System',
-          status: 'Pending'
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+      console.log('📥 Create response:', data);
       
       if (data.success) {
         Alert.alert('Success', 'Service request created successfully');
         setShowAddModal(false);
         resetNewRequestForm();
-        fetchServiceRequests();
+        // Refresh the list after a short delay to ensure backend has saved
+        setTimeout(() => {
+          fetchServiceRequests();
+        }, 500);
       } else {
         Alert.alert('Error', data.message || 'Failed to create service request');
       }
     } catch (error) {
-      console.error('Error creating service request:', error);
+      console.error('❌ Error creating service request:', error);
       Alert.alert('Error', 'Failed to create service request');
     }
   };
@@ -596,70 +606,91 @@ export default function ServiceRequestScreen() {
       {/* Request Details Modal */}
       <Modal visible={showDetailsModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Request Details</Text>
-              <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
-                <MaterialIcons name="close" size={24} color="#666" />
+          <View style={styles.detailsModalContent}>
+            <View style={styles.detailsModalHeader}>
+              <Text style={styles.detailsModalTitle}>Request Details</Text>
+              <TouchableOpacity 
+                onPress={() => setShowDetailsModal(false)}
+                style={styles.detailsCloseBtn}
+              >
+                <MaterialIcons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
 
             {selectedRequest && (
-              <ScrollView style={styles.modalBody}>
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Unit Information</Text>
-                  <Text style={styles.detailValue}>{selectedRequest.unitName}</Text>
-                  <Text style={styles.detailSubValue}>ID: {selectedRequest.unitId}</Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <View style={[styles.detailBadge, { backgroundColor: getStatusColor(selectedRequest.status) }]}>
-                    <Text style={styles.badgeText}>{selectedRequest.status}</Text>
+              <ScrollView style={styles.detailsScrollView} showsVerticalScrollIndicator={false}>
+                {/* Status Badge */}
+                <View style={styles.detailsStatusContainer}>
+                  <View style={[styles.detailsStatusBadge, { backgroundColor: getStatusStyle(selectedRequest.status).backgroundColor }]}>
+                    <Text style={[styles.detailsStatusText, { color: getStatusStyle(selectedRequest.status).color }]}>
+                      {selectedRequest.status || 'Pending'}
+                    </Text>
                   </View>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Requested Services</Text>
-                  <View style={styles.detailServicesWrap}>
-                    {(selectedRequest.requestedServices || []).map((service, index) => (
-                      <View key={index} style={styles.detailServiceTag}>
-                        <Text style={styles.detailServiceTagText}>{formatServiceName(service)}</Text>
+                {/* Vehicle Information Card */}
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsCardTitle}>🚗 Vehicle Information</Text>
+                  <View style={styles.detailsRow}>
+                    <Text style={styles.detailsLabel}>Unit Name:</Text>
+                    <Text style={styles.detailsValue}>{selectedRequest.unitName || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.detailsRow}>
+                    <Text style={styles.detailsLabel}>Unit ID:</Text>
+                    <Text style={styles.detailsValue}>{selectedRequest.unitId || 'N/A'}</Text>
+                  </View>
+                </View>
+
+                {/* Services Card */}
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsCardTitle}>🔧 Requested Services</Text>
+                  <View style={styles.detailsServicesGrid}>
+                    {(selectedRequest.service || []).map((service, index) => (
+                      <View key={index} style={styles.detailsServiceChip}>
+                        <MaterialIcons name="check-circle" size={16} color="#28a745" />
+                        <Text style={styles.detailsServiceChipText}>{formatServiceName(service)}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
 
-                {selectedRequest.notes && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Notes</Text>
-                    <Text style={styles.detailValue}>{selectedRequest.notes}</Text>
-                  </View>
-                )}
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Request Information</Text>
-                  <Text style={styles.detailSubValue}>
-                    Created: {selectedRequest.createdAt ? new Date(selectedRequest.createdAt).toLocaleString() : 'N/A'}
-                  </Text>
-                  <Text style={styles.detailSubValue}>
-                    Created by: {selectedRequest.createdBy || 'System'}
-                  </Text>
-                  {selectedRequest.lastUpdatedBy && (
-                    <Text style={styles.detailSubValue}>
-                      Last updated by: {selectedRequest.lastUpdatedBy}
+                {/* Request Information Card */}
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsCardTitle}>📊 Request Information</Text>
+                  <View style={styles.detailsRow}>
+                    <Text style={styles.detailsLabel}>Created:</Text>
+                    <Text style={styles.detailsValue}>
+                      {selectedRequest.dateCreated ? new Date(selectedRequest.dateCreated).toLocaleString() : 'N/A'}
                     </Text>
+                  </View>
+                  <View style={styles.detailsRow}>
+                    <Text style={styles.detailsLabel}>Prepared By:</Text>
+                    <Text style={styles.detailsValue}>{selectedRequest.preparedBy || 'System'}</Text>
+                  </View>
+                  {selectedRequest.completedAt && (
+                    <View style={styles.detailsRow}>
+                      <Text style={styles.detailsLabel}>Completed:</Text>
+                      <Text style={styles.detailsValue}>
+                        {new Date(selectedRequest.completedAt).toLocaleString()}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedRequest.completedBy && (
+                    <View style={styles.detailsRow}>
+                      <Text style={styles.detailsLabel}>Completed By:</Text>
+                      <Text style={styles.detailsValue}>{selectedRequest.completedBy}</Text>
+                    </View>
                   )}
                 </View>
               </ScrollView>
             )}
 
-            <View style={styles.modalFooter}>
+            <View style={styles.detailsModalFooter}>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtn]}
+                style={styles.detailsCloseButton}
                 onPress={() => setShowDetailsModal(false)}
               >
-                <Text style={styles.saveBtnText}>Close</Text>
+                <Text style={styles.detailsCloseButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1436,5 +1467,127 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  // Enhanced Details Modal Styles
+  detailsModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  detailsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#DC2626',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  detailsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  detailsCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailsScrollView: {
+    padding: 20,
+  },
+  detailsStatusContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  detailsStatusBadge: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 140,
+    alignItems: 'center',
+  },
+  detailsStatusText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailsCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  detailsCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  detailsLabel: {
+    fontSize: 14,
+    color: '#6c757d',
+    fontWeight: '600',
+    flex: 1,
+  },
+  detailsValue: {
+    fontSize: 14,
+    color: '#212529',
+    fontWeight: '500',
+    flex: 1.5,
+    textAlign: 'right',
+  },
+  detailsServicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  detailsServiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  detailsServiceChipText: {
+    fontSize: 13,
+    color: '#2e7d32',
+    fontWeight: '600',
+  },
+  detailsModalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  detailsCloseButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  detailsCloseButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

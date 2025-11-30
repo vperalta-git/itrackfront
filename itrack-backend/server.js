@@ -3839,9 +3839,12 @@ app.get('/getServiceRequests', async (req, res) => {
 
 app.post('/createServiceRequest', async (req, res) => {
   try {
-    const newRequest = new DriverAllocation({
+    const newRequest = new Servicerequest({
       ...req.body,
-      status: 'Pending'
+      status: req.body.status || 'Pending',
+      dateCreated: new Date(),
+      completedAt: null,
+      completedBy: null
     });
     await newRequest.save();
     res.json({ success: true, data: newRequest });
@@ -3852,7 +3855,10 @@ app.post('/createServiceRequest', async (req, res) => {
 
 app.put('/updateServiceRequest/:id', async (req, res) => {
   try {
-    const updated = await DriverAllocation.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Servicerequest.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

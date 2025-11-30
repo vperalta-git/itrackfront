@@ -982,7 +982,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
           </ScrollView>
 
           {/* Action Buttons */}
-          {(data?.status?.toLowerCase() === 'in transit' || data?.status?.toLowerCase() === 'pending') && (
+          {data?.status?.toLowerCase() === 'delivered' && (
             <View style={styles.bottomButtonContainer}>
               <TouchableOpacity 
                 style={[styles.deliveredButton, { backgroundColor: '#10b981' }]}
@@ -1002,8 +1002,8 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
             </View>
           )}
 
-          {/* Vehicle Delivered Button - Only show for Delivered status */}
-          {data?.status?.toLowerCase() === 'delivered' && (
+          {/* Vehicle Delivered Button - Clear from list after complete */}
+          {data?.status?.toLowerCase() === 'completed' && (
             <View style={styles.bottomButtonContainer}>
               <TouchableOpacity 
                 style={styles.deliveredButton}
