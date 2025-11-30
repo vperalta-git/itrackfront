@@ -35,7 +35,17 @@ export default function DispatchDashboard() {
     setLoading(true);
     try {
       const response = await fetch(buildApiUrl('/getRequest'));
-      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch requests`);
+      }
+      
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+      
+      const data = JSON.parse(text);
       
       if (data.success) {
         // Show only requests that dispatch can work on
@@ -92,10 +102,19 @@ export default function DispatchDashboard() {
                 });
 
                 if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}: Failed to mark as ready`);
+                  const text = await response.text();
+                  let errorMessage = `HTTP ${response.status}: Failed to mark as ready`;
+                  try {
+                    const errorData = JSON.parse(text);
+                    errorMessage = errorData.message || errorMessage;
+                  } catch (e) {
+                    // Text is not JSON, use default message
+                  }
+                  throw new Error(errorMessage);
                 }
 
-                const data = await response.json();
+                const text = await response.text();
+                const data = JSON.parse(text);
                 
                 if (data.success) {
                   Alert.alert('Success', `${request.unitName} is now ready for release!`);
@@ -106,7 +125,7 @@ export default function DispatchDashboard() {
                 }
               } catch (error) {
                 console.error('Error marking ready for release:', error);
-                Alert.alert('Error', 'Failed to mark as ready for release');
+                Alert.alert('Error', error.message || 'Failed to mark as ready for release');
               }
             }
           }
@@ -186,10 +205,23 @@ export default function DispatchDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to update`);
+        const text = await response.text();
+        let errorMessage = `HTTP ${response.status}: Failed to update`;
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Text is not JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+      
+      const data = JSON.parse(text);
       
       console.log('Backend response:', data);
       

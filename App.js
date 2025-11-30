@@ -13,9 +13,10 @@ if (typeof StyleSheet === 'undefined') {
 import './utils/StyleSheetFix';
 
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { TouchableOpacity, Text, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 
@@ -52,6 +53,39 @@ import UnifiedDrawer from './components/UnifiedDrawer';
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
+
+// Logout button component for Dispatch header
+const LogoutButton = ({ navigation }) => (
+  <TouchableOpacity
+    onPress={() => {
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to log out?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await AsyncStorage.clear();
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'LoginScreen' }],
+                });
+              } catch (error) {
+                console.error('Logout error:', error);
+              }
+            }
+          }
+        ]
+      );
+    }}
+    style={{ marginRight: 15 }}
+  >
+    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Logout</Text>
+  </TouchableOpacity>
+);
 
 // ✅ Sales Agent Drawer
 function AgentDrawer() {
@@ -339,12 +373,12 @@ export default function App() {
 
         if (userToken === 'authenticated' && userRole && userName) {
           // Map roles to their respective screens - USE UNIFIED DRAWER FOR ALL
-          const roleRouteMap = {
+          const routeMap = {
             'Admin': 'UnifiedDrawer',
             'Manager': 'UnifiedDrawer',
             'Sales Agent': 'UnifiedDrawer',
             'Driver': 'DriverDashboard',
-            'Dispatch': 'UnifiedDrawer',
+            'Dispatch': 'DispatchDashboard',
             'Supervisor': 'UnifiedDrawer'
           };
 
@@ -414,11 +448,21 @@ export default function App() {
           />
 
           {/* Main Dashboard Screens */}
-          {/* NEW: Unified Drawer for all roles except Driver */}
+          {/* NEW: Unified Drawer for all roles except Driver and Dispatch */}
           <Stack.Screen 
             name="UnifiedDrawer" 
             component={UnifiedDrawer} 
             options={{ headerShown: false }} 
+          />
+          
+          {/* Dispatch Dashboard - Standalone without drawer */}
+          <Stack.Screen 
+            name="DispatchDashboard" 
+            component={DispatchDashboard} 
+            options={({ navigation }) => ({ 
+              title: 'Dispatch Dashboard',
+              headerRight: () => <LogoutButton navigation={navigation} />
+            })} 
           />
           
           {/* Legacy Drawers - keeping for backward compatibility */}
