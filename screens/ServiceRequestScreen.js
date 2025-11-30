@@ -131,6 +131,10 @@ export default function ServiceRequestScreen() {
 
   // Add new service request
   const handleAddServiceRequest = async () => {
+    console.log('🔍 Starting create request...');
+    console.log('Selected Vehicle:', newRequest.selectedVehicle);
+    console.log('Requested Services:', newRequest.requestedServices);
+    
     if (!newRequest.selectedVehicle || newRequest.requestedServices.length === 0) {
       Alert.alert('Error', 'Please select a vehicle and at least one service');
       return;
@@ -138,13 +142,16 @@ export default function ServiceRequestScreen() {
 
     try {
       console.log('📤 Creating service request...');
+      const accountName = await AsyncStorage.getItem('accountName');
+      console.log('Account Name:', accountName);
+      
       const requestBody = {
         unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
         unitName: newRequest.selectedVehicle.unitName,
         service: newRequest.requestedServices,
         serviceTime: null,
         status: 'Pending',
-        preparedBy: await AsyncStorage.getItem('accountName') || 'System',
+        preparedBy: accountName || 'System',
         dateCreated: new Date().toISOString(),
         completedAt: null,
         completedBy: null,
@@ -153,9 +160,12 @@ export default function ServiceRequestScreen() {
         pendingServices: newRequest.requestedServices
       };
       
-      console.log('📦 Request payload:', requestBody);
+      console.log('📦 Request payload:', JSON.stringify(requestBody, null, 2));
       
-      const response = await fetch(buildApiUrl('/createServiceRequest'), {
+      const url = buildApiUrl('/createServiceRequest');
+      console.log('🌐 Request URL:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,8 +173,12 @@ export default function ServiceRequestScreen() {
         body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
-      console.log('📥 Create response:', data);
+      console.log('📡 Response status:', response.status);
+      const responseText = await response.text();
+      console.log('📥 Response text:', responseText);
+      
+      const data = JSON.parse(responseText);
+      console.log('📥 Parsed response:', data);
       
       if (data.success) {
         Alert.alert('Success', 'Service request created successfully');
@@ -172,14 +186,17 @@ export default function ServiceRequestScreen() {
         resetNewRequestForm();
         // Refresh the list after a short delay to ensure backend has saved
         setTimeout(() => {
+          console.log('🔄 Refreshing service requests...');
           fetchServiceRequests();
         }, 500);
       } else {
+        console.error('❌ Create failed:', data.message);
         Alert.alert('Error', data.message || 'Failed to create service request');
       }
     } catch (error) {
       console.error('❌ Error creating service request:', error);
-      Alert.alert('Error', 'Failed to create service request');
+      console.error('Error stack:', error.stack);
+      Alert.alert('Error', `Failed to create service request: ${error.message}`);
     }
   };
 

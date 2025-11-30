@@ -3841,6 +3841,9 @@ app.get('/getServiceRequests', async (req, res) => {
 
 app.post('/createServiceRequest', async (req, res) => {
   try {
+    console.log('📥 Received createServiceRequest request');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     const newRequest = new Servicerequest({
       ...req.body,
       status: req.body.status || 'Pending',
@@ -3848,9 +3851,15 @@ app.post('/createServiceRequest', async (req, res) => {
       completedAt: null,
       completedBy: null
     });
-    await newRequest.save();
-    res.json({ success: true, data: newRequest });
+    
+    console.log('💾 Attempting to save service request...');
+    const savedRequest = await newRequest.save();
+    console.log('✅ Service request saved successfully:', savedRequest._id);
+    
+    res.json({ success: true, data: savedRequest });
   } catch (error) {
+    console.error('❌ Error creating service request:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
