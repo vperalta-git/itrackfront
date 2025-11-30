@@ -340,9 +340,7 @@ export default function DispatchDashboard({ navigation }) {
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.dispatchedFrom}>
-            <Ionicons name="location" size={12} color="#666" /> {request.dispatchedFrom || 'System'}
-          </Text>
+          <Text style={styles.dispatchedFrom}>From: {request.dispatchedFrom || 'System'}</Text>
           <Text style={styles.tapHint}>Tap to update →</Text>
         </View>
       </TouchableOpacity>
