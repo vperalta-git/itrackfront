@@ -89,11 +89,6 @@ function AgentDrawer() {
         options={{ title: 'Sales Agent Dashboard' }} 
       />
       <Drawer.Screen 
-        name="VehicleProgress" 
-        component={VehicleProgressScreen} 
-        options={{ title: 'Vehicle Progress' }} 
-      />
-      <Drawer.Screen 
         name="VehicleStatus" 
         component={VehicleStatusScreen} 
         options={{ title: 'Vehicle Status' }} 
@@ -178,11 +173,6 @@ function AdminDrawer() {
         options={{ title: 'Dispatch Center' }} 
       />
       <Drawer.Screen 
-        name="VehicleProgress" 
-        component={VehicleProgressScreen} 
-        options={{ title: 'Vehicle Progress' }} 
-      />
-      <Drawer.Screen 
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'System History' }} 
@@ -247,11 +237,6 @@ function ManagerDrawer() {
         options={{ title: 'Sales Operations' }} 
       />
       <Drawer.Screen 
-        name="VehicleProgress" 
-        component={VehicleProgressScreen} 
-        options={{ title: 'Vehicle Progress' }} 
-      />
-            <Drawer.Screen 
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'Reports' }} 
@@ -304,11 +289,6 @@ function SupervisorDrawer() {
         name="SupervisorDashboard" 
         component={SupervisorDashboard} 
         options={{ title: 'Supervisor Dashboard' }} 
-      />
-      <Drawer.Screen 
-        name="VehicleProgress" 
-        component={VehicleProgressScreen} 
-        options={{ title: 'Vehicle Progress' }} 
       />
       <Drawer.Screen 
         name="History" 

@@ -259,67 +259,158 @@ export default function ServiceRequestScreen() {
   };
 
   // Render service request item
-  const renderRequestItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.requestCard}
-      onPress={() => {
-        setSelectedRequest(item);
-        setShowDetailsModal(true);
-      }}
-    >
-      <View style={styles.requestHeader}>
-        <View style={styles.requestInfo}>
-          <Text style={styles.requestTitle}>{item.unitName}</Text>
-          <Text style={styles.requestId}>ID: {item.unitId}</Text>
+  const renderRequestItem = ({ item }) => {
+    const statusStyle = getStatusStyle(item.status);
+    
+    return (
+      <TouchableOpacity
+        style={styles.requestCard}
+        onPress={() => {
+          setSelectedRequest(item);
+          setShowDetailsModal(true);
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Card Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Text style={styles.cardTitle}>{item.unitName || 'Unknown Vehicle'}</Text>
+            <Text style={styles.cardSubtitle}>
+              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              }) : 'Date not set'}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Text style={[styles.statusText, { color: statusStyle.color }]}>
+              {item.status || 'Pending'}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.badgeText}>{item.status}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.servicesContainer}>
-        <Text style={styles.servicesLabel}>Requested Services:</Text>
-        <View style={styles.servicesWrap}>
-          {(item.requestedServices || []).map((service, index) => (
-            <View key={index} style={styles.serviceTag}>
-              <Text style={styles.serviceTagText}>{formatServiceName(service)}</Text>
+
+        {/* Card Body */}
+        <View style={styles.cardBody}>
+          <View style={styles.cardRow}>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>🏷️ Unit ID</Text>
+              <Text style={styles.fieldValue}>{item.unitId || 'N/A'}</Text>
             </View>
-          ))}
-        </View>
-      </View>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>🔧 Total Services</Text>
+              <Text style={styles.fieldValue}>{(item.requestedServices || []).length}</Text>
+            </View>
+          </View>
 
-      {item.createdAt && (
-        <View style={styles.dateContainer}>
-          <MaterialIcons name="schedule" size={14} color="#666" />
-          <Text style={styles.dateText}>
-            Created: {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-      )}
+          {/* Requested Services */}
+          <View style={styles.servicesSection}>
+            <Text style={styles.servicesLabel}>📋 Requested Services:</Text>
+            <View style={styles.servicesWrap}>
+              {(item.requestedServices || []).map((service, index) => (
+                <View key={index} style={styles.serviceTag}>
+                  <Text style={styles.serviceTagText}>{formatServiceName(service)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.updateBtn]}
-          onPress={() => {
-            Alert.alert(
-              'Update Status',
-              'Choose new status:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Pending', onPress: () => updateRequestStatus(item._id, 'Pending') },
-                { text: 'In Progress', onPress: () => updateRequestStatus(item._id, 'In Progress') },
-                { text: 'Completed', onPress: () => updateRequestStatus(item._id, 'Completed') },
-                { text: 'Cancelled', onPress: () => updateRequestStatus(item._id, 'Cancelled') },
-              ]
-            );
-          }}
-        >
-          <MaterialIcons name="edit" size={16} color="#007AFF" />
-          <Text style={styles.actionBtnText}>Update</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+          {/* Notes if available */}
+          {item.notes && (
+            <View style={styles.notesSection}>
+              <Text style={styles.notesLabel}>📝 Notes</Text>
+              <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Card Actions */}
+        <View style={styles.cardActions}>
+          <TouchableOpacity 
+            style={styles.cardActionBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              setSelectedRequest(item);
+              setShowDetailsModal(true);
+            }}
+          >
+            <Text style={styles.cardActionText}>📋 View Details</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.cardActionBtn, styles.editActionBtn]} 
+            onPress={(e) => {
+              e.stopPropagation();
+              Alert.alert(
+                'Update Status',
+                'Choose new status:',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Pending', onPress: () => updateRequestStatus(item._id, 'Pending') },
+                  { text: 'In Progress', onPress: () => updateRequestStatus(item._id, 'In Progress') },
+                  { text: 'Completed', onPress: () => updateRequestStatus(item._id, 'Completed') },
+                  { text: 'Cancelled', onPress: () => updateRequestStatus(item._id, 'Cancelled') },
+                ]
+              );
+            }}
+          >
+            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
+            onPress={(e) => {
+              e.stopPropagation();
+              Alert.alert(
+                'Delete Request',
+                'Are you sure you want to delete this service request?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Delete', 
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const response = await fetch(buildApiUrl(`/deleteServiceRequest/${item._id}`), {
+                          method: 'DELETE',
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                          Alert.alert('Success', 'Request deleted successfully');
+                          fetchServiceRequests();
+                        } else {
+                          Alert.alert('Error', data.message || 'Failed to delete request');
+                        }
+                      } catch (error) {
+                        console.error('Error deleting request:', error);
+                        Alert.alert('Error', 'Failed to delete request');
+                      }
+                    }
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Get status style helper
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return { backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'in progress':
+        return { backgroundColor: '#dbeafe', color: '#1e40af' };
+      case 'completed':
+        return { backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'cancelled':
+        return { backgroundColor: '#fee2e2', color: '#991b1b' };
+      default:
+        return { backgroundColor: '#f3f4f6', color: '#6b7280' };
+    }
+  };
 
   // Filter buttons
   const FilterButton = ({ title, value, active }) => (
@@ -824,21 +915,167 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContainer: {
-    padding: 20,
+    paddingBottom: 20,
   },
   requestCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  cardHeaderLeft: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  cardBody: {
+    marginBottom: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardField: {
+    flex: 1,
+    marginRight: 8,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  fieldValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  servicesSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  servicesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  servicesWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  serviceTag: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#bbdefb',
+  },
+  serviceTagText: {
+    fontSize: 12,
+    color: '#1565c0',
+    fontWeight: '600',
+  },
+  notesSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  notesLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  cardActionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  editActionBtn: {
+    backgroundColor: '#fff3e0',
+    borderColor: '#ffb300',
+  },
+  deleteActionBtn: {
+    backgroundColor: '#ffebee',
+    borderColor: '#f44336',
+  },
+  cardActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  editActionText: {
+    color: '#e65100',
+  },
+  deleteActionText: {
+    color: '#c62828',
+  },
+  // Old styles kept for modals and other components
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -859,13 +1096,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
   },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 80,
-    alignItems: 'center',
-  },
   badgeText: {
     color: '#FFFFFF',
     fontSize: 12,
@@ -873,31 +1103,6 @@ const styles = StyleSheet.create({
   },
   servicesContainer: {
     marginBottom: 16,
-  },
-  servicesLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  servicesWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  serviceTag: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#bbdefb',
-  },
-  serviceTagText: {
-    fontSize: 13,
-    color: '#1565c0',
-    fontWeight: '500',
   },
   dateContainer: {
     flexDirection: 'row',

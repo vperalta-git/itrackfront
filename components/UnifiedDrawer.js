@@ -158,9 +158,7 @@ function CustomDrawerContent(props) {
     { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
-    { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] },
-    { name: "Vehicle Progress", icon: shipmentsIcon, screen: "VehicleProgress", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Audit Trail", icon: reportsIcon, screen: "History", roles: ['Admin', 'Manager'] }
+    { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] }
   ];
 
   // Filter menu based on role (matching web logic)

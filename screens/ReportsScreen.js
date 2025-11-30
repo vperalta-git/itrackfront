@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 export default function ReportsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('reports'); // 'reports' or 'audit'
   const [stats, setStats] = useState({
     totalStocks: 0,
     totalAllocations: 0,
@@ -32,6 +34,7 @@ export default function ReportsScreen() {
   });
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [recentActivities, setRecentActivities] = useState([]);
+  const [auditTrail, setAuditTrail] = useState([]);
 
   // Fetch dashboard statistics
   const fetchStats = useCallback(async () => {
@@ -79,15 +82,31 @@ export default function ReportsScreen() {
     }
   }, []);
 
+  // Fetch audit trail
+  const fetchAuditTrail = useCallback(async () => {
+    try {
+      const response = await fetch(buildApiUrl('/getAuditTrail'));
+      const data = await response.json();
+      
+      if (data.success) {
+        setAuditTrail(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching audit trail:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
     fetchRecentActivities();
-  }, [fetchStats, fetchRecentActivities]);
+    fetchAuditTrail();
+  }, [fetchStats, fetchRecentActivities, fetchAuditTrail]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchStats();
     fetchRecentActivities();
+    fetchAuditTrail();
   };
 
   // Generate report
@@ -202,23 +221,56 @@ export default function ReportsScreen() {
   );
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Reports & Analytics</Text>
-        <TouchableOpacity style={styles.exportButton}>
-          <MaterialIcons name="file-download" size={20} color="#fff" />
-          <Text style={styles.exportButtonText}>Export</Text>
+    <View style={styles.container}>
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'reports' && styles.activeTab]}
+          onPress={() => setActiveTab('reports')}
+        >
+          <MaterialIcons 
+            name="assessment" 
+            size={20} 
+            color={activeTab === 'reports' ? '#fff' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'reports' && styles.activeTabText]}>
+            Reports
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'audit' && styles.activeTab]}
+          onPress={() => setActiveTab('audit')}
+        >
+          <MaterialIcons 
+            name="history" 
+            size={20} 
+            color={activeTab === 'audit' ? '#fff' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'audit' && styles.activeTabText]}>
+            Audit Trail
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Period Filter */}
-      <View style={styles.section}>
-        <PeriodFilter />
-      </View>
+      {/* Content based on active tab */}
+      {activeTab === 'reports' ? (
+        <ScrollView 
+          style={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Reports & Analytics</Text>
+            <TouchableOpacity style={styles.exportButton}>
+              <MaterialIcons name="file-download" size={20} color="#fff" />
+              <Text style={styles.exportButtonText}>Export</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Period Filter */}
+          <View style={styles.section}>
+            <PeriodFilter />
+          </View>
 
       {loading ? (
         <UniformLoading message="Loading reports..." />
@@ -380,9 +432,72 @@ export default function ReportsScreen() {
               </View>
             </View>
           </View>
-        </>
+        </ScrollView>
+      ) : (
+        // Audit Trail View
+        <ScrollView 
+          style={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Audit Trail</Text>
+            <TouchableOpacity style={styles.exportButton}>
+              <MaterialIcons name="file-download" size={20} color="#fff" />
+              <Text style={styles.exportButtonText}>Export</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <UniformLoading message="Loading audit trail..." />
+          ) : (
+            <View style={styles.section}>
+              <FlatList
+                data={auditTrail}
+                keyExtractor={(item, index) => item._id || index.toString()}
+                renderItem={({ item }) => (
+                  <View style={styles.auditItem}>
+                    <View style={styles.auditHeader}>
+                      <View style={styles.auditIcon}>
+                        <MaterialIcons 
+                          name={getAuditIcon(item.action)} 
+                          size={20} 
+                          color="#e50914" 
+                        />
+                      </View>
+                      <View style={styles.auditInfo}>
+                        <Text style={styles.auditAction}>{item.action}</Text>
+                        <Text style={styles.auditUser}>by {item.user || 'System'}</Text>
+                      </View>
+                      <Text style={styles.auditTime}>
+                        {new Date(item.timestamp).toLocaleString()}
+                      </Text>
+                    </View>
+                    {item.details && (
+                      <View style={styles.auditDetails}>
+                        <Text style={styles.auditDetailsText}>{item.details}</Text>
+                      </View>
+                    )}
+                    {item.changes && (
+                      <View style={styles.auditChanges}>
+                        <Text style={styles.auditChangesLabel}>Changes:</Text>
+                        <Text style={styles.auditChangesText}>{JSON.stringify(item.changes, null, 2)}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyAudit}>
+                    <MaterialIcons name="history" size={64} color="#ccc" />
+                    <Text style={styles.emptyAuditText}>No audit records found</Text>
+                  </View>
+                }
+                contentContainerStyle={styles.auditList}
+              />
+            </View>
+          )}
+        </ScrollView>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -398,10 +513,52 @@ const getActivityIcon = (type) => {
   }
 };
 
+// Helper function to get audit icons
+const getAuditIcon = (action) => {
+  if (action?.toLowerCase().includes('create')) return 'add-circle';
+  if (action?.toLowerCase().includes('update')) return 'edit';
+  if (action?.toLowerCase().includes('delete')) return 'delete';
+  if (action?.toLowerCase().includes('login')) return 'login';
+  if (action?.toLowerCase().includes('logout')) return 'logout';
+  return 'info';
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  activeTab: {
+    backgroundColor: '#e50914',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  scrollContent: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -636,5 +793,85 @@ const styles = StyleSheet.create({
   metricChange: {
     fontSize: 12,
     color: '#28a745',
+  },
+  // Audit Trail Styles
+  auditList: {
+    paddingBottom: 20,
+  },
+  auditItem: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e50914',
+  },
+  auditHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  auditIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  auditInfo: {
+    flex: 1,
+  },
+  auditAction: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  auditUser: {
+    fontSize: 14,
+    color: '#666',
+  },
+  auditTime: {
+    fontSize: 12,
+    color: '#999',
+  },
+  auditDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  auditDetailsText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  auditChanges: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+  },
+  auditChangesLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  auditChangesText: {
+    fontSize: 12,
+    color: '#444',
+    fontFamily: 'monospace',
+  },
+  emptyAudit: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyAuditText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
   },
 });
