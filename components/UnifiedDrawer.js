@@ -189,7 +189,7 @@ function CustomDrawerContent(props) {
     // Dispatch gets dispatch-related items
     if (userRole === 'Dispatch') {
       return menuItems.filter(item => 
-        ['Dashboard', 'Reports'].includes(item.name)
+        ['Dashboard'].includes(item.name)
       );
     }
     

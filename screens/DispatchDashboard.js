@@ -26,8 +26,6 @@ export default function DispatchDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     fetchServiceRequests();
@@ -60,41 +58,22 @@ export default function DispatchDashboard() {
     fetchServiceRequests();
   };
 
-  const fetchHistory = async () => {
-    try {
-      const response = await fetch(buildApiUrl('/api/audit-trail'));
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // API returns array directly, not wrapped in success object
-      const auditData = Array.isArray(data) ? data : (data.data || []);
-      
-      // Filter for service request related actions
-      const serviceHistory = auditData.filter(item => 
-        item.module === 'Service Request' ||
-        item.action?.toLowerCase().includes('service') ||
-        item.details?.toLowerCase().includes('service')
-      );
-      
-      setHistory(serviceHistory);
-    } catch (error) {
-      console.error('Error fetching history:', error);
-      Alert.alert('Error', 'Failed to load history');
-      setHistory([]);
-    }
-  };
-
   const updateServiceStatus = async (requestId, serviceId, completed) => {
     try {
       const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
       
       // Get current request
       const request = serviceRequests.find(r => r._id === requestId);
-      if (!request) return;
+      if (!request) {
+        Alert.alert('Error', 'Service request not found');
+        return;
+      }
+
+      // Validate service exists in the request
+      if (!request.service?.includes(serviceId)) {
+        Alert.alert('Error', 'This service is not part of this request');
+        return;
+      }
 
       let updatedCompletedServices = [...(request.completedServices || [])];
       let updatedPendingServices = [...(request.pendingServices || request.service || [])];
@@ -131,6 +110,10 @@ export default function DispatchDashboard() {
         body: JSON.stringify(updateData)
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to update`);
+      }
+
       const data = await response.json();
       
       if (data.success) {
@@ -142,6 +125,11 @@ export default function DispatchDashboard() {
         if (selectedRequest?._id === requestId) {
           setSelectedRequest({ ...selectedRequest, ...updateData });
         }
+
+        // Show success feedback
+        const serviceName = getServiceLabel(serviceId);
+        const statusText = completed ? 'completed' : 'pending';
+        Alert.alert('Success', `${serviceName} marked as ${statusText}`);
       } else {
         Alert.alert('Error', data.message || 'Failed to update service');
       }
@@ -338,53 +326,6 @@ export default function DispatchDashboard() {
     );
   };
 
-  const renderHistoryModal = () => {
-    return (
-      <Modal
-        visible={showHistoryModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowHistoryModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Service Request History</Text>
-            <TouchableOpacity
-              onPress={() => setShowHistoryModal(false)}
-              style={styles.closeButton}
-            >
-              <MaterialIcons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            {history.length === 0 ? (
-              <View style={styles.emptyHistory}>
-                <MaterialIcons name="history" size={64} color="#ccc" />
-                <Text style={styles.emptyHistoryText}>No history available</Text>
-              </View>
-            ) : (
-              history.map((item, index) => (
-                <View key={index} style={styles.historyItem}>
-                  <View style={styles.historyIcon}>
-                    <MaterialIcons name="update" size={20} color="#DC2626" />
-                  </View>
-                  <View style={styles.historyContent}>
-                    <Text style={styles.historyAction}>{item.action}</Text>
-                    <Text style={styles.historyDetails}>{item.details || ''}</Text>
-                    <Text style={styles.historyMeta}>
-                      {item.performedBy} • {new Date(item.timestamp).toLocaleString()}
-                    </Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
-    );
-  };
-
   if (loading && !refreshing) {
     return <UniformLoading message="Loading service requests..." />;
   }
@@ -396,16 +337,6 @@ export default function DispatchDashboard() {
           <Text style={styles.headerTitle}>Service Requests</Text>
           <Text style={styles.headerSubtitle}>Update process status</Text>
         </View>
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => {
-            fetchHistory();
-            setShowHistoryModal(true);
-          }}
-        >
-          <MaterialIcons name="history" size={24} color="#DC2626" />
-          <Text style={styles.historyButtonText}>History</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -426,7 +357,6 @@ export default function DispatchDashboard() {
       </ScrollView>
 
       {renderUpdateModal()}
-      {renderHistoryModal()}
     </View>
   );
 }
@@ -454,20 +384,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
-  },
-  historyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fee',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-  },
-  historyButtonText: {
-    color: '#DC2626',
-    fontSize: 14,
-    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -744,48 +660,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
-  },
-  emptyHistory: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyHistoryText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 16,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  historyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fee',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  historyContent: {
-    flex: 1,
-  },
-  historyAction: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  historyDetails: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 6,
-  },
-  historyMeta: {
-    fontSize: 12,
-    color: '#999',
   },
 });
