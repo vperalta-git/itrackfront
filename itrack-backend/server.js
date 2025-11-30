@@ -3891,12 +3891,107 @@ app.post('/createServiceRequest', async (req, res) => {
 
 app.put('/updateServiceRequest/:id', async (req, res) => {
   try {
-    const updated = await Servicerequest.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    console.log(`📝 PUT /updateServiceRequest/${req.params.id}`);
+    console.log('Update data:', JSON.stringify(req.body, null, 2));
+    
+    const updated = await Servicerequest.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true }
+    );
+    
     if (!updated) {
+      console.log('❌ Service request not found');
       return res.status(404).json({ success: false, message: 'Service request not found' });
     }
+    
+    console.log('✅ Updated successfully:', {
+      unitName: updated.unitName,
+      status: updated.status,
+      completedServices: updated.completedServices,
+      pendingServices: updated.pendingServices
+    });
+    
     res.json({ success: true, data: updated });
   } catch (error) {
+    console.error('❌ Error updating service request:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Mark service request as ready for release (Dispatch)
+app.put('/markReadyForRelease/:id', async (req, res) => {
+  try {
+    console.log(`🚀 PUT /markReadyForRelease/${req.params.id}`);
+    const { markedBy } = req.body;
+    
+    const request = await Servicerequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+    
+    console.log('Current state:', {
+      unitName: request.unitName,
+      status: request.status,
+      completedServices: request.completedServices,
+      totalServices: request.service.length
+    });
+    
+    // Verify all services are completed
+    const allCompleted = request.service.length > 0 && 
+                        request.completedServices.length === request.service.length;
+    
+    if (!allCompleted) {
+      console.log('❌ Not all services completed:', {
+        completed: request.completedServices.length,
+        total: request.service.length
+      });
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot mark as ready - only ${request.completedServices.length}/${request.service.length} services completed` 
+      });
+    }
+    
+    request.readyForRelease = true;
+    request.status = 'Ready for Release';
+    await request.save();
+    
+    console.log('✅ Marked as ready for release:', request.unitName);
+    res.json({ success: true, data: request });
+  } catch (error) {
+    console.error('❌ Error marking ready for release:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Release to customer (Admin)
+app.put('/releaseToCustomer/:id', async (req, res) => {
+  try {
+    console.log(`🎉 PUT /releaseToCustomer/${req.params.id}`);
+    const { releasedBy } = req.body;
+    
+    const request = await Servicerequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+    
+    if (!request.readyForRelease) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vehicle is not marked as ready for release' 
+      });
+    }
+    
+    request.releasedToCustomer = true;
+    request.status = 'Released to Customer';
+    request.releasedBy = releasedBy;
+    request.releasedAt = new Date();
+    await request.save();
+    
+    console.log('✅ Released to customer:', request.unitName);
+    res.json({ success: true, data: request });
+  } catch (error) {
+    console.error('❌ Error releasing to customer:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

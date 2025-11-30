@@ -38,11 +38,19 @@ export default function DispatchDashboard() {
       const data = await response.json();
       
       if (data.success) {
-        // Show all pending and in-progress requests
+        // Show only requests that dispatch can work on
+        // Exclude: Completed, Cancelled, Ready for Release, Released to Customer
         const activeRequests = (data.data || []).filter(req => 
-          req.status !== 'Completed' && req.status !== 'Cancelled'
+          req.status !== 'Completed' && 
+          req.status !== 'Cancelled' &&
+          req.status !== 'Ready for Release' &&
+          req.status !== 'Released to Customer' &&
+          !req.readyForRelease &&
+          !req.releasedToCustomer
         );
         setServiceRequests(activeRequests);
+        
+        console.log('Dispatch Dashboard - Active requests:', activeRequests.length);
       }
     } catch (error) {
       console.error('Error fetching service requests:', error);
@@ -121,6 +129,14 @@ export default function DispatchDashboard() {
         return;
       }
 
+      console.log('Updating service status:', {
+        requestId,
+        serviceId,
+        completed,
+        currentCompleted: request.completedServices,
+        currentPending: request.pendingServices
+      });
+
       // Validate service exists in the request
       if (!request.service?.includes(serviceId)) {
         Alert.alert('Error', 'This service is not part of this request');
@@ -144,6 +160,11 @@ export default function DispatchDashboard() {
         }
       }
 
+      console.log('New service arrays:', {
+        updatedCompleted: updatedCompletedServices,
+        updatedPending: updatedPendingServices
+      });
+
       // Check if all services are completed
       const allCompleted = request.service?.length > 0 && 
                           updatedCompletedServices.length === request.service.length;
@@ -155,6 +176,8 @@ export default function DispatchDashboard() {
         completedBy: allCompleted ? accountName : request.completedBy,
         completedAt: allCompleted ? new Date().toISOString() : request.completedAt
       };
+
+      console.log('Sending update to backend:', updateData);
 
       const response = await fetch(buildApiUrl(`/updateServiceRequest/${requestId}`), {
         method: 'PUT',
@@ -168,14 +191,18 @@ export default function DispatchDashboard() {
 
       const data = await response.json();
       
+      console.log('Backend response:', data);
+      
       if (data.success) {
-        // Update local state
+        console.log('Update successful, refreshing local state');
+        
+        // Update local state with backend response
         setServiceRequests(prev => 
-          prev.map(req => req._id === requestId ? { ...req, ...updateData } : req)
+          prev.map(req => req._id === requestId ? data.data : req)
         );
         
         if (selectedRequest?._id === requestId) {
-          setSelectedRequest({ ...selectedRequest, ...updateData });
+          setSelectedRequest(data.data);
         }
 
         // Show success feedback
@@ -183,6 +210,7 @@ export default function DispatchDashboard() {
         const statusText = completed ? 'completed' : 'pending';
         Alert.alert('Success', `${serviceName} marked as ${statusText}`);
       } else {
+        console.error('Update failed:', data.message);
         Alert.alert('Error', data.message || 'Failed to update service');
       }
     } catch (error) {
