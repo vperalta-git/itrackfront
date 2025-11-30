@@ -62,20 +62,29 @@ export default function DispatchDashboard() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch(buildApiUrl('/getHistory'));
+      const response = await fetch(buildApiUrl('/api/audit-trail'));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
       const data = await response.json();
       
-      if (data.success) {
-        // Filter for service request updates
-        const serviceHistory = (data.data || []).filter(item => 
-          item.action?.includes('service') || 
-          item.action?.includes('Service') ||
-          item.module === 'Service Request'
-        );
-        setHistory(serviceHistory);
-      }
+      // API returns array directly, not wrapped in success object
+      const auditData = Array.isArray(data) ? data : (data.data || []);
+      
+      // Filter for service request related actions
+      const serviceHistory = auditData.filter(item => 
+        item.module === 'Service Request' ||
+        item.action?.toLowerCase().includes('service') ||
+        item.details?.toLowerCase().includes('service')
+      );
+      
+      setHistory(serviceHistory);
     } catch (error) {
       console.error('Error fetching history:', error);
+      Alert.alert('Error', 'Failed to load history');
+      setHistory([]);
     }
   };
 
