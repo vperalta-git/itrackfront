@@ -20,7 +20,6 @@ import { buildApiUrl } from '../constants/api';
 // Import all screens
 import AdminDashboard from '../screens/AdminDashboard';
 import AgentDashboard from '../screens/AgentDashboard';
-import DispatchDashboard from '../screens/DispatchDashboard';
 import DriverDashboard from '../screens/DriverDashboard';
 import DriverAllocation from '../screens/DriverAllocation';
 import VehicleProgressScreen from '../screens/VehicleProgressScreen';
@@ -250,8 +249,6 @@ function CustomDrawerContent(props) {
                   // Navigate to appropriate dashboard based on role
                   if (userRole === 'Driver') {
                     props.navigation.navigate('DriverDashboard');
-                  } else if (userRole === 'Dispatch') {
-                    props.navigation.navigate('DispatchDashboard');
                   } else if (userRole === 'Sales Agent') {
                     props.navigation.navigate('AgentDashboard');
                   } else {
@@ -338,11 +335,6 @@ export default function UnifiedDrawer() {
         name="AgentDashboard"
         component={AgentDashboard}
         options={{ title: 'Sales Agent Dashboard' }}
-      />
-      <Drawer.Screen
-        name="DispatchDashboard"
-        component={DispatchDashboard}
-        options={{ title: 'Dispatch Dashboard' }}
       />
       <Drawer.Screen
         name="DriverDashboard"
