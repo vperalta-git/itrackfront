@@ -367,7 +367,7 @@ export default function App() {
         console.log('🔍 App startup check:', { userToken, userRole, userName });
 
         if (userToken === 'authenticated' && userRole && userName) {
-          // Map roles to their respective screens - USE UNIFIED DRAWER FOR ALL
+          // Map roles to their respective screens
           const routeMap = {
             'Admin': 'UnifiedDrawer',
             'Manager': 'UnifiedDrawer',
@@ -377,7 +377,7 @@ export default function App() {
             'Supervisor': 'UnifiedDrawer'
           };
 
-          const targetRoute = roleRouteMap[userRole] || 'LoginScreen';
+          const targetRoute = routeMap[userRole] || 'LoginScreen';
           console.log('✅ Auto-login:', userRole, '→', targetRoute);
           setInitialRoute(targetRoute);
         } else {

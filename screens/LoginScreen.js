@@ -171,19 +171,22 @@ export default function LoginScreen() {
         await AsyncStorage.removeItem('rememberedUsername');
       }
 
-      // ✅ Navigate based on detected role (handle case-insensitive)
+      // ✅ Navigate based on detected role
       const role = userRole;
-      console.log('🧭 Navigating to UnifiedDrawer for role:', role);
+      console.log('🧭 Navigating based on role:', role);
       
-      // All users now go to the unified drawer - role-based filtering happens inside
+      // Route to appropriate screen based on role
       switch (role) {
         case 'Admin':
         case 'Sales Agent':
-        case 'Dispatch':
         case 'Supervisor':
         case 'Manager':
           console.log('➡️ Navigating to UnifiedDrawer');
           navigation.replace('UnifiedDrawer');
+          break;
+        case 'Dispatch':
+          console.log('➡️ Navigating to DispatchDashboard (standalone)');
+          navigation.replace('DispatchDashboard');
           break;
         case 'Driver':
           console.log('➡️ Navigating to DriverDashboard (direct)');
