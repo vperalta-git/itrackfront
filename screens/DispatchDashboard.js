@@ -33,7 +33,9 @@ export default function DispatchDashboard({ navigation }) {
   }, []);
 
   const fetchServiceRequests = useCallback(async () => {
-    setLoading(true);
+    const isRefresh = loading || refreshing;
+    if (!isRefresh) setLoading(true);
+    
     try {
       const response = await fetch(buildApiUrl('/getRequest'));
       
@@ -101,15 +103,19 @@ export default function DispatchDashboard({ navigation }) {
         
         setServiceRequests(consolidatedRequests);
         console.log('Dispatch Dashboard - Consolidated requests:', consolidatedRequests.length);
+        
+        // Return the consolidated requests for immediate use
+        return consolidatedRequests;
       }
     } catch (error) {
       console.error('Error fetching service requests:', error);
       Alert.alert('Error', 'Failed to load service requests');
+      return null;
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loading, refreshing]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -251,15 +257,21 @@ export default function DispatchDashboard({ navigation }) {
 
       await Promise.all(updatePromises);
       
-      console.log('Update successful, refreshing data');
+      console.log('✅ Update successful, refreshing data from backend');
       
       // Refresh from backend to get latest state
-      await fetchServiceRequests();
+      const updatedRequests = await fetchServiceRequests();
       
-      // Update the selected request in the modal
-      if (selectedRequest?.groupKey === request.groupKey) {
-        const updatedGrouped = serviceRequests.find(r => r.groupKey === request.groupKey);
+      if (updatedRequests && selectedRequest?.groupKey === request.groupKey) {
+        // Find the updated grouped request
+        const updatedGrouped = updatedRequests.find(r => r.groupKey === request.groupKey);
+        
         if (updatedGrouped) {
+          console.log('📝 Updating modal with fresh data:', {
+            services: updatedGrouped.service,
+            completed: updatedGrouped.completedServices,
+            pending: updatedGrouped.pendingServices
+          });
           setSelectedRequest(updatedGrouped);
         }
       }
@@ -267,7 +279,7 @@ export default function DispatchDashboard({ navigation }) {
       // Show success feedback
       const serviceName = getServiceLabel(serviceId);
       const statusText = completed ? 'completed' : 'pending';
-      Alert.alert('Success', `${serviceName} marked as ${statusText}`);
+      console.log(`✓ ${serviceName} marked as ${statusText}`);
     } catch (error) {
       console.error('Error updating service:', error);
       Alert.alert('Error', 'Failed to update service status');
