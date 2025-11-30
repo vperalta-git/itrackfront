@@ -58,6 +58,58 @@ export default function DispatchDashboard() {
     fetchServiceRequests();
   };
 
+  const markAsReadyForRelease = async (requestId) => {
+    try {
+      const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
+      const request = serviceRequests.find(r => r._id === requestId);
+      
+      if (!request) {
+        Alert.alert('Error', 'Service request not found');
+        return;
+      }
+
+      Alert.alert(
+        'Confirm Ready for Release',
+        `Mark ${request.unitName} as ready for release to admin?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              try {
+                const response = await fetch(buildApiUrl(`/markReadyForRelease/${requestId}`), {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ markedBy: accountName })
+                });
+
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: Failed to mark as ready`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                  Alert.alert('Success', `${request.unitName} is now ready for release!`);
+                  setShowUpdateModal(false);
+                  fetchServiceRequests(); // Refresh list
+                } else {
+                  Alert.alert('Error', data.message || 'Failed to mark as ready');
+                }
+              } catch (error) {
+                console.error('Error marking ready for release:', error);
+                Alert.alert('Error', 'Failed to mark as ready for release');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Something went wrong');
+    }
+  };
+
   const updateServiceStatus = async (requestId, serviceId, completed) => {
     try {
       const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
@@ -314,6 +366,34 @@ export default function DispatchDashboard() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
+            {(() => {
+              const allCompleted = selectedRequest.service?.length > 0 && 
+                                  selectedRequest.completedServices?.length === selectedRequest.service.length;
+              const alreadyReady = selectedRequest.readyForRelease || selectedRequest.status === 'Ready for Release';
+              
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.readyButton,
+                    (!allCompleted || alreadyReady) && styles.readyButtonDisabled
+                  ]}
+                  onPress={() => markAsReadyForRelease(selectedRequest._id)}
+                  disabled={!allCompleted || alreadyReady}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons 
+                    name="check-circle" 
+                    size={20} 
+                    color="#fff" 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={styles.readyButtonText}>
+                    {alreadyReady ? 'Already Marked as Ready' : 'Mark as Ready for Release'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
+            
             <TouchableOpacity
               style={styles.closeModalButton}
               onPress={() => setShowUpdateModal(false)}
@@ -647,18 +727,38 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     padding: 20,
+    paddingBottom: 30,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    gap: 12,
+  },
+  readyButton: {
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  readyButtonDisabled: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
+  },
+  readyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   closeModalButton: {
-    backgroundColor: '#DC2626',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: '#666',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
   },
   closeModalButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

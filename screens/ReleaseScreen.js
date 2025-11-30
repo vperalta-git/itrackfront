@@ -32,15 +32,13 @@ export default function ReleaseScreen() {
 
   const fetchPendingReleases = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/dispatch/assignments'));
+      const response = await fetch(buildApiUrl('/getRequest'));
       const data = await response.json();
 
       if (data.success) {
-        // Filter for vehicles that are "Ready for Release"
-        const readyForRelease = (data.data || []).filter(assignment => {
-          return assignment.status === 'Ready for Release' || 
-                 assignment.readyForRelease === true ||
-                 (assignment.processes && assignment.processes.length > 0);
+        // Filter for service requests marked as ready for release
+        const readyForRelease = (data.data || []).filter(request => {
+          return request.readyForRelease === true && request.releasedToCustomer !== true;
         });
         setPendingReleases(readyForRelease);
       }
@@ -51,14 +49,15 @@ export default function ReleaseScreen() {
 
   const fetchReleaseHistory = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/releases'));
+      const response = await fetch(buildApiUrl('/getRequest'));
       const data = await response.json();
 
       if (data.success) {
         // Filter for today's releases
         const today = new Date().toDateString();
-        const todayReleases = (data.data || []).filter(release => {
-          const releaseDate = new Date(release.releasedAt).toDateString();
+        const todayReleases = (data.data || []).filter(request => {
+          if (!request.releasedToCustomer || !request.releasedAt) return false;
+          const releaseDate = new Date(request.releasedAt).toDateString();
           return releaseDate === today;
         });
         setReleaseHistory(todayReleases);
@@ -68,10 +67,10 @@ export default function ReleaseScreen() {
     }
   };
 
-  const handleConfirmRelease = (vehicle) => {
+  const handleConfirmRelease = (request) => {
     Alert.alert(
       'Confirm Vehicle Release',
-      `Release ${vehicle.unitName} (${vehicle.unitId}) to customer?`,
+      `Release ${request.unitName} (${request.unitId}) to customer?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -79,35 +78,25 @@ export default function ReleaseScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const releaseData = {
-                vehicleId: vehicle._id,
-                unitName: vehicle.unitName,
-                unitId: vehicle.unitId,
-                bodyColor: vehicle.bodyColor,
-                variation: vehicle.variation,
-                completedProcesses: vehicle.processes || [],
-                releasedBy: await AsyncStorage.getItem('userName') || 'Admin',
-                releasedAt: new Date().toISOString(),
-                status: 'Released to Customer'
-              };
-
-              const response = await fetch(buildApiUrl('/api/releases'), {
-                method: 'POST',
+              const userName = await AsyncStorage.getItem('accountName') || 'Admin';
+              
+              const response = await fetch(buildApiUrl(`/releaseToCustomer/${request._id}`), {
+                method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(releaseData),
+                body: JSON.stringify({ releasedBy: userName }),
               });
 
               const result = await response.json();
 
               if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Failed to confirm release');
+                throw new Error(result.message || 'Failed to confirm release');
               }
 
               Alert.alert(
                 'Success', 
-                `Vehicle ${vehicle.unitName} has been released to customer!`
+                `Vehicle ${request.unitName} has been released to customer!`
               );
               
               fetchData(); // Refresh data
@@ -180,9 +169,11 @@ export default function ReleaseScreen() {
                 <Text style={styles.vehicleSubtitle}>
                   Unit ID: {vehicle.unitId}
                 </Text>
-                <Text style={styles.vehicleSubtitle}>
-                  Color: {vehicle.bodyColor} • {vehicle.variation}
-                </Text>
+                {vehicle.completedBy && (
+                  <Text style={styles.vehicleSubtitle}>
+                    Completed by: {vehicle.completedBy}
+                  </Text>
+                )}
               </View>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>Ready</Text>
@@ -191,16 +182,27 @@ export default function ReleaseScreen() {
 
             {/* Process Status */}
             <View style={styles.processSection}>
-              <Text style={styles.processTitle}>Completed Processes:</Text>
+              <Text style={styles.processTitle}>Completed Services:</Text>
               <View style={styles.processList}>
-                {(vehicle.processes || []).map((processId, idx) => (
-                  <View key={idx} style={styles.processChip}>
-                    <Text style={styles.processChipText}>{processId}</Text>
-                    <Text style={styles.processCheckMark}>✓</Text>
-                  </View>
-                ))}
+                {(vehicle.completedServices || []).map((serviceId, idx) => {
+                  const serviceName = serviceId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                  return (
+                    <View key={idx} style={styles.processChip}>
+                      <Text style={styles.processChipText}>{serviceName}</Text>
+                      <Text style={styles.processCheckMark}>✓</Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
+
+            {/* Prepared By */}
+            {vehicle.preparedBy && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Prepared by: </Text>
+                <Text style={styles.infoValue}>{vehicle.preparedBy}</Text>
+              </View>
+            )}
 
             {/* Release Action */}
             <TouchableOpacity
@@ -362,6 +364,21 @@ const styles = StyleSheet.create({
   processCheckMark: {
     fontSize: 12,
     color: '#2E7D32',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
   },
   releaseButton: {
     backgroundColor: '#DC2626',

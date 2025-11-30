@@ -2783,7 +2783,11 @@ const ServiceRequestSchema = new mongoose.Schema({
   completedBy: String,
   dispatchedFrom: { type: String, default: 'System' },
   completedServices: { type: [String], default: [] },
-  pendingServices: { type: [String], default: [] }
+  pendingServices: { type: [String], default: [] },
+  readyForRelease: { type: Boolean, default: false },
+  releasedToCustomer: { type: Boolean, default: false },
+  releasedBy: String,
+  releasedAt: Date
 }, { timestamps: true });
 
 const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema, 'servicerequests');
