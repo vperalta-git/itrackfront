@@ -272,14 +272,14 @@ export default function ReportsScreen() {
             <PeriodFilter />
           </View>
 
-      {loading ? (
-        <UniformLoading message="Loading reports..." />
-      ) : (
-        <>
-          {/* Statistics Overview */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Overview Statistics</Text>
-            <View style={styles.statsGrid}>
+          {loading ? (
+            <UniformLoading message="Loading reports..." />
+          ) : (
+            <>
+              {/* Statistics Overview */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Overview Statistics</Text>
+                <View style={styles.statsGrid}>
               <StatCard
                 title="Total Vehicles"
                 value={stats.totalStocks}
@@ -432,6 +432,8 @@ export default function ReportsScreen() {
               </View>
             </View>
           </View>
+            </>
+          )}
         </ScrollView>
       ) : (
         // Audit Trail View
