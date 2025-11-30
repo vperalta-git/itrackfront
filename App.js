@@ -461,7 +461,7 @@ export default function App() {
           
           {/* Profile Screen for Dispatch */}
           <Stack.Screen 
-            name="Profile" 
+            name="DispatchProfile" 
             component={ProfileScreen}
             options={{
               title: 'Profile',

@@ -483,7 +483,7 @@ export default function DispatchDashboard({ navigation }) {
         </View>
         <TouchableOpacity
           style={styles.profileButton}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('DispatchProfile')}
         >
           <MaterialIcons name="person" size={24} color="#DC2626" />
         </TouchableOpacity>
