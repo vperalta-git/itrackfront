@@ -2772,35 +2772,38 @@ app.patch('/driver-allocations/:id', async (req, res) => {
 
 // Service Request Schema
 const ServiceRequestSchema = new mongoose.Schema({
-  unitName: String,
-  unitId: String,
-  service: [String], // Array of requested services
+  unitName: { type: String, required: true },
+  unitId: { type: String, required: true },
+  service: { type: [String], required: true }, // Array of requested services
   serviceTime: Date,
   status: { type: String, default: 'Pending' },
   preparedBy: String,
   dateCreated: { type: Date, default: Date.now },
   completedAt: Date,
   completedBy: String,
-  dispatchedFrom: String, // Track where request came from
-  completedServices: [String], // Track which services are done
-  pendingServices: [String] // Track which services are not done yet
+  dispatchedFrom: { type: String, default: 'System' },
+  completedServices: { type: [String], default: [] },
+  pendingServices: { type: [String], default: [] }
 }, { timestamps: true });
+
 const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema, 'servicerequests');
 
 // Get service requests
 app.get('/getRequest', async (req, res) => {
   try {
     console.log('📥 GET /getRequest called');
-    const requests = await Servicerequest.find({}).sort({ createdAt: -1 });
+    
+    const requests = await Servicerequest.find({}).sort({ createdAt: -1 }).lean();
+    
     console.log(`📊 Found ${requests.length} service requests`);
+    
     if (requests.length > 0) {
-      console.log('📋 Latest request:', {
-        id: requests[0]._id,
-        unitName: requests[0].unitName,
-        status: requests[0].status,
-        createdAt: requests[0].createdAt
+      console.log('Latest 3 requests:');
+      requests.slice(0, 3).forEach((req, idx) => {
+        console.log(`  ${idx + 1}. ${req.unitName} - ${req.status} (${req._id})`);
       });
     }
+    
     res.json({ success: true, data: requests });
   } catch (error) {
     console.error('❌ Get requests error:', error);
@@ -3850,42 +3853,35 @@ app.get('/getServiceRequests', async (req, res) => {
 
 app.post('/createServiceRequest', async (req, res) => {
   try {
-    console.log('📥 Received createServiceRequest request');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('📥 Received createServiceRequest');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     
-    const newRequest = new Servicerequest({
-      ...req.body,
-      status: req.body.status || 'Pending',
-      dateCreated: new Date(),
-      completedAt: null,
-      completedBy: null
-    });
+    // Create new service request with the data from frontend
+    const newRequest = new Servicerequest(req.body);
     
-    console.log('💾 Attempting to save service request...');
+    console.log('💾 Saving to database...');
     const savedRequest = await newRequest.save();
-    console.log('✅ Service request saved successfully!');
-    console.log('📄 Saved document:', {
-      id: savedRequest._id,
-      unitName: savedRequest.unitName,
-      unitId: savedRequest.unitId,
-      status: savedRequest.status,
-      services: savedRequest.service,
-      createdAt: savedRequest.createdAt
+    
+    console.log('✅ Saved successfully!');
+    console.log('Document ID:', savedRequest._id.toString());
+    console.log('Unit Name:', savedRequest.unitName);
+    console.log('Status:', savedRequest.status);
+    
+    // Verify it exists
+    const count = await Servicerequest.countDocuments({});
+    console.log('📊 Total service requests in database:', count);
+    
+    res.json({ 
+      success: true, 
+      data: savedRequest,
+      message: 'Service request created successfully'
     });
-    
-    // Verify it was saved by reading it back
-    const verification = await Servicerequest.findById(savedRequest._id);
-    if (verification) {
-      console.log('✅ Verified: Document exists in database');
-    } else {
-      console.error('❌ WARNING: Document not found after save!');
-    }
-    
-    res.json({ success: true, data: savedRequest });
   } catch (error) {
     console.error('❌ Error creating service request:', error);
-    console.error('Error details:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 

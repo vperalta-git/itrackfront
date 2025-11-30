@@ -132,40 +132,36 @@ export default function ServiceRequestScreen() {
   // Add new service request
   const handleAddServiceRequest = async () => {
     console.log('🔍 Starting create request...');
-    console.log('Selected Vehicle:', newRequest.selectedVehicle);
-    console.log('Requested Services:', newRequest.requestedServices);
     
-    if (!newRequest.selectedVehicle || newRequest.requestedServices.length === 0) {
-      Alert.alert('Error', 'Please select a vehicle and at least one service');
+    if (!newRequest.selectedVehicle) {
+      Alert.alert('Error', 'Please select a vehicle');
+      return;
+    }
+    
+    if (newRequest.requestedServices.length === 0) {
+      Alert.alert('Error', 'Please select at least one service');
       return;
     }
 
+    setLoading(true);
+    
     try {
-      console.log('📤 Creating service request...');
       const accountName = await AsyncStorage.getItem('accountName');
-      console.log('Account Name:', accountName);
       
       const requestBody = {
         unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
         unitName: newRequest.selectedVehicle.unitName,
         service: newRequest.requestedServices,
-        serviceTime: null,
         status: 'Pending',
         preparedBy: accountName || 'System',
-        dateCreated: new Date().toISOString(),
-        completedAt: null,
-        completedBy: null,
         dispatchedFrom: 'Mobile App',
         completedServices: [],
         pendingServices: newRequest.requestedServices
       };
       
-      console.log('📦 Request payload:', JSON.stringify(requestBody, null, 2));
+      console.log('📤 Creating service request:', requestBody);
       
-      const url = buildApiUrl('/createServiceRequest');
-      console.log('🌐 Request URL:', url);
-      
-      const response = await fetch(url, {
+      const response = await fetch(buildApiUrl('/createServiceRequest'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,37 +169,32 @@ export default function ServiceRequestScreen() {
         body: JSON.stringify(requestBody),
       });
 
-      console.log('📡 Response status:', response.status);
-      const responseText = await response.text();
-      console.log('📥 Response text:', responseText);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
-      const data = JSON.parse(responseText);
-      console.log('📥 Parsed response:', data);
+      const data = await response.json();
+      console.log('📥 Create response:', data);
       
       if (data.success) {
-        console.log('✅ Service request created successfully!');
-        console.log('Created document ID:', data.data?._id);
+        console.log('✅ Created request ID:', data.data?._id);
         
-        Alert.alert('Success', 'Service request created successfully', [
-          {
-            text: 'OK',
-            onPress: () => {
-              setShowAddModal(false);
-              resetNewRequestForm();
-              // Immediately refresh the list
-              console.log('🔄 Refreshing service requests list...');
-              fetchServiceRequests();
-            }
-          }
-        ]);
+        // Close modal and reset form
+        setShowAddModal(false);
+        resetNewRequestForm();
+        
+        // Refresh the list
+        await fetchServiceRequests();
+        
+        Alert.alert('Success', 'Service request created successfully!');
       } else {
-        console.error('❌ Create failed:', data.message);
-        Alert.alert('Error', data.message || 'Failed to create service request');
+        throw new Error(data.message || 'Failed to create service request');
       }
     } catch (error) {
       console.error('❌ Error creating service request:', error);
-      console.error('Error stack:', error.stack);
-      Alert.alert('Error', `Failed to create service request: ${error.message}`);
+      Alert.alert('Error', error.message || 'Failed to create service request');
+    } finally {
+      setLoading(false);
     }
   };
 
