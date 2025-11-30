@@ -2790,8 +2790,17 @@ const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema, 's
 // Get service requests
 app.get('/getRequest', async (req, res) => {
   try {
+    console.log('📥 GET /getRequest called');
     const requests = await Servicerequest.find({}).sort({ createdAt: -1 });
     console.log(`📊 Found ${requests.length} service requests`);
+    if (requests.length > 0) {
+      console.log('📋 Latest request:', {
+        id: requests[0]._id,
+        unitName: requests[0].unitName,
+        status: requests[0].status,
+        createdAt: requests[0].createdAt
+      });
+    }
     res.json({ success: true, data: requests });
   } catch (error) {
     console.error('❌ Get requests error:', error);
@@ -3854,7 +3863,23 @@ app.post('/createServiceRequest', async (req, res) => {
     
     console.log('💾 Attempting to save service request...');
     const savedRequest = await newRequest.save();
-    console.log('✅ Service request saved successfully:', savedRequest._id);
+    console.log('✅ Service request saved successfully!');
+    console.log('📄 Saved document:', {
+      id: savedRequest._id,
+      unitName: savedRequest.unitName,
+      unitId: savedRequest.unitId,
+      status: savedRequest.status,
+      services: savedRequest.service,
+      createdAt: savedRequest.createdAt
+    });
+    
+    // Verify it was saved by reading it back
+    const verification = await Servicerequest.findById(savedRequest._id);
+    if (verification) {
+      console.log('✅ Verified: Document exists in database');
+    } else {
+      console.error('❌ WARNING: Document not found after save!');
+    }
     
     res.json({ success: true, data: savedRequest });
   } catch (error) {

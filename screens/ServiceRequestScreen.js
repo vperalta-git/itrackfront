@@ -181,14 +181,21 @@ export default function ServiceRequestScreen() {
       console.log('📥 Parsed response:', data);
       
       if (data.success) {
-        Alert.alert('Success', 'Service request created successfully');
-        setShowAddModal(false);
-        resetNewRequestForm();
-        // Refresh the list after a short delay to ensure backend has saved
-        setTimeout(() => {
-          console.log('🔄 Refreshing service requests...');
-          fetchServiceRequests();
-        }, 500);
+        console.log('✅ Service request created successfully!');
+        console.log('Created document ID:', data.data?._id);
+        
+        Alert.alert('Success', 'Service request created successfully', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setShowAddModal(false);
+              resetNewRequestForm();
+              // Immediately refresh the list
+              console.log('🔄 Refreshing service requests list...');
+              fetchServiceRequests();
+            }
+          }
+        ]);
       } else {
         console.error('❌ Create failed:', data.message);
         Alert.alert('Error', data.message || 'Failed to create service request');
