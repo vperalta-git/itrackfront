@@ -183,16 +183,24 @@ export default function DispatchDashboard({ navigation }) {
         markAsCompleted: completed
       });
 
-      // Validate service exists in the request
-      if (!request.service?.includes(serviceId)) {
+      // Validate service exists in the request (case-insensitive)
+      const serviceExistsInRequest = request.service?.some(s => 
+        s.toLowerCase() === serviceId.toLowerCase()
+      );
+      
+      if (!serviceExistsInRequest) {
+        console.error('❌ Service not found in request:', {
+          lookingFor: serviceId,
+          availableServices: request.service
+        });
         Alert.alert('Error', 'This service is not part of this request');
         return;
       }
 
-      // Find which original request(s) contain this specific service
+      // Find which original request(s) contain this specific service (case-insensitive)
       const affectedOriginalRequests = originalRequests.filter(origReq => 
         request.requestIds.includes(origReq._id) && 
-        origReq.service?.includes(serviceId)
+        origReq.service?.some(s => s.toLowerCase() === serviceId.toLowerCase())
       );
 
       if (affectedOriginalRequests.length === 0) {
@@ -214,20 +222,36 @@ export default function DispatchDashboard({ navigation }) {
 
       // Update each affected request individually
       const updatePromises = affectedOriginalRequests.map(async (origReq) => {
+        // Find the actual service name from the backend (might be capitalized differently)
+        const actualServiceName = origReq.service.find(s => 
+          s.toLowerCase() === serviceId.toLowerCase()
+        );
+        
+        if (!actualServiceName) {
+          console.error('❌ Could not find actual service name in original request');
+          return null;
+        }
+        
+        console.log(`📝 Using actual service name: "${actualServiceName}" (input was: "${serviceId}")`);
+        
         let updatedCompletedServices = [...(origReq.completedServices || [])];
         let updatedPendingServices = [...(origReq.pendingServices || origReq.service || [])];
 
         if (completed) {
-          // Mark as completed
-          if (!updatedCompletedServices.includes(serviceId)) {
-            updatedCompletedServices.push(serviceId);
+          // Mark as completed - use actual service name from backend
+          if (!updatedCompletedServices.includes(actualServiceName)) {
+            updatedCompletedServices.push(actualServiceName);
           }
-          updatedPendingServices = updatedPendingServices.filter(s => s !== serviceId);
+          updatedPendingServices = updatedPendingServices.filter(s => 
+            s.toLowerCase() !== actualServiceName.toLowerCase()
+          );
         } else {
           // Mark as pending
-          updatedCompletedServices = updatedCompletedServices.filter(s => s !== serviceId);
-          if (!updatedPendingServices.includes(serviceId)) {
-            updatedPendingServices.push(serviceId);
+          updatedCompletedServices = updatedCompletedServices.filter(s => 
+            s.toLowerCase() !== actualServiceName.toLowerCase()
+          );
+          if (!updatedPendingServices.includes(actualServiceName)) {
+            updatedPendingServices.push(actualServiceName);
           }
         }
 
@@ -439,8 +463,11 @@ export default function DispatchDashboard({ navigation }) {
 
             <Text style={styles.sectionTitle}>Service Checklist</Text>
             
-            {(selectedRequest.service || []).map((serviceId, index) => {
-              const isCompleted = selectedRequest.completedServices?.includes(serviceId);
+            {(selectedRequest.service || []).map((serviceName, index) => {
+              // Check if completed (case-insensitive)
+              const isCompleted = selectedRequest.completedServices?.some(s => 
+                s.toLowerCase() === serviceName.toLowerCase()
+              );
               
               return (
                 <TouchableOpacity
@@ -449,7 +476,7 @@ export default function DispatchDashboard({ navigation }) {
                     styles.serviceItem,
                     isCompleted ? styles.serviceItemCompleted : styles.serviceItemPending
                   ]}
-                  onPress={() => updateServiceStatus(selectedRequest, serviceId, !isCompleted)}
+                  onPress={() => updateServiceStatus(selectedRequest, serviceName, !isCompleted)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.serviceItemLeft}>
@@ -460,7 +487,7 @@ export default function DispatchDashboard({ navigation }) {
                       {isCompleted && <MaterialIcons name="check" size={18} color="#fff" />}
                     </View>
                     <MaterialIcons
-                      name={getServiceIcon(serviceId)}
+                      name={getServiceIcon(serviceName)}
                       size={22}
                       color={isCompleted ? '#4CAF50' : '#666'}
                       style={styles.serviceIcon}
@@ -469,7 +496,7 @@ export default function DispatchDashboard({ navigation }) {
                       styles.serviceItemText,
                       isCompleted ? styles.serviceItemTextCompleted : {}
                     ]}>
-                      {getServiceLabel(serviceId)}
+                      {getServiceLabel(serviceName)}
                     </Text>
                   </View>
                   {isCompleted && (
