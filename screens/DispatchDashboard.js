@@ -173,6 +173,16 @@ export default function DispatchDashboard({ navigation }) {
         completed
       });
 
+      console.log('🔍 Update request details:', {
+        groupedRequest: {
+          service: request.service,
+          completedServices: request.completedServices,
+          requestIds: request.requestIds
+        },
+        serviceToUpdate: serviceId,
+        markAsCompleted: completed
+      });
+
       // Validate service exists in the request
       if (!request.service?.includes(serviceId)) {
         Alert.alert('Error', 'This service is not part of this request');
@@ -186,14 +196,20 @@ export default function DispatchDashboard({ navigation }) {
       );
 
       if (affectedOriginalRequests.length === 0) {
+        console.error('❌ No original requests found for service:', serviceId);
+        console.error('Available original requests:', originalRequests.map(r => ({
+          id: r._id,
+          services: r.service
+        })));
         Alert.alert('Error', 'Could not find the service request to update');
         return;
       }
 
-      console.log('Affected original requests:', affectedOriginalRequests.map(r => ({ 
+      console.log('✅ Affected original requests:', affectedOriginalRequests.map(r => ({ 
         id: r._id, 
         services: r.service,
-        completed: r.completedServices 
+        completed: r.completedServices,
+        pending: r.pendingServices
       })));
 
       // Update each affected request individually
@@ -227,7 +243,7 @@ export default function DispatchDashboard({ navigation }) {
           completedAt: allCompleted ? new Date().toISOString() : origReq.completedAt
         };
 
-        console.log(`Updating request ${origReq._id}:`, updateData);
+        console.log(`📤 Sending update for request ${origReq._id}:`, JSON.stringify(updateData, null, 2));
 
         const response = await fetch(buildApiUrl(`/updateServiceRequest/${origReq._id}`), {
           method: 'PUT',
@@ -237,6 +253,7 @@ export default function DispatchDashboard({ navigation }) {
 
         if (!response.ok) {
           const text = await response.text();
+          console.error(`❌ Backend error for ${origReq._id}:`, text);
           let errorMessage = `HTTP ${response.status}: Failed to update`;
           try {
             const errorData = JSON.parse(text);
@@ -252,7 +269,14 @@ export default function DispatchDashboard({ navigation }) {
           throw new Error('Empty response from server');
         }
         
-        return JSON.parse(text);
+        const result = JSON.parse(text);
+        console.log(`📥 Backend response for ${origReq._id}:`, {
+          success: result.success,
+          completedServices: result.data?.completedServices,
+          pendingServices: result.data?.pendingServices
+        });
+        
+        return result;
       });
 
       await Promise.all(updatePromises);
