@@ -147,7 +147,10 @@ export default function ServiceRequestScreen() {
         preparedBy: await AsyncStorage.getItem('accountName') || 'System',
         dateCreated: new Date().toISOString(),
         completedAt: null,
-        completedBy: null
+        completedBy: null,
+        dispatchedFrom: 'Mobile App',
+        completedServices: [],
+        pendingServices: newRequest.requestedServices
       };
       
       console.log('📦 Request payload:', requestBody);
@@ -604,9 +607,10 @@ export default function ServiceRequestScreen() {
       </Modal>
 
       {/* Request Details Modal */}
-      <Modal visible={showDetailsModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
+      <Modal visible={showDetailsModal} animationType="fade" transparent={true}>
+        <View style={styles.centeredModalOverlay}>
           <View style={styles.detailsModalContent}>
+            {/* Header */}
             <View style={styles.detailsModalHeader}>
               <Text style={styles.detailsModalTitle}>Request Details</Text>
               <TouchableOpacity 
@@ -618,8 +622,12 @@ export default function ServiceRequestScreen() {
             </View>
 
             {selectedRequest && (
-              <ScrollView style={styles.detailsScrollView} showsVerticalScrollIndicator={false}>
-                {/* Status Badge */}
+              <ScrollView 
+                style={styles.detailsScrollView} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.detailsScrollContent}
+              >
+                {/* Status Badge - Centered */}
                 <View style={styles.detailsStatusContainer}>
                   <View style={[styles.detailsStatusBadge, { backgroundColor: getStatusStyle(selectedRequest.status).backgroundColor }]}>
                     <Text style={[styles.detailsStatusText, { color: getStatusStyle(selectedRequest.status).color }]}>
@@ -630,61 +638,122 @@ export default function ServiceRequestScreen() {
 
                 {/* Vehicle Information Card */}
                 <View style={styles.detailsCard}>
-                  <Text style={styles.detailsCardTitle}>🚗 Vehicle Information</Text>
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detailsLabel}>Unit Name:</Text>
+                  <View style={styles.detailsCardHeader}>
+                    <MaterialIcons name="directions-car" size={22} color="#DC2626" />
+                    <Text style={styles.detailsCardTitle}>Vehicle Information</Text>
+                  </View>
+                  <View style={styles.detailsInfoRow}>
+                    <Text style={styles.detailsLabel}>Unit Name</Text>
                     <Text style={styles.detailsValue}>{selectedRequest.unitName || 'N/A'}</Text>
                   </View>
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detailsLabel}>Unit ID:</Text>
+                  <View style={styles.detailsDivider} />
+                  <View style={styles.detailsInfoRow}>
+                    <Text style={styles.detailsLabel}>Unit ID</Text>
                     <Text style={styles.detailsValue}>{selectedRequest.unitId || 'N/A'}</Text>
                   </View>
                 </View>
 
-                {/* Services Card */}
-                <View style={styles.detailsCard}>
-                  <Text style={styles.detailsCardTitle}>🔧 Requested Services</Text>
-                  <View style={styles.detailsServicesGrid}>
-                    {(selectedRequest.service || []).map((service, index) => (
-                      <View key={index} style={styles.detailsServiceChip}>
-                        <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                        <Text style={styles.detailsServiceChipText}>{formatServiceName(service)}</Text>
-                      </View>
-                    ))}
+                {/* Completed Services Card */}
+                {(selectedRequest.completedServices && selectedRequest.completedServices.length > 0) && (
+                  <View style={styles.detailsCard}>
+                    <View style={styles.detailsCardHeader}>
+                      <MaterialIcons name="check-circle" size={22} color="#28a745" />
+                      <Text style={styles.detailsCardTitle}>Completed Services</Text>
+                    </View>
+                    <View style={styles.detailsServicesGrid}>
+                      {selectedRequest.completedServices.map((service, index) => (
+                        <View key={index} style={styles.completedServiceChip}>
+                          <MaterialIcons name="check" size={16} color="#fff" />
+                          <Text style={styles.completedServiceText}>{formatServiceName(service)}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                </View>
+                )}
+
+                {/* Pending Services Card */}
+                {(selectedRequest.pendingServices && selectedRequest.pendingServices.length > 0) && (
+                  <View style={styles.detailsCard}>
+                    <View style={styles.detailsCardHeader}>
+                      <MaterialIcons name="schedule" size={22} color="#ffc107" />
+                      <Text style={styles.detailsCardTitle}>Pending Services</Text>
+                    </View>
+                    <View style={styles.detailsServicesGrid}>
+                      {selectedRequest.pendingServices.map((service, index) => (
+                        <View key={index} style={styles.pendingServiceChip}>
+                          <MaterialIcons name="schedule" size={16} color="#ff9800" />
+                          <Text style={styles.pendingServiceText}>{formatServiceName(service)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* All Services (fallback if no completed/pending split) */}
+                {(!selectedRequest.completedServices && !selectedRequest.pendingServices && selectedRequest.service) && (
+                  <View style={styles.detailsCard}>
+                    <View style={styles.detailsCardHeader}>
+                      <MaterialIcons name="build" size={22} color="#DC2626" />
+                      <Text style={styles.detailsCardTitle}>Requested Services</Text>
+                    </View>
+                    <View style={styles.detailsServicesGrid}>
+                      {(selectedRequest.service || []).map((service, index) => (
+                        <View key={index} style={styles.allServiceChip}>
+                          <MaterialIcons name="build" size={16} color="#DC2626" />
+                          <Text style={styles.allServiceText}>{formatServiceName(service)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
 
                 {/* Request Information Card */}
                 <View style={styles.detailsCard}>
-                  <Text style={styles.detailsCardTitle}>📊 Request Information</Text>
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detailsLabel}>Created:</Text>
+                  <View style={styles.detailsCardHeader}>
+                    <MaterialIcons name="info" size={22} color="#2196F3" />
+                    <Text style={styles.detailsCardTitle}>Request Information</Text>
+                  </View>
+                  <View style={styles.detailsInfoRow}>
+                    <Text style={styles.detailsLabel}>Dispatched From</Text>
+                    <Text style={styles.detailsValue}>{selectedRequest.dispatchedFrom || 'Mobile App'}</Text>
+                  </View>
+                  <View style={styles.detailsDivider} />
+                  <View style={styles.detailsInfoRow}>
+                    <Text style={styles.detailsLabel}>Date Created</Text>
                     <Text style={styles.detailsValue}>
-                      {selectedRequest.dateCreated ? new Date(selectedRequest.dateCreated).toLocaleString() : 'N/A'}
+                      {selectedRequest.dateCreated ? new Date(selectedRequest.dateCreated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                     </Text>
                   </View>
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detailsLabel}>Prepared By:</Text>
+                  <View style={styles.detailsDivider} />
+                  <View style={styles.detailsInfoRow}>
+                    <Text style={styles.detailsLabel}>Prepared By</Text>
                     <Text style={styles.detailsValue}>{selectedRequest.preparedBy || 'System'}</Text>
                   </View>
                   {selectedRequest.completedAt && (
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Completed:</Text>
-                      <Text style={styles.detailsValue}>
-                        {new Date(selectedRequest.completedAt).toLocaleString()}
-                      </Text>
-                    </View>
+                    <>
+                      <View style={styles.detailsDivider} />
+                      <View style={styles.detailsInfoRow}>
+                        <Text style={styles.detailsLabel}>Completed</Text>
+                        <Text style={styles.detailsValue}>
+                          {new Date(selectedRequest.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                    </>
                   )}
                   {selectedRequest.completedBy && (
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Completed By:</Text>
-                      <Text style={styles.detailsValue}>{selectedRequest.completedBy}</Text>
-                    </View>
+                    <>
+                      <View style={styles.detailsDivider} />
+                      <View style={styles.detailsInfoRow}>
+                        <Text style={styles.detailsLabel}>Completed By</Text>
+                        <Text style={styles.detailsValue}>{selectedRequest.completedBy}</Text>
+                      </View>
+                    </>
                   )}
                 </View>
               </ScrollView>
             )}
 
+            {/* Footer with Close Button */}
             <View style={styles.detailsModalFooter}>
               <TouchableOpacity
                 style={styles.detailsCloseButton}
@@ -1469,40 +1538,53 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   // Enhanced Details Modal Styles
+  centeredModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   detailsModalContent: {
     backgroundColor: '#ffffff',
     borderRadius: 20,
-    width: '90%',
-    maxHeight: '85%',
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 20,
   },
   detailsModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     backgroundColor: '#DC2626',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   detailsModalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#ffffff',
+    letterSpacing: 0.5,
   },
   detailsCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailsScrollView: {
+    maxHeight: '75%',
+  },
+  detailsScrollContent: {
     padding: 20,
   },
   detailsStatusContainer: {
@@ -1510,37 +1592,61 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   detailsStatusBadge: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-    minWidth: 140,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 25,
+    minWidth: 160,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   detailsStatusText: {
     fontSize: 16,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   detailsCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#f1f3f5',
   },
   detailsCardTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1a1a1a',
-    marginBottom: 12,
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
-  detailsRow: {
+  detailsInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: '#f1f3f5',
+    marginVertical: 4,
   },
   detailsLabel: {
     fontSize: 14,
@@ -1551,43 +1657,96 @@ const styles = StyleSheet.create({
   detailsValue: {
     fontSize: 14,
     color: '#212529',
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1.5,
     textAlign: 'right',
   },
   detailsServicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    marginTop: 4,
   },
-  detailsServiceChip: {
+  completedServiceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    backgroundColor: '#28a745',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
     gap: 6,
+    shadowColor: '#28a745',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  detailsServiceChipText: {
+  completedServiceText: {
     fontSize: 13,
-    color: '#2e7d32',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  pendingServiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#ffc107',
+    shadowColor: '#ffc107',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pendingServiceText: {
+    fontSize: 13,
+    color: '#856404',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  allServiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+  },
+  allServiceText: {
+    fontSize: 13,
+    color: '#DC2626',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   detailsModalFooter: {
-    padding: 20,
-    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderTopWidth: 1.5,
     borderTopColor: '#e9ecef',
   },
   detailsCloseButton: {
     backgroundColor: '#DC2626',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   detailsCloseButtonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

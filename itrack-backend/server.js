@@ -2772,16 +2772,18 @@ app.patch('/driver-allocations/:id', async (req, res) => {
 
 // Service Request Schema
 const ServiceRequestSchema = new mongoose.Schema({
-  vehicleId: String,
   unitName: String,
   unitId: String,
-  requestType: String,
-  description: String,
-  requestedBy: String,
+  service: [String], // Array of requested services
+  serviceTime: Date,
   status: { type: String, default: 'Pending' },
-  priority: { type: String, default: 'Normal' },
+  preparedBy: String,
+  dateCreated: { type: Date, default: Date.now },
   completedAt: Date,
-  completedBy: String
+  completedBy: String,
+  dispatchedFrom: String, // Track where request came from
+  completedServices: [String], // Track which services are done
+  pendingServices: [String] // Track which services are not done yet
 }, { timestamps: true });
 const Servicerequest = mongoose.model('Servicerequest', ServiceRequestSchema, 'servicerequests');
 
