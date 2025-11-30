@@ -1,10 +1,10 @@
-// DispatchDashboard.js - Rebuilt for Dispatch Role
+// DispatchDashboard.js - Simple Process Updater for Dispatch
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, RefreshControl, Modal, Dimensions
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
@@ -20,7 +20,7 @@ const AVAILABLE_SERVICES = [
   { id: 'rust_proof', label: 'Rust Proof', icon: 'shield-check' }
 ];
 
-export default function DispatchDashboard({ navigation }) {
+export default function DispatchDashboard() {
   const [serviceRequests, setServiceRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,7 +50,7 @@ export default function DispatchDashboard({ navigation }) {
       if (data.success) {
         // Show only requests that dispatch can work on
         // Exclude: Completed, Cancelled, Ready for Release, Released to Customer
-        let activeRequests = (data.data || []).filter(req => 
+        const activeRequests = (data.data || []).filter(req => 
           req.status !== 'Completed' && 
           req.status !== 'Cancelled' &&
           req.status !== 'Ready for Release' &&
@@ -58,44 +58,9 @@ export default function DispatchDashboard({ navigation }) {
           !req.readyForRelease &&
           !req.releasedToCustomer
         );
-
-        // Group by unitId to combine duplicate vehicles
-        const groupedRequests = {};
-        activeRequests.forEach(req => {
-          const key = `${req.unitId}-${req.unitName}`;
-          if (!groupedRequests[key]) {
-            groupedRequests[key] = {
-              ...req,
-              allServices: [...(req.service || [])],
-              allCompletedServices: [...(req.completedServices || [])],
-              allPendingServices: [...(req.pendingServices || [])],
-              requestIds: [req._id]
-            };
-          } else {
-            // Merge services from duplicate entries
-            groupedRequests[key].allServices = [
-              ...new Set([...groupedRequests[key].allServices, ...(req.service || [])])
-            ];
-            groupedRequests[key].allCompletedServices = [
-              ...new Set([...groupedRequests[key].allCompletedServices, ...(req.completedServices || [])])
-            ];
-            groupedRequests[key].allPendingServices = [
-              ...new Set([...groupedRequests[key].allPendingServices, ...(req.pendingServices || [])])
-            ];
-            groupedRequests[key].requestIds.push(req._id);
-          }
-        });
-
-        // Convert back to array
-        const consolidatedRequests = Object.values(groupedRequests).map(req => ({
-          ...req,
-          service: req.allServices,
-          completedServices: req.allCompletedServices,
-          pendingServices: req.allPendingServices
-        }));
+        setServiceRequests(activeRequests);
         
-        setServiceRequests(consolidatedRequests);
-        console.log('Dispatch Dashboard - Consolidated requests:', consolidatedRequests.length);
+        console.log('Dispatch Dashboard - Active requests:', activeRequests.length);
       }
     } catch (error) {
       console.error('Error fetching service requests:', error);
@@ -111,9 +76,15 @@ export default function DispatchDashboard({ navigation }) {
     fetchServiceRequests();
   };
 
-  const markAsReadyForRelease = async (request) => {
+  const markAsReadyForRelease = async (requestId) => {
     try {
       const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
+      const request = serviceRequests.find(r => r._id === requestId);
+      
+      if (!request) {
+        Alert.alert('Error', 'Service request not found');
+        return;
+      }
 
       Alert.alert(
         'Confirm Ready for Release',
@@ -124,20 +95,34 @@ export default function DispatchDashboard({ navigation }) {
             text: 'Confirm',
             onPress: async () => {
               try {
-                // Update all related request IDs
-                const updatePromises = request.requestIds.map(id =>
-                  fetch(buildApiUrl(`/markReadyForRelease/${id}`), {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ markedBy: accountName })
-                  })
-                );
+                const response = await fetch(buildApiUrl(`/markReadyForRelease/${requestId}`), {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ markedBy: accountName })
+                });
 
-                await Promise.all(updatePromises);
+                if (!response.ok) {
+                  const text = await response.text();
+                  let errorMessage = `HTTP ${response.status}: Failed to mark as ready`;
+                  try {
+                    const errorData = JSON.parse(text);
+                    errorMessage = errorData.message || errorMessage;
+                  } catch (e) {
+                    // Text is not JSON, use default message
+                  }
+                  throw new Error(errorMessage);
+                }
+
+                const text = await response.text();
+                const data = JSON.parse(text);
                 
-                Alert.alert('Success', `${request.unitName} is now ready for release!`);
-                setShowUpdateModal(false);
-                fetchServiceRequests(); // Refresh list
+                if (data.success) {
+                  Alert.alert('Success', `${request.unitName} is now ready for release!`);
+                  setShowUpdateModal(false);
+                  fetchServiceRequests(); // Refresh list
+                } else {
+                  Alert.alert('Error', data.message || 'Failed to mark as ready');
+                }
               } catch (error) {
                 console.error('Error marking ready for release:', error);
                 Alert.alert('Error', error.message || 'Failed to mark as ready for release');
@@ -152,14 +137,23 @@ export default function DispatchDashboard({ navigation }) {
     }
   };
 
-  const updateServiceStatus = async (request, serviceId, completed) => {
+  const updateServiceStatus = async (requestId, serviceId, completed) => {
     try {
       const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
+      
+      // Get current request
+      const request = serviceRequests.find(r => r._id === requestId);
+      if (!request) {
+        Alert.alert('Error', 'Service request not found');
+        return;
+      }
 
       console.log('Updating service status:', {
-        requestIds: request.requestIds,
+        requestId,
         serviceId,
-        completed
+        completed,
+        currentCompleted: request.completedServices,
+        currentPending: request.pendingServices
       });
 
       // Validate service exists in the request
@@ -204,51 +198,53 @@ export default function DispatchDashboard({ navigation }) {
 
       console.log('Sending update to backend:', updateData);
 
-      // Update all related request IDs
-      const updatePromises = request.requestIds.map(async (id) => {
-        const response = await fetch(buildApiUrl(`/updateServiceRequest/${id}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData)
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          let errorMessage = `HTTP ${response.status}: Failed to update`;
-          try {
-            const errorData = JSON.parse(text);
-            errorMessage = errorData.message || errorMessage;
-          } catch (e) {
-            // Text is not JSON, use default message
-          }
-          throw new Error(errorMessage);
-        }
-
-        const text = await response.text();
-        if (!text) {
-          throw new Error('Empty response from server');
-        }
-        
-        return JSON.parse(text);
+      const response = await fetch(buildApiUrl(`/updateServiceRequest/${requestId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
       });
 
-      await Promise.all(updatePromises);
-      
-      console.log('Update successful, refreshing local state');
-      
-      // Update local state
-      setServiceRequests(prev => 
-        prev.map(req => req._id === request._id ? { ...req, ...updateData } : req)
-      );
-      
-      if (selectedRequest?._id === request._id) {
-        setSelectedRequest({ ...selectedRequest, ...updateData });
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `HTTP ${response.status}: Failed to update`;
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Text is not JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
 
-      // Show success feedback
-      const serviceName = getServiceLabel(serviceId);
-      const statusText = completed ? 'completed' : 'pending';
-      Alert.alert('Success', `${serviceName} marked as ${statusText}`);
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+      
+      const data = JSON.parse(text);
+      
+      console.log('Backend response:', data);
+      
+      if (data.success) {
+        console.log('Update successful, refreshing local state');
+        
+        // Update local state with backend response
+        setServiceRequests(prev => 
+          prev.map(req => req._id === requestId ? data.data : req)
+        );
+        
+        if (selectedRequest?._id === requestId) {
+          setSelectedRequest(data.data);
+        }
+
+        // Show success feedback
+        const serviceName = getServiceLabel(serviceId);
+        const statusText = completed ? 'completed' : 'pending';
+        Alert.alert('Success', `${serviceName} marked as ${statusText}`);
+      } else {
+        console.error('Update failed:', data.message);
+        Alert.alert('Error', data.message || 'Failed to update service');
+      }
     } catch (error) {
       console.error('Error updating service:', error);
       Alert.alert('Error', 'Failed to update service status');
@@ -396,7 +392,7 @@ export default function DispatchDashboard({ navigation }) {
                     styles.serviceItem,
                     isCompleted ? styles.serviceItemCompleted : styles.serviceItemPending
                   ]}
-                  onPress={() => updateServiceStatus(selectedRequest, serviceId, !isCompleted)}
+                  onPress={() => updateServiceStatus(selectedRequest._id, serviceId, !isCompleted)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.serviceItemLeft}>
@@ -441,7 +437,7 @@ export default function DispatchDashboard({ navigation }) {
                     styles.readyButton,
                     (!allCompleted || alreadyReady) && styles.readyButtonDisabled
                   ]}
-                  onPress={() => markAsReadyForRelease(selectedRequest)}
+                  onPress={() => markAsReadyForRelease(selectedRequest._id)}
                   disabled={!allCompleted || alreadyReady}
                   activeOpacity={0.7}
                 >
@@ -481,12 +477,6 @@ export default function DispatchDashboard({ navigation }) {
           <Text style={styles.headerTitle}>Service Requests</Text>
           <Text style={styles.headerSubtitle}>Update process status</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <MaterialIcons name="person" size={24} color="#DC2626" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -534,14 +524,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,

@@ -454,10 +454,21 @@ export default function App() {
           <Stack.Screen 
             name="DispatchDashboard" 
             component={DispatchDashboard} 
-            options={({ navigation }) => ({ 
-              title: 'Dispatch Dashboard',
-              headerRight: () => <LogoutButton navigation={navigation} />
-            })} 
+            options={{ 
+              headerShown: false // Using custom header with profile button
+            }} 
+          />
+          
+          {/* Profile Screen for Dispatch */}
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+            options={{
+              title: 'Profile',
+              headerStyle: { backgroundColor: '#DC2626' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' }
+            }}
           />
           
           {/* Legacy Drawers - keeping for backward compatibility */}

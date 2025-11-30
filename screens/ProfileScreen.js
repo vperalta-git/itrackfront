@@ -330,11 +330,49 @@ export default function ProfileScreen() {
   };
 
   // View another user's profile
-  const viewOtherProfile = (user) => {
+  const viewUserProfile = (user) => {
     Alert.alert(
       `${user.name}'s Profile`,
       `Role: ${user.role}\nEmail: ${user.email}\nPhone: ${user.phoneNumber || 'N/A'}\n\nPersonal Details:\n${user.personalDetails || 'No details available'}`,
       [{ text: 'Close', style: 'cancel' }]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all stored data
+              await AsyncStorage.multiRemove([
+                'userId',
+                'accountName',
+                'userName',
+                'userEmail',
+                'userRole',
+                'phoneno',
+                'userPhone',
+                'isDarkMode'
+              ]);
+              
+              // Navigate to Login screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert('Error', 'Failed to logout properly');
+            }
+          }
+        }
+      ]
     );
   };
 
@@ -563,6 +601,17 @@ export default function ProfileScreen() {
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </>
             )}
+          </TouchableOpacity>
+        )}
+
+        {/* Logout Button - Only for Dispatch role */}
+        {userProfile.role?.toLowerCase() === 'dispatch' && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -831,6 +880,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  logoutButton: {
+    backgroundColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginBottom: 30,
+    marginTop: 10,
+  },
+  logoutButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
