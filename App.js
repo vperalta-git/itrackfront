@@ -202,11 +202,6 @@ function AdminDrawer() {
         options={{ title: 'Sales Operations' }} 
       />
       <Drawer.Screen 
-        name="DispatchDashboard" 
-        component={DispatchDashboard} 
-        options={{ title: 'Dispatch Center' }} 
-      />
-      <Drawer.Screen 
         name="History" 
         component={HistoryScreen} 
         options={{ title: 'System History' }} 
@@ -494,11 +489,6 @@ export default function App() {
           <Stack.Screen 
             name="DriverHistory" 
             component={DriverHistory} 
-            options={{ headerShown: false }} 
-          />
-          <Stack.Screen 
-            name="DispatchDashboard" 
-            component={DispatchDashboard} 
             options={{ headerShown: false }} 
           />
 

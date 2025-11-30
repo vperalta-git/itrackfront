@@ -5,7 +5,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import AdminDashboard from './AdminDashboard';
 import AgentDashboard from './AgentDashboard';
-import DispatchDashboard from './DispatchDashboard';
 import VehicleProgressScreen from './VehicleProgressScreen';
 import HistoryScreen from './HistoryScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
@@ -53,16 +52,6 @@ export default function AdminDrawer() {
           title: 'Sales Agent Dashboard',
           drawerIcon: ({ color, size }) => (
             <MaterialIcons name="supervisor-account" size={size} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="DispatchDashboard"
-        component={DispatchDashboard}
-        options={{
-          title: 'Dispatch Dashboard',
-          drawerIcon: ({ color, size }) => (
-            <MaterialIcons name="local-shipping" size={size} color={color} />
           ),
         }}
       />
