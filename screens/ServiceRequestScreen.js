@@ -55,17 +55,23 @@ export default function ServiceRequestScreen() {
   const fetchServiceRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/getServiceRequests'));
+      const url = buildApiUrl('/getRequest');
+      console.log('📡 Fetching service requests from:', url);
+      const response = await fetch(url);
       const data = await response.json();
+      
+      console.log('📦 Service requests response:', data);
+      console.log('📊 Total service requests:', data.data?.length || 0);
       
       if (data.success) {
         setServiceRequests(data.data || []);
+        console.log('✅ Service requests loaded:', data.data?.length || 0);
       } else {
-        console.warn('Failed to fetch service requests:', data.message);
+        console.warn('❌ Failed to fetch service requests:', data.message);
         setServiceRequests([]);
       }
     } catch (error) {
-      console.error('Error fetching service requests:', error);
+      console.error('❌ Error fetching service requests:', error);
       Alert.alert('Error', 'Failed to load service requests');
       setServiceRequests([]);
     } finally {
@@ -353,43 +359,7 @@ export default function ServiceRequestScreen() {
               );
             }}
           >
-            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
-            onPress={(e) => {
-              e.stopPropagation();
-              Alert.alert(
-                'Delete Request',
-                'Are you sure you want to delete this service request?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Delete', 
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const response = await fetch(buildApiUrl(`/deleteServiceRequest/${item._id}`), {
-                          method: 'DELETE',
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                          Alert.alert('Success', 'Request deleted successfully');
-                          fetchServiceRequests();
-                        } else {
-                          Alert.alert('Error', data.message || 'Failed to delete request');
-                        }
-                      } catch (error) {
-                        console.error('Error deleting request:', error);
-                        Alert.alert('Error', 'Failed to delete request');
-                      }
-                    }
-                  },
-                ]
-              );
-            }}
-          >
-            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
+            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit Status</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -1044,6 +1014,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    gap: 8,
   },
   cardActionBtn: {
     flex: 1,
@@ -1052,7 +1023,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f8f9fa',
     alignItems: 'center',
-    marginHorizontal: 4,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },

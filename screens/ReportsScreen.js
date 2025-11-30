@@ -82,17 +82,21 @@ export default function ReportsScreen() {
     }
   }, []);
 
-  // Fetch audit trail
+  // Fetch audit trail (use history endpoint)
   const fetchAuditTrail = useCallback(async () => {
     try {
-      const response = await fetch(buildApiUrl('/getAuditTrail'));
+      const response = await fetch(buildApiUrl('/getHistory'));
       const data = await response.json();
       
       if (data.success) {
         setAuditTrail(data.data || []);
+      } else {
+        console.warn('No audit trail data:', data.message);
+        setAuditTrail([]);
       }
     } catch (error) {
       console.error('Error fetching audit trail:', error);
+      setAuditTrail([]);
     }
   }, []);
 
@@ -453,11 +457,9 @@ export default function ReportsScreen() {
             <UniformLoading message="Loading audit trail..." />
           ) : (
             <View style={styles.section}>
-              <FlatList
-                data={auditTrail}
-                keyExtractor={(item, index) => item._id || index.toString()}
-                renderItem={({ item }) => (
-                  <View style={styles.auditItem}>
+              {auditTrail.length > 0 ? (
+                auditTrail.map((item, index) => (
+                  <View key={item._id || index} style={styles.auditItem}>
                     <View style={styles.auditHeader}>
                       <View style={styles.auditIcon}>
                         <MaterialIcons 
@@ -486,15 +488,13 @@ export default function ReportsScreen() {
                       </View>
                     )}
                   </View>
-                )}
-                ListEmptyComponent={
-                  <View style={styles.emptyAudit}>
-                    <MaterialIcons name="history" size={64} color="#ccc" />
-                    <Text style={styles.emptyAuditText}>No audit records found</Text>
-                  </View>
-                }
-                contentContainerStyle={styles.auditList}
-              />
+                ))
+              ) : (
+                <View style={styles.emptyAudit}>
+                  <MaterialIcons name="history" size={64} color="#ccc" />
+                  <Text style={styles.emptyAuditText}>No audit records found</Text>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>
