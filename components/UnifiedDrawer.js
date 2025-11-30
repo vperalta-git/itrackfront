@@ -189,9 +189,7 @@ function CustomDrawerContent(props) {
     // Dispatch gets dispatch-related items
     if (userRole === 'Dispatch') {
       return menuItems.filter(item => 
-        item.roles.includes('all') || 
-        item.roles.includes('Dispatch') ||
-        ['Dashboard', 'Driver Allocation', 'Vehicle Progress'].includes(item.name)
+        ['Dashboard', 'Reports'].includes(item.name)
       );
     }
     

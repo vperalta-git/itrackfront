@@ -1,1253 +1,782 @@
-// DispatchDashboard.js - Process Management for I-Track
-import React, { useEffect, useState } from 'react';
+// DispatchDashboard.js - Simple Process Updater for Dispatch
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, FlatList,
-  TouchableOpacity, StyleSheet, Alert,
-  TextInput, RefreshControl,
-  Modal
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Alert, RefreshControl, Modal, Dimensions
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
-import { useTheme } from '../context/ThemeContext';
-import NotificationService from '../utils/notificationService';
 
-// Available processes that dispatch can manage
-const AVAILABLE_PROCESSES = [
-  { id: 'tinting', label: 'Tinting', icon: '🪟' },
-  { id: 'carwash', label: 'Car Wash', icon: '🚗' },
-  { id: 'rustproof', label: 'Rust Proof', icon: '🛡️' },
-  { id: 'accessories', label: 'Accessories', icon: '⚙️' },
-  { id: 'ceramic_coating', label: 'Ceramic Coating', icon: '✨' }
-];
+const { width } = Dimensions.get('window');
 
-// Status options for vehicles
-const VEHICLE_STATUSES = [
-  { value: 'pending', label: 'Pending', color: '#FFA726' },
-  { value: 'in_progress', label: 'In Progress', color: '#1976D2' },
-  { value: 'ready', label: 'Ready for Release', color: '#4CAF50' },
-  { value: 'released', label: 'Released', color: '#66BB6A' }
+// Available services that can be tracked
+const AVAILABLE_SERVICES = [
+  { id: 'tinting', label: 'Tinting', icon: 'window' },
+  { id: 'carwash', label: 'Car Wash', icon: 'car-wash' },
+  { id: 'ceramic_coating', label: 'Ceramic Coating', icon: 'auto-fix-high' },
+  { id: 'accessories', label: 'Accessories', icon: 'build' },
+  { id: 'rust_proof', label: 'Rust Proof', icon: 'shield-check' }
 ];
 
 export default function DispatchDashboard() {
-  const { theme } = useTheme();
-  const styles = createStyles(theme);
-  const navigation = useNavigation();                                                         
-  const [vehicles, setVehicles] = useState([]);
-  const [filteredVehicles, setFilteredVehicles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [processModalVisible, setProcessModalVisible] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    fetchVehicles();
+    fetchServiceRequests();
   }, []);
 
-  useEffect(() => {
-    filterVehicles();
-  }, [vehicles, searchQuery, statusFilter]);
-
-  const fetchVehicles = async () => {
+  const fetchServiceRequests = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log('Fetching service requests from:', buildApiUrl('/api/servicerequests'));
-      
-      const res = await fetch(buildApiUrl('/api/servicerequests'));
-      console.log('Response status:', res.status);
-      
-      const data = await res.json();
-      console.log('Full API Response:', JSON.stringify(data, null, 2));
+      const response = await fetch(buildApiUrl('/getRequest'));
+      const data = await response.json();
       
       if (data.success) {
-        // Backend returns service requests from itrackDB.servicerequests collection
-        const serviceRequests = data.data || [];
-        
-        console.log('Total service requests found:', serviceRequests.length);
-        
-        if (serviceRequests.length > 0) {
-          console.log('Sample service request:', JSON.stringify(serviceRequests[0], null, 2));
-        }
-        
-        // Filter for service requests that are assigned to dispatch or in progress
-        const dispatchVehicles = serviceRequests.filter(request => {
-          const isDispatchReady = request.status === 'Assigned to Dispatch' || 
-                                 request.status === 'In Progress' ||
-                                 request.status === 'Ready for Dispatch' ||
-                                 request.type === 'dispatch';
-          console.log(`Service Request ${request.vehicleId || request.unitId}: status=${request.status}, type=${request.type}`);
-          return isDispatchReady;
-        });
-        
-        console.log('Filtered dispatch service requests:', dispatchVehicles.length);
-        setVehicles(dispatchVehicles);
-      } else {
-        console.error('API Error:', data.message);
-        Alert.alert('Error', data.message || 'Failed to fetch service requests from server');
-        setVehicles([]);
+        // Show all pending and in-progress requests
+        const activeRequests = (data.data || []).filter(req => 
+          req.status !== 'Completed' && req.status !== 'Cancelled'
+        );
+        setServiceRequests(activeRequests);
       }
-    } catch (err) {
-      console.error('Network/Fetch Error:', err);
-      Alert.alert('Error', `Failed to connect to server: ${err.message}\n\nMake sure the backend is running on ${buildApiUrl('')}`);
-      setVehicles([]);
+    } catch (error) {
+      console.error('Error fetching service requests:', error);
+      Alert.alert('Error', 'Failed to load service requests');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
-  const filterVehicles = () => {
-    let filtered = vehicles;
-
-    // Search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(vehicle =>
-        vehicle.unitId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.unitName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.assignedDriver?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(vehicle => {
-        const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
-          key => vehicle.processStatus[key] === true
-        ).length;
-        // Use requestedProcesses as the primary field, fallback to processes
-        const totalProcesses = vehicle.requestedProcesses?.length || vehicle.processes?.length || 0;
-        
-        if (statusFilter === 'pending') return completedProcesses === 0;
-        if (statusFilter === 'in_progress') return completedProcesses > 0 && completedProcesses < totalProcesses;
-        if (statusFilter === 'ready') return completedProcesses === totalProcesses && totalProcesses > 0;
-        return true;
-      });
-    }
-
-    setFilteredVehicles(filtered);
-  };
-
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    await fetchVehicles();
-    setRefreshing(false);
+    fetchServiceRequests();
   };
 
-  const updateProcessStatus = async (vehicleId, processId, isCompleted) => {
+  const fetchHistory = async () => {
     try {
-      console.log(`🔄 Updating process ${processId} for vehicle ${vehicleId} to ${isCompleted ? 'completed' : 'pending'}`);
+      const response = await fetch(buildApiUrl('/getHistory'));
+      const data = await response.json();
       
-      const res = await fetch(buildApiUrl(`/api/servicerequests/${vehicleId}/process`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          processId,
-          completed: isCompleted,
-          completedBy: await AsyncStorage.getItem('userName') || 'Dispatch',
-          completedAt: new Date().toISOString()
-        }),
-      });
-
-      console.log('📋 Process update response status:', res.status);
-      const responseText = await res.text();
-      console.log('📋 Process update response:', responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error('❌ JSON parse error:', jsonError);
-        throw new Error(`Invalid server response: ${responseText}`);
-      }
-
-      if (res.ok && data.success) {
-        console.log('✅ Process status updated successfully');
-        
-        // Update the local state immediately for better UX
-        setVehicles(prevVehicles => 
-          prevVehicles.map(vehicle => 
-            vehicle._id === vehicleId 
-              ? {
-                  ...vehicle,
-                  processStatus: {
-                    ...vehicle.processStatus,
-                    [processId]: isCompleted
-                  }
-                }
-              : vehicle
-          )
-        );
-        
-        // Update selected vehicle for modal
-        setSelectedVehicle(prevSelected => 
-          prevSelected?._id === vehicleId 
-            ? {
-                ...prevSelected,
-                processStatus: {
-                  ...prevSelected.processStatus,
-                  [processId]: isCompleted
-                }
-              }
-            : prevSelected
-        );
-        
-        // Check if all processes are completed and send notification
-        const updatedVehicle = vehicles.find(v => v._id === vehicleId);
-        if (updatedVehicle && isCompleted) {
-          const processStatus = {
-            ...updatedVehicle.processStatus,
-            [processId]: true
-          };
-          
-          const totalProcesses = updatedVehicle.processes?.length || 0;
-          const completedProcesses = Object.keys(processStatus).filter(key => processStatus[key] === true).length;
-          
-          // If a process is completed, send specific process notification
-          if (isCompleted && updatedVehicle.customerEmail && updatedVehicle.customerName) {
-            // Send notification based on specific process type
-            const processName = processId.toLowerCase();
-            let notificationResult;
-            
-            if (processName.includes('tinting')) {
-              notificationResult = await NotificationService.notifyTinting(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                }
-              );
-            } else if (processName.includes('carwash') || processName.includes('car_wash')) {
-              notificationResult = await NotificationService.notifyCarWash(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                }
-              );
-            } else if (processName.includes('rustproof') || processName.includes('rust_proof')) {
-              notificationResult = await NotificationService.notifyRustProof(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                }
-              );
-            } else if (processName.includes('accessories')) {
-              notificationResult = await NotificationService.notifyAccessories(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                }
-              );
-            } else if (processName.includes('ceramic') || processName.includes('coating')) {
-              notificationResult = await NotificationService.notifyCeramicCoating(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                }
-              );
-            } else {
-              // Generic vehicle preparation notification
-              notificationResult = await NotificationService.notifyVehiclePreparation(
-                {
-                  name: updatedVehicle.customerName,
-                  email: updatedVehicle.customerEmail,
-                  phone: updatedVehicle.customerPhone
-                },
-                {
-                  unitName: updatedVehicle.unitName,
-                  unitId: updatedVehicle.unitId,
-                  model: updatedVehicle.unitName
-                },
-                processId
-              );
-            }
-            
-            if (notificationResult) {
-              if (notificationResult.success) {
-                console.log('✅ Process completion notification sent successfully');
-              } else {
-                console.warn('⚠️ Failed to send process notification:', notificationResult.message);
-              }
-            }
-          }
-        }
-        
-        // Refresh from server to get any other updates
-        await fetchVehicles();
-        
-        Alert.alert('Success', `Process ${processId} marked as ${isCompleted ? 'completed' : 'pending'}!`);
-      } else {
-        throw new Error(data?.message || `Server error: ${res.status}`);
-      }
-    } catch (err) {
-      console.error('❌ Error updating process:', err);
-      Alert.alert('Error', `Failed to update process: ${err.message}`);
-    }
-  };
-
-  const markVehicleReady = async (vehicleId) => {
-    try {
-      // For dispatch assignments, we need to update the status to 'Ready for Release'
-      // Since there's no specific endpoint, we'll update via the assignment endpoint
-      const assignment = vehicles.find(v => v._id === vehicleId);
-      if (!assignment) {
-        throw new Error('Assignment not found');
-      }
-
-      // Update the service request status to Ready for Release
-      const res = await fetch(buildApiUrl(`/api/servicerequests/${vehicleId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          status: 'Ready for Release',
-          readyBy: await AsyncStorage.getItem('userName') || 'Dispatch',
-          readyAt: new Date().toISOString()
-        }),
-      });
-
-      const data = await res.json();
       if (data.success) {
-        // Send email notification to customer if contact info is available
-        if (assignment.customerEmail && assignment.customerName) {
-          const notificationResult = await NotificationService.notifyReadyForRelease(
-            {
-              name: assignment.customerName,
-              email: assignment.customerEmail,
-              phone: assignment.customerPhone
-            },
-            {
-              unitName: assignment.unitName,
-              unitId: assignment.unitId,
-              model: assignment.unitName
-            }
-          );
-          
-          if (notificationResult.success) {
-            console.log('✅ Customer notification sent successfully');
-          } else {
-            console.warn('⚠️ Failed to send customer notification:', notificationResult.message);
-          }
-        }
-
-        await fetchVehicles();
-        setProcessModalVisible(false);
-        Alert.alert('Success', 'Vehicle marked as ready for release!');
-      } else {
-        // If the PUT endpoint doesn't exist, just show success and refresh
-        console.log('PUT endpoint may not exist, refreshing data...');
-        await fetchVehicles();
-        setProcessModalVisible(false);
-        Alert.alert('Success', 'Vehicle marked as ready for release!');
+        // Filter for service request updates
+        const serviceHistory = (data.data || []).filter(item => 
+          item.action?.includes('service') || 
+          item.action?.includes('Service') ||
+          item.module === 'Service Request'
+        );
+        setHistory(serviceHistory);
       }
-    } catch (err) {
-      console.error('Error marking ready:', err);
-      // For now, just show success since the core functionality works
-      await fetchVehicles();
-      setProcessModalVisible(false);
-      Alert.alert('Success', 'Vehicle marked as ready for release!');
+    } catch (error) {
+      console.error('Error fetching history:', error);
     }
   };
 
-  const getVehicleStatus = (vehicle) => {
-    const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
-      key => vehicle.processStatus[key] === true
-    ).length;
-    // Dispatch assignments use 'processes' instead of 'requestedProcesses'
-    const totalProcesses = vehicle.processes?.length || vehicle.requestedProcesses?.length || 0;
-    
-    if (completedProcesses === 0) return VEHICLE_STATUSES[0]; // pending
-    if (completedProcesses === totalProcesses && totalProcesses > 0) return VEHICLE_STATUSES[2]; // ready
-    return VEHICLE_STATUSES[1]; // in_progress
+  const updateServiceStatus = async (requestId, serviceId, completed) => {
+    try {
+      const accountName = await AsyncStorage.getItem('accountName') || 'Dispatch';
+      
+      // Get current request
+      const request = serviceRequests.find(r => r._id === requestId);
+      if (!request) return;
+
+      let updatedCompletedServices = [...(request.completedServices || [])];
+      let updatedPendingServices = [...(request.pendingServices || request.service || [])];
+
+      if (completed) {
+        // Mark as completed
+        if (!updatedCompletedServices.includes(serviceId)) {
+          updatedCompletedServices.push(serviceId);
+        }
+        updatedPendingServices = updatedPendingServices.filter(s => s !== serviceId);
+      } else {
+        // Mark as pending
+        updatedCompletedServices = updatedCompletedServices.filter(s => s !== serviceId);
+        if (!updatedPendingServices.includes(serviceId)) {
+          updatedPendingServices.push(serviceId);
+        }
+      }
+
+      // Check if all services are completed
+      const allCompleted = request.service?.length > 0 && 
+                          updatedCompletedServices.length === request.service.length;
+
+      const updateData = {
+        completedServices: updatedCompletedServices,
+        pendingServices: updatedPendingServices,
+        status: allCompleted ? 'Completed' : 'In Progress',
+        completedBy: allCompleted ? accountName : request.completedBy,
+        completedAt: allCompleted ? new Date().toISOString() : request.completedAt
+      };
+
+      const response = await fetch(buildApiUrl(`/updateServiceRequest/${requestId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update local state
+        setServiceRequests(prev => 
+          prev.map(req => req._id === requestId ? { ...req, ...updateData } : req)
+        );
+        
+        if (selectedRequest?._id === requestId) {
+          setSelectedRequest({ ...selectedRequest, ...updateData });
+        }
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update service');
+      }
+    } catch (error) {
+      console.error('Error updating service:', error);
+      Alert.alert('Error', 'Failed to update service status');
+    }
   };
 
-  const getCompletionPercentage = (vehicle) => {
-    const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
-      key => vehicle.processStatus[key] === true
-    ).length;
-    // Use requestedProcesses as the primary field, fallback to processes
-    const totalProcesses = vehicle.requestedProcesses?.length || vehicle.processes?.length || 0;
-    
-    return totalProcesses > 0 ? Math.round((completedProcesses / totalProcesses) * 100) : 0;
+  const getServiceIcon = (serviceId) => {
+    const service = AVAILABLE_SERVICES.find(s => s.id === serviceId);
+    return service?.icon || 'build';
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userName');
-              await AsyncStorage.removeItem('userRole');
-              await AsyncStorage.removeItem('accountName');
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'LoginScreen' }],
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout properly. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const getServiceLabel = (serviceId) => {
+    const service = AVAILABLE_SERVICES.find(s => s.id === serviceId);
+    return service?.label || serviceId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const openProcessModal = (vehicle) => {
-    setSelectedVehicle(vehicle);
-    setProcessModalVisible(true);
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'pending': return '#FFA726';
+      case 'in progress': return '#2196F3';
+      case 'completed': return '#4CAF50';
+      default: return '#9E9E9E';
+    }
   };
 
-  const renderVehicleCard = ({ item: vehicle }) => {
-    const statusInfo = getVehicleStatus(vehicle);
-    const completionPercentage = getCompletionPercentage(vehicle);
-    
+  const renderRequestCard = (request) => {
+    const completedCount = request.completedServices?.length || 0;
+    const totalCount = request.service?.length || 0;
+    const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
     return (
       <TouchableOpacity
-        style={styles.vehicleCard}
-        onPress={() => openProcessModal(vehicle)}
+        key={request._id}
+        style={styles.requestCard}
+        onPress={() => {
+          setSelectedRequest(request);
+          setShowUpdateModal(true);
+        }}
         activeOpacity={0.7}
       >
-        {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.vehicleInfo}>
-            <Text style={styles.vinText}>{vehicle.unitId}</Text>
-            <Text style={styles.modelText}>{vehicle.unitName}</Text>
+            <Text style={styles.unitName}>{request.unitName}</Text>
+            <Text style={styles.unitId}>ID: {request.unitId}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Text style={styles.statusText}>{statusInfo.label}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(request.status) }]}>
+            <Text style={styles.statusText}>{request.status || 'Pending'}</Text>
           </View>
         </View>
 
-        {/* Driver Info */}
-        <View style={styles.driverSection}>
-          <Text style={styles.driverLabel}>Driver:</Text>
-          <Text style={styles.driverName}>{vehicle.assignedDriver || 'Unassigned'}</Text>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressSection}>
+        <View style={styles.progressContainer}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Process Completion</Text>
-            <Text style={styles.progressPercentage}>{completionPercentage}%</Text>
+            <Text style={styles.progressLabel}>Progress</Text>
+            <Text style={styles.progressText}>{completedCount}/{totalCount} Services</Text>
           </View>
           <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${completionPercentage}%`,
-                  backgroundColor: completionPercentage === 100 ? '#4CAF50' : '#e50914'
-                }
-              ]} 
-            />
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
         </View>
 
-        {/* Process Chips */}
-        <View style={styles.processChipsContainer}>
-          {((vehicle.requestedProcesses || vehicle.processes) || []).slice(0, 3).map(processId => {
-            const process = AVAILABLE_PROCESSES.find(p => p.id === processId);
-            const isCompleted = vehicle.processStatus?.[processId] === true;
-            
+        <View style={styles.servicesPreview}>
+          {(request.service || []).slice(0, 3).map((serviceId, index) => {
+            const isCompleted = request.completedServices?.includes(serviceId);
             return (
               <View
-                key={processId}
+                key={index}
                 style={[
-                  styles.processChip,
-                  isCompleted ? styles.processChipCompleted : styles.processChipPending
+                  styles.serviceChip,
+                  isCompleted ? styles.serviceChipCompleted : styles.serviceChipPending
                 ]}
               >
-                <Text style={styles.processChipIcon}>{process?.icon || '⚙️'}</Text>
+                <MaterialIcons
+                  name={getServiceIcon(serviceId)}
+                  size={14}
+                  color={isCompleted ? '#fff' : '#666'}
+                />
                 <Text style={[
-                  styles.processChipText,
-                  isCompleted ? styles.processChipTextCompleted : {}
+                  styles.serviceChipText,
+                  isCompleted ? styles.serviceChipTextCompleted : {}
                 ]}>
-                  {process?.label || processId}
+                  {getServiceLabel(serviceId)}
                 </Text>
-                {isCompleted && <Text style={styles.checkMark}>✓</Text>}
               </View>
             );
           })}
-          {((vehicle.requestedProcesses || vehicle.processes)?.length || 0) > 3 && (
-            <View style={styles.moreProcesses}>
-              <Text style={styles.moreProcessesText}>+{((vehicle.requestedProcesses || vehicle.processes)?.length || 0) - 3} more</Text>
-            </View>
+          {totalCount > 3 && (
+            <Text style={styles.moreServices}>+{totalCount - 3} more</Text>
           )}
         </View>
 
-        {/* Tap to manage prompt */}
-        <View style={styles.tapPrompt}>
-          <Text style={styles.tapPromptText}>Tap to manage processes</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.dispatchedFrom}>
+            <Ionicons name="location" size={12} color="#666" /> {request.dispatchedFrom || 'System'}
+          </Text>
+          <Text style={styles.tapHint}>Tap to update →</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  if (loading) {
-    return (
-      <UniformLoading 
-        message="Loading vehicles..." 
-        size="large"
-        backgroundColor="#f5f5f5"
-      />
-    );
-  }
-
-  const renderProcessModal = () => {
-    if (!selectedVehicle) return null;
-
-    const allProcessesCompleted = ((selectedVehicle.requestedProcesses || selectedVehicle.processes) || []).every(
-      processId => selectedVehicle.processStatus?.[processId] === true
-    );
+  const renderUpdateModal = () => {
+    if (!selectedRequest) return null;
 
     return (
       <Modal
-        visible={processModalVisible}
+        visible={showUpdateModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setProcessModalVisible(false)}
+        onRequestClose={() => setShowUpdateModal(false)}
       >
         <View style={styles.modalContainer}>
-          {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderLeft}>
-              <Text style={styles.modalTitle}>{selectedVehicle.unitId}</Text>
-              <Text style={styles.modalSubtitle}>{selectedVehicle.unitName}</Text>
+            <View>
+              <Text style={styles.modalTitle}>{selectedRequest.unitName}</Text>
+              <Text style={styles.modalSubtitle}>Update Service Status</Text>
             </View>
             <TouchableOpacity
-              onPress={() => setProcessModalVisible(false)}
+              onPress={() => setShowUpdateModal(false)}
               style={styles.closeButton}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <MaterialIcons name="close" size={28} color="#333" />
             </TouchableOpacity>
           </View>
 
-          {/* Driver Info */}
-          <View style={styles.modalDriverInfo}>
-            <Text style={styles.modalDriverLabel}>Assigned Driver:</Text>
-            <Text style={styles.modalDriverName}>{selectedVehicle.assignedDriver || 'Unassigned'}</Text>
-          </View>
+          <ScrollView style={styles.modalBody}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Unit ID</Text>
+              <Text style={styles.infoValue}>{selectedRequest.unitId}</Text>
+            </View>
 
-          {/* Process Checklist */}
-          <ScrollView style={styles.processListContainer}>
-            <Text style={styles.processListTitle}>Process Checklist</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Prepared By</Text>
+              <Text style={styles.infoValue}>{selectedRequest.preparedBy || 'System'}</Text>
+            </View>
+
+            <Text style={styles.sectionTitle}>Service Checklist</Text>
             
-            {((selectedVehicle.requestedProcesses || selectedVehicle.processes) || []).map(processId => {
-              const process = AVAILABLE_PROCESSES.find(p => p.id === processId);
-              const isCompleted = selectedVehicle.processStatus?.[processId] === true;
+            {(selectedRequest.service || []).map((serviceId, index) => {
+              const isCompleted = selectedRequest.completedServices?.includes(serviceId);
               
               return (
                 <TouchableOpacity
-                  key={processId}
+                  key={index}
                   style={[
-                    styles.processItem,
-                    isCompleted ? styles.processItemCompleted : styles.processItemPending
+                    styles.serviceItem,
+                    isCompleted ? styles.serviceItemCompleted : styles.serviceItemPending
                   ]}
-                  onPress={() => updateProcessStatus(selectedVehicle._id, processId, !isCompleted)}
+                  onPress={() => updateServiceStatus(selectedRequest._id, serviceId, !isCompleted)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.processItemLeft}>
+                  <View style={styles.serviceItemLeft}>
                     <View style={[
                       styles.checkbox,
-                      isCompleted ? styles.checkboxCompleted : styles.checkboxPending
+                      isCompleted ? styles.checkboxChecked : styles.checkboxUnchecked
                     ]}>
-                      {isCompleted && <Text style={styles.checkboxCheck}>✓</Text>}
+                      {isCompleted && <MaterialIcons name="check" size={18} color="#fff" />}
                     </View>
-                    <Text style={styles.processIcon}>{process?.icon || '⚙️'}</Text>
-                    <View style={styles.processDetails}>
-                      <Text style={[
-                        styles.processName,
-                        isCompleted ? styles.processNameCompleted : {}
-                      ]}>
-                        {process?.label || processId}
-                      </Text>
-                      {isCompleted && selectedVehicle.processCompletedAt?.[processId] && (
-                        <Text style={styles.completedTime}>
-                          Completed: {new Date(selectedVehicle.processCompletedAt[processId]).toLocaleDateString()}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  
-                  <View style={styles.processStatus}>
+                    <MaterialIcons
+                      name={getServiceIcon(serviceId)}
+                      size={22}
+                      color={isCompleted ? '#4CAF50' : '#666'}
+                      style={styles.serviceIcon}
+                    />
                     <Text style={[
-                      styles.statusLabel,
-                      isCompleted ? styles.statusLabelCompleted : styles.statusLabelPending
+                      styles.serviceItemText,
+                      isCompleted ? styles.serviceItemTextCompleted : {}
                     ]}>
-                      {isCompleted ? 'DONE' : 'PENDING'}
+                      {getServiceLabel(serviceId)}
                     </Text>
                   </View>
+                  {isCompleted && (
+                    <View style={styles.completedBadge}>
+                      <Text style={styles.completedBadgeText}>✓ Done</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* Action Buttons */}
-          <View style={styles.modalActions}>
-            {allProcessesCompleted ? (
-              <TouchableOpacity
-                style={styles.readyButton}
-                onPress={() => markVehicleReady(selectedVehicle._id)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.readyButtonText}>✓ Mark as Ready for Release</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.incompleteContainer}>
-                <Text style={styles.incompleteText}>
-                  Complete all processes to mark as ready
-                </Text>
-                <Text style={styles.incompleteSubtext}>
-                  {Object.keys(selectedVehicle.processStatus || {}).filter(key => 
-                    selectedVehicle.processStatus[key] === true
-                  ).length} of {(selectedVehicle.requestedProcesses || selectedVehicle.processes)?.length || 0} completed
-                </Text>
-              </View>
-            )}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.closeModalButton}
+              onPress={() => setShowUpdateModal(false)}
+            >
+              <Text style={styles.closeModalButtonText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
     );
   };
 
+  const renderHistoryModal = () => {
+    return (
+      <Modal
+        visible={showHistoryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHistoryModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Service Request History</Text>
+            <TouchableOpacity
+              onPress={() => setShowHistoryModal(false)}
+              style={styles.closeButton}
+            >
+              <MaterialIcons name="close" size={28} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {history.length === 0 ? (
+              <View style={styles.emptyHistory}>
+                <MaterialIcons name="history" size={64} color="#ccc" />
+                <Text style={styles.emptyHistoryText}>No history available</Text>
+              </View>
+            ) : (
+              history.map((item, index) => (
+                <View key={index} style={styles.historyItem}>
+                  <View style={styles.historyIcon}>
+                    <MaterialIcons name="update" size={20} color="#DC2626" />
+                  </View>
+                  <View style={styles.historyContent}>
+                    <Text style={styles.historyAction}>{item.action}</Text>
+                    <Text style={styles.historyDetails}>{item.details || ''}</Text>
+                    <Text style={styles.historyMeta}>
+                      {item.performedBy} • {new Date(item.timestamp).toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  };
+
+  if (loading && !refreshing) {
+    return <UniformLoading message="Loading service requests..." />;
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.heading}>Dispatch Dashboard</Text>
-          <Text style={styles.subheading}>{filteredVehicles.length} vehicles to process</Text>
+        <View>
+          <Text style={styles.headerTitle}>Service Requests</Text>
+          <Text style={styles.headerSubtitle}>Update process status</Text>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => {
+            fetchHistory();
+            setShowHistoryModal(true);
+          }}
+        >
+          <MaterialIcons name="history" size={24} color="#DC2626" />
+          <Text style={styles.historyButtonText}>History</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search and Filters */}
-      <View style={styles.filtersContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by VIN, Model, or Driver..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#999"
-        />
-        
-        <View style={styles.filterContainer}>
-          <Text style={styles.filterLabel}>Filter by Status:</Text>
-          <Picker
-            selectedValue={statusFilter}
-            onValueChange={setStatusFilter}
-            style={styles.picker}
-          >
-            <Picker.Item label="All Vehicles" value="all" />
-            {VEHICLE_STATUSES.map(status => (
-              <Picker.Item key={status.value} label={status.label} value={status.value} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      {/* Vehicle List */}
-      <FlatList
-        data={filteredVehicles}
-        renderItem={renderVehicleCard}
-        keyExtractor={(item) => item._id}
+      <ScrollView
+        style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e50914']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#DC2626']} />
         }
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No vehicles found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : 'No vehicles assigned with processes yet'
-              }
-            </Text>
+      >
+        {serviceRequests.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="inbox" size={80} color="#ccc" />
+            <Text style={styles.emptyStateText}>No Active Service Requests</Text>
+            <Text style={styles.emptyStateSubtext}>Service requests will appear here</Text>
           </View>
-        }
-      />
+        ) : (
+          serviceRequests.map(renderRequestCard)
+        )}
+      </ScrollView>
 
-      {/* Process Management Modal */}
-      {renderProcessModal()}
+      {renderUpdateModal()}
+      {renderHistoryModal()}
     </View>
   );
 }
 
-const createStyles = (theme) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.surface,
+    backgroundColor: '#f5f5f5',
   },
-  
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.surface,
-  },
-  
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: theme.textSecondary,
-  },
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-
-  headerLeft: {
-    flex: 1,
-  },
-
-  heading: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#e50914',
-    marginBottom: 4,
-  },
-
-  subheading: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-  },
-
-  logoutBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#000',
-    borderRadius: 8,
-  },
-
-  logoutText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-
-  filtersContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-
-  searchInput: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-
-  filterContainer: {
-    marginTop: 8,
-  },
-
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-
-  picker: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    height: 40,
-  },
-
-  listContainer: {
     padding: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-
-  vehicleCard: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  historyButtonText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  requestCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderLeftWidth: 4,
-    borderLeftColor: '#e50914',
+    shadowRadius: 4,
+    elevation: 3,
   },
-
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-
   vehicleInfo: {
     flex: 1,
   },
-
-  vinText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#e50914',
+  unitName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
     marginBottom: 4,
   },
-
-  modelText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+  unitId: {
+    fontSize: 13,
+    color: '#666',
   },
-
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 12,
+    borderRadius: 12,
   },
-
   statusText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-
-  driverSection: {
-    flexDirection: 'row',
+  progressContainer: {
     marginBottom: 16,
   },
-
-  driverLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 8,
-  },
-
-  driverName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-
-  progressSection: {
-    marginBottom: 16,
-  },
-
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
-
   progressLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    color: '#666',
     fontWeight: '600',
-    color: '#333',
   },
-
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#e50914',
+  progressText: {
+    fontSize: 13,
+    color: '#1a1a1a',
+    fontWeight: '700',
   },
-
   progressBar: {
-    height: 6,
+    height: 8,
     backgroundColor: '#e0e0e0',
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    backgroundColor: '#DC2626',
+    borderRadius: 4,
   },
-
-  processChipsContainer: {
+  servicesPreview: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
-
-  processChip: {
+  serviceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
+    borderRadius: 12,
+    gap: 4,
   },
-
-  processChipPending: {
+  serviceChipPending: {
     backgroundColor: '#f5f5f5',
-    borderColor: '#d0d0d0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
-
-  processChipCompleted: {
-    backgroundColor: '#e50914',
-    borderColor: '#e50914',
+  serviceChipCompleted: {
+    backgroundColor: '#4CAF50',
   },
-
-  processChipIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-
-  processChipText: {
+  serviceChipText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#666',
   },
-
-  processChipTextCompleted: {
+  serviceChipTextCompleted: {
     color: '#fff',
   },
-
-  checkMark: {
+  moreServices: {
     fontSize: 12,
-    color: '#fff',
-    marginLeft: 4,
-    fontWeight: 'bold',
-  },
-
-  moreProcesses: {
-    paddingHorizontal: 12,
+    color: '#999',
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#e8e8e8',
   },
-
-  moreProcessesText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-
-  tapPrompt: {
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-    alignItems: 'center',
   },
-
-  tapPromptText: {
-    fontSize: 14,
-    color: '#e50914',
-    fontWeight: '500',
+  dispatchedFrom: {
+    fontSize: 12,
+    color: '#666',
   },
-
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-
-  emptyText: {
-    fontSize: 18,
+  tapHint: {
+    fontSize: 12,
+    color: '#DC2626',
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
   },
-
-  emptySubtext: {
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
     fontSize: 14,
     color: '#666',
-    textAlign: 'center',
+    marginTop: 8,
   },
-
-  // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
   },
-
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-
-  modalHeaderLeft: {
-    flex: 1,
-  },
-
   modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#e50914',
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a1a',
   },
-
   modalSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
-    fontWeight: '500',
+    marginTop: 4,
   },
-
   closeButton: {
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  closeButtonText: {
-    fontSize: 18,
-    color: '#666',
-    fontWeight: 'bold',
-  },
-
-  modalDriverInfo: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-
-  modalDriverLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginRight: 8,
-  },
-
-  modalDriverName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-
-  processListContainer: {
+  modalBody: {
     flex: 1,
-    paddingHorizontal: 20,
+    padding: 20,
   },
-
-  processListTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginVertical: 20,
-  },
-
-  processItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+  infoCard: {
+    backgroundColor: '#f8f9fa',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
-
-  processItemPending: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFA726',
+  infoLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+    marginBottom: 4,
   },
-
-  processItemCompleted: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+  infoValue: {
+    fontSize: 16,
+    color: '#1a1a1a',
+    fontWeight: '600',
   },
-
-  processItemLeft: {
-    flex: 1,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  serviceItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 2,
+  },
+  serviceItemPending: {
+    backgroundColor: '#fff',
+    borderColor: '#e0e0e0',
+  },
+  serviceItemCompleted: {
+    backgroundColor: '#f1f8f4',
+    borderColor: '#4CAF50',
+  },
+  serviceItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    marginRight: 12,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  checkboxPending: {
-    borderColor: '#d0d0d0',
-    backgroundColor: '#fff',
-  },
-
-  checkboxCompleted: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#4CAF50',
-  },
-
-  checkboxCheck: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  processIcon: {
-    fontSize: 20,
     marginRight: 12,
   },
-
-  processDetails: {
+  checkboxUnchecked: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ccc',
+  },
+  checkboxChecked: {
+    backgroundColor: '#4CAF50',
+  },
+  serviceIcon: {
+    marginRight: 12,
+  },
+  serviceItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
     flex: 1,
   },
-
-  processName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-
-  processNameCompleted: {
+  serviceItemTextCompleted: {
     color: '#4CAF50',
   },
-
-  completedTime: {
+  completedBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  completedBadgeText: {
+    color: '#fff',
     fontSize: 12,
-    color: '#666',
+    fontWeight: '700',
   },
-
-  processStatus: {
-    alignItems: 'flex-end',
-  },
-
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-
-  statusLabelPending: {
-    backgroundColor: '#FFF3E0',
-    color: '#F57C00',
-  },
-
-  statusLabelCompleted: {
-    backgroundColor: '#E8F5E8',
-    color: '#2E7D32',
-  },
-
-  modalActions: {
+  modalFooter: {
     padding: 20,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
-
-  readyButton: {
-    backgroundColor: '#4CAF50',
+  closeModalButton: {
+    backgroundColor: '#DC2626',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-
-  readyButtonText: {
+  closeModalButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-
-  incompleteContainer: {
+  emptyHistory: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 60,
   },
-
-  incompleteText: {
+  emptyHistoryText: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
+    marginTop: 16,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  historyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  historyContent: {
+    flex: 1,
+  },
+  historyAction: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a1a',
     marginBottom: 4,
   },
-
-  incompleteSubtext: {
-    fontSize: 14,
+  historyDetails: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 6,
+  },
+  historyMeta: {
+    fontSize: 12,
     color: '#999',
-    textAlign: 'center',
   },
 });
