@@ -25,6 +25,7 @@ export default function ServiceRequestScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [sortOrder, setSortOrder] = useState('recent'); // 'recent' or 'alphabetical'
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -42,13 +43,13 @@ export default function ServiceRequestScreen() {
   const [inventoryVehicles, setInventoryVehicles] = useState([]);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
 
-  // Available services (removed delivery_to_isuzu_pasig, stock_integration, documentation_check)
+  // Available services matching web version
   const availableServices = [
-    'tinting',
-    'carwash', 
-    'ceramic_coating',
-    'accessories',
-    'rust_proof'
+    { id: 'Carwash', label: 'Carwash' },
+    { id: 'Tinting', label: 'Tinting' },
+    { id: 'Ceramic Coating', label: 'Ceramic Coating' },
+    { id: 'Accessories', label: 'Accessories' },
+    { id: 'Rust Proof', label: 'Rust Proof' }
   ];
 
   // Fetch service requests
@@ -88,18 +89,33 @@ export default function ServiceRequestScreen() {
   // Fetch inventory vehicles for selection
   const fetchInventoryVehicles = async () => {
     try {
-      const response = await fetch(buildApiUrl('/getInventory'));
-      const data = await response.json();
+      const response = await fetch(buildApiUrl('/getStock'));
+      const result = await response.json();
       
-      if (data.success) {
-        // Filter only available vehicles
-        const availableVehicles = data.data.filter(vehicle => 
-          vehicle.status === 'Available' || vehicle.status === 'In Stock'
-        );
+      console.log('📦 Raw inventory response:', result);
+      
+      // Handle both {success: true, data: [...]} and direct array responses
+      const data = result.success ? result.data : (Array.isArray(result) ? result : []);
+      
+      if (Array.isArray(data)) {
+        console.log('📊 Total inventory items:', data.length);
+        console.log('📊 Sample inventory item:', data[0]);
+        
+        // Filter only Available vehicles (case-insensitive)
+        const availableVehicles = data.filter(vehicle => {
+          const status = vehicle.status?.toLowerCase();
+          console.log(`Vehicle ${vehicle.unitName}: status = "${vehicle.status}" (${status})`);
+          return status === 'available';
+        });
+        
         setInventoryVehicles(availableVehicles);
+        console.log('✅ Available vehicles loaded:', availableVehicles.length);
+        console.log('✅ Available vehicles:', availableVehicles.map(v => `${v.unitName} (${v.status})`));
+      } else {
+        console.error('❌ Data is not an array:', data);
       }
     } catch (error) {
-      console.error('Error fetching inventory:', error);
+      console.error('❌ Error fetching inventory:', error);
     }
   };
 
@@ -107,22 +123,33 @@ export default function ServiceRequestScreen() {
   const getFilteredRequests = () => {
     let filtered = serviceRequests;
 
-    // Apply status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(request => 
-        request.status?.toLowerCase() === filterStatus.toLowerCase()
-      );
-    }
-
     // Apply search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(request => 
-        request.unitName?.toLowerCase().includes(searchLower) ||
-        request.unitId?.toLowerCase().includes(searchLower) ||
-        request.requestedServices?.some(service => 
-          service.toLowerCase().includes(searchLower)
-        )
+      filtered = filtered.filter(request => {
+        const matchesUnit = request.unitName?.toLowerCase().includes(searchLower) ||
+          request.unitId?.toLowerCase().includes(searchLower);
+        
+        const matchesService = request.requestedServices?.some(service => {
+          if (typeof service === 'object' && service !== null) {
+            return (service.label || service.name || service.id || '').toLowerCase().includes(searchLower);
+          }
+          return (service || '').toLowerCase().includes(searchLower);
+        });
+        
+        return matchesUnit || matchesService;
+      });
+    }
+
+    // Apply sorting
+    if (sortOrder === 'alphabetical') {
+      filtered = filtered.sort((a, b) => 
+        (a.unitName || '').localeCompare(b.unitName || '')
+      );
+    } else {
+      // Sort by most recent (dateCreated or createdAt)
+      filtered = filtered.sort((a, b) => 
+        new Date(b.dateCreated || b.createdAt) - new Date(a.dateCreated || a.createdAt)
       );
     }
 
@@ -148,15 +175,21 @@ export default function ServiceRequestScreen() {
     try {
       const accountName = await AsyncStorage.getItem('accountName');
       
+      // Extract just the service labels for the backend
+      const serviceLabels = newRequest.requestedServices.map(service => 
+        typeof service === 'object' ? service.label : service
+      );
+      
       const requestBody = {
         unitId: newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id,
         unitName: newRequest.selectedVehicle.unitName,
-        service: newRequest.requestedServices,
+        service: serviceLabels,
         status: 'Pending',
         preparedBy: accountName || 'System',
         dispatchedFrom: 'Mobile App',
         completedServices: [],
-        pendingServices: newRequest.requestedServices
+        pendingServices: serviceLabels,
+        dateCreated: new Date().toISOString()
       };
       
       console.log('📤 Creating service request:', requestBody);
@@ -174,17 +207,29 @@ export default function ServiceRequestScreen() {
       }
       
       const data = await response.json();
-      console.log('📥 Create response:', data);
+      console.log('📥 Create response:', JSON.stringify(data, null, 2));
       
-      if (data.success) {
+      if (data.success || response.ok) {
         console.log('✅ Created request ID:', data.data?._id);
+        console.log('📦 Created request details:', {
+          unitName: data.data?.unitName,
+          status: data.data?.status,
+          services: data.data?.service
+        });
+        
+        // Update inventory status to "In Dispatch"
+        console.log('🔄 Updating inventory status...');
+        await updateInventoryStatus(newRequest.selectedVehicle._id, 'In Dispatch');
         
         // Close modal and reset form
         setShowAddModal(false);
         resetNewRequestForm();
         
-        // Refresh the list
+        // Refresh the list and inventory
+        console.log('🔄 Refreshing service requests and inventory...');
         await fetchServiceRequests();
+        await fetchInventoryVehicles();
+        console.log('✅ Refresh complete');
         
         Alert.alert('Success', 'Service request created successfully!');
       } else {
@@ -208,7 +253,95 @@ export default function ServiceRequestScreen() {
     });
   };
 
-  // Update service request status
+  // Update inventory status
+  const updateInventoryStatus = async (inventoryId, newStatus) => {
+    try {
+      console.log(`📦 Updating inventory ${inventoryId} to status: ${newStatus}`);
+      const response = await fetch(buildApiUrl(`/updateStock/${inventoryId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        console.log(`✅ Inventory status updated to ${newStatus}`);
+      }
+    } catch (error) {
+      console.error('❌ Error updating inventory status:', error);
+    }
+  };
+
+  // Delete service request
+  const handleDeleteRequest = async (request) => {
+    Alert.alert(
+      'Confirm Delete',
+      `Are you sure you want to delete the request for "${request.unitName}" (${request.unitId})?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ Deleting request:', request._id);
+              console.log('🔗 Delete URL:', buildApiUrl(`/deleteServiceRequest/${request._id}`));
+              
+              const response = await fetch(buildApiUrl(`/deleteServiceRequest/${request._id}`), {
+                method: 'DELETE'
+              });
+
+              console.log('📥 Delete response status:', response.status);
+              
+              const data = await response.json();
+              console.log('📥 Delete response data:', JSON.stringify(data, null, 2));
+
+              if (response.ok && data.success) {
+                console.log('✅ Request deleted successfully');
+                
+                // Fetch the inventory item by unitId (not from filtered list)
+                console.log('🔍 Fetching inventory with unitId:', request.unitId);
+                try {
+                  const inventoryResponse = await fetch(buildApiUrl('/getStock'));
+                  const inventoryData = await inventoryResponse.json();
+                  
+                  if (inventoryData.success && inventoryData.data) {
+                    const inventoryItem = inventoryData.data.find(v => v.unitId === request.unitId);
+                    
+                    if (inventoryItem) {
+                      console.log('📦 Found inventory item:', inventoryItem._id);
+                      await updateInventoryStatus(inventoryItem._id, 'Available');
+                    } else {
+                      console.warn('⚠️ Inventory item not found for unitId:', request.unitId);
+                    }
+                  }
+                } catch (inventoryError) {
+                  console.error('❌ Error fetching inventory:', inventoryError);
+                }
+                
+                // Refresh lists
+                console.log('🔄 Refreshing lists...');
+                await fetchServiceRequests();
+                await fetchInventoryVehicles();
+                console.log('✅ Refresh complete');
+                
+                Alert.alert('Success', 'Request deleted successfully and vehicle returned to inventory!');
+              } else {
+                console.error('❌ Delete failed:', data.message || 'Unknown error');
+                Alert.alert('Error', data.message || 'Failed to delete request');
+              }
+            } catch (error) {
+              console.error('❌ Delete error:', error);
+              Alert.alert('Error', error.message || 'Failed to delete request');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Update service request status (removed - keeping for compatibility but won't be used in UI)
   const updateRequestStatus = async (requestId, newStatus) => {
     try {
       const response = await fetch(buildApiUrl(`/updateServiceRequest/${requestId}`), {
@@ -243,11 +376,17 @@ export default function ServiceRequestScreen() {
 
   // Toggle service selection
   const toggleService = (service) => {
-    const isSelected = newRequest.requestedServices.includes(service);
+    const serviceId = typeof service === 'object' ? service.id : service;
+    const isSelected = newRequest.requestedServices.some(s => 
+      (typeof s === 'object' ? s.id : s) === serviceId
+    );
+    
     if (isSelected) {
       setNewRequest({
         ...newRequest,
-        requestedServices: newRequest.requestedServices.filter(s => s !== service)
+        requestedServices: newRequest.requestedServices.filter(s => 
+          (typeof s === 'object' ? s.id : s) !== serviceId
+        )
       });
     } else {
       setNewRequest({
@@ -268,7 +407,14 @@ export default function ServiceRequestScreen() {
 
   // Format service name for display
   const formatServiceName = (service) => {
-    return service.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    // Handle both string and object formats
+    if (typeof service === 'object' && service !== null) {
+      return service.label || service.name || service.id || '';
+    }
+    if (typeof service === 'string') {
+      return service.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    return '';
   };
 
   // Get priority color
@@ -371,23 +517,13 @@ export default function ServiceRequestScreen() {
             <Text style={styles.cardActionText}>📋 View Details</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.cardActionBtn, styles.editActionBtn]} 
+            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
             onPress={(e) => {
               e.stopPropagation();
-              Alert.alert(
-                'Update Status',
-                'Choose new status:',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Pending', onPress: () => updateRequestStatus(item._id, 'Pending') },
-                  { text: 'In Progress', onPress: () => updateRequestStatus(item._id, 'In Progress') },
-                  { text: 'Completed', onPress: () => updateRequestStatus(item._id, 'Completed') },
-                  { text: 'Cancelled', onPress: () => updateRequestStatus(item._id, 'Cancelled') },
-                ]
-              );
+              handleDeleteRequest(item);
             }}
           >
-            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit Status</Text>
+            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -451,7 +587,7 @@ export default function ServiceRequestScreen() {
           style={styles.filterButton}
           onPress={() => setShowFilterModal(true)}
         >
-          <Ionicons name="filter" size={20} color="#DC2626" />
+          <Ionicons name="filter" size={20} color="#FFFFFF" />
           <Text style={styles.filterButtonText}>Filter</Text>
         </TouchableOpacity>
       </View>
@@ -525,17 +661,21 @@ export default function ServiceRequestScreen() {
               <View style={styles.servicesContainer}>
                 {availableServices.map(service => (
                   <TouchableOpacity
-                    key={service}
+                    key={typeof service === 'object' ? service.id : service}
                     style={[
                       styles.serviceOption,
-                      newRequest.requestedServices.includes(service) && styles.serviceOptionActive
+                      newRequest.requestedServices.some(s => 
+                        (typeof s === 'object' ? s.id : s) === (typeof service === 'object' ? service.id : service)
+                      ) && styles.serviceOptionActive
                     ]}
                     onPress={() => toggleService(service)}
                     activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.serviceOptionText,
-                      newRequest.requestedServices.includes(service) && styles.serviceOptionTextActive
+                      newRequest.requestedServices.some(s => 
+                        (typeof s === 'object' ? s.id : s) === (typeof service === 'object' ? service.id : service)
+                      ) && styles.serviceOptionTextActive
                     ]}>
                       {formatServiceName(service)}
                     </Text>
@@ -795,75 +935,39 @@ export default function ServiceRequestScreen() {
         >
           <View style={styles.filterModalContent}>
             <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>Filter by Status</Text>
+              <Text style={styles.filterModalTitle}>Sort Options</Text>
               <TouchableOpacity onPress={() => setShowFilterModal(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
             
+            {/* Sort Options */}
+            <Text style={styles.filterSectionTitle}>Sort By</Text>
+            
             <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'all' && styles.filterOptionActive]}
+              style={[styles.filterOption, sortOrder === 'recent' && styles.filterOptionActive]}
               onPress={() => {
-                setFilterStatus('all');
+                setSortOrder('recent');
                 setShowFilterModal(false);
               }}
             >
-              <Text style={[styles.filterOptionText, filterStatus === 'all' && styles.filterOptionTextActive]}>
-                All Requests
+              <Text style={[styles.filterOptionText, sortOrder === 'recent' && styles.filterOptionTextActive]}>
+                Most Recent
               </Text>
-              {filterStatus === 'all' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+              {sortOrder === 'recent' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'pending' && styles.filterOptionActive]}
+              style={[styles.filterOption, sortOrder === 'alphabetical' && styles.filterOptionActive]}
               onPress={() => {
-                setFilterStatus('pending');
+                setSortOrder('alphabetical');
                 setShowFilterModal(false);
               }}
             >
-              <Text style={[styles.filterOptionText, filterStatus === 'pending' && styles.filterOptionTextActive]}>
-                Pending
+              <Text style={[styles.filterOptionText, sortOrder === 'alphabetical' && styles.filterOptionTextActive]}>
+                Alphabetically
               </Text>
-              {filterStatus === 'pending' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'in progress' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('in progress');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'in progress' && styles.filterOptionTextActive]}>
-                In Progress
-              </Text>
-              {filterStatus === 'in progress' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'completed' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('completed');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'completed' && styles.filterOptionTextActive]}>
-                Completed
-              </Text>
-              {filterStatus === 'completed' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.filterOption, filterStatus === 'cancelled' && styles.filterOptionActive]}
-              onPress={() => {
-                setFilterStatus('cancelled');
-                setShowFilterModal(false);
-              }}
-            >
-              <Text style={[styles.filterOptionText, filterStatus === 'cancelled' && styles.filterOptionTextActive]}>
-                Cancelled
-              </Text>
-              {filterStatus === 'cancelled' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
+              {sortOrder === 'alphabetical' && <Ionicons name="checkmark" size={20} color="#DC2626" />}
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -974,6 +1078,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
   filterOption: {
     flexDirection: 'row',
