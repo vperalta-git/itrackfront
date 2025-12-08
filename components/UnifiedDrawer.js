@@ -36,6 +36,7 @@ import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ReleaseScreen from '../screens/ReleaseScreen';
 import VehicleAssignmentScreen from '../screens/VehicleAssignmentScreen';
+import UnitAllocationScreen from '../screens/UnitAllocationScreen';
 
 // Import icons (using the same icons as web)
 const dashboardIcon = require('../assets/icons/dashboard.png');
@@ -46,7 +47,9 @@ const shipmentsIcon = require('../assets/icons/shipments.png');
 const usersIcon = require('../assets/icons/users.png');
 const signOutIcon = require('../assets/icons/signout.png');
 const driverIcon = require('../assets/icons/driverallocation.png');
+const releaseIcon = require('../assets/icons/release.png');
 const testDriveIcon = require('../assets/icons/testdrive.png');
+const agentAllocationIcon = require('../assets/icons/users.png');
 const itrackLogo = require('../assets/icons/itrackwhite.png');
 
 const Drawer = createDrawerNavigator();
@@ -153,8 +156,9 @@ function CustomDrawerContent(props) {
     { name: "Dashboard", icon: dashboardIcon, screen: "Dashboard", roles: ['all'] },
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
+    { name: "Agent Allocation", icon: agentAllocationIcon, screen: "AgentAllocation", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Release", icon: shipmentsIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
+    { name: "Release", icon: releaseIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] }
@@ -169,7 +173,7 @@ function CustomDrawerContent(props) {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
         item.roles.includes(userRole) ||
-        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Test Drive'].includes(item.name)
+        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Agent Allocation', 'Test Drive'].includes(item.name)
       );
     }
     
@@ -352,6 +356,11 @@ export default function UnifiedDrawer() {
         name="ServiceRequest"
         component={ServiceRequestScreen}
         options={{ title: 'Vehicle Preperation' }}
+      />
+      <Drawer.Screen
+        name="AgentAllocation"
+        component={UnitAllocationScreen}
+        options={{ title: 'Agent Allocation' }}
       />
       <Drawer.Screen
         name="DriverAllocation"

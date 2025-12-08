@@ -27,6 +27,7 @@ import DriverHistory from './screens/DriverHistory';
 import NewDriverDashboard from './components/NewDriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
 import AdminDashboard from './screens/AdminDashboard';
+import VehiclePreparationAdmin from './screens/VehiclePreparationAdmin';
 import ManagerDashboard from './screens/ManagerDashboard';
 import SupervisorDashboard from './screens/SupervisorDashboard';
 import VehicleProgressScreen from './screens/VehicleProgressScreen';
@@ -180,6 +181,11 @@ function AdminDrawer() {
         name="AdminDashboard" 
         component={AdminDashboard} 
         options={{ title: 'Admin Dashboard' }} 
+      />
+      <Drawer.Screen 
+        name="VehiclePreparation" 
+        component={VehiclePreparationAdmin} 
+        options={{ title: 'Vehicle Preparation' }} 
       />
       <Drawer.Screen 
         name="UserManagement" 

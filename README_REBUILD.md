@@ -48,6 +48,7 @@ itrack/
 ## 🔑 Key Features
 
 ### ✅ Implemented
+
 - Email-based authentication
 - Role-based navigation and dashboards
 - Forgot password functionality
@@ -56,6 +57,7 @@ itrack/
 - API integration with backend
 
 ### 🚧 To Be Implemented
+
 - User management screens
 - Inventory management
 - Driver allocation
@@ -67,6 +69,7 @@ itrack/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 16+
 - Expo CLI
 - iOS Simulator or Android Emulator
@@ -94,6 +97,7 @@ npm run ios
 ## 🔗 Backend Connection
 
 The app connects to the itrack-backend server:
+
 - **Development**: `http://192.168.254.147:5000`
 - **Production**: `https://itrack-backend-1.onrender.com`
 
@@ -102,16 +106,19 @@ Update the API base URL in `src/config/api.js` if needed.
 ## 📝 Test Credentials
 
 ### Admin
+
 - Email: `admin@isuzupasig.com`
 - Username: `isuzupasigadmin`
 - Password: `Isuzu_Pasig1`
 
 ### Other Users
+
 Contact your system administrator for test accounts.
 
 ## 🎨 Design System
 
 ### Colors
+
 - **Primary**: `#DC2626` (Isuzu Red)
 - **Secondary**: `#1E40AF` (Blue)
 - **Success**: `#10B981` (Green)
@@ -119,6 +126,7 @@ Contact your system administrator for test accounts.
 - **Error**: `#EF4444` (Red)
 
 ### Typography
+
 - Small: 12px
 - Medium: 16px
 - Large: 20px
@@ -127,6 +135,7 @@ Contact your system administrator for test accounts.
 ## 📦 Dependencies
 
 Key packages:
+
 - `react-native` - Core framework
 - `expo` - Development platform
 - `@react-navigation/*` - Navigation
@@ -138,26 +147,31 @@ Key packages:
 ## 🛠️ Development Notes
 
 ### Adding New Screens
+
 1. Create screen component in `src/screens/`
 2. Add route in `src/navigation/AppNavigator.js`
 3. Add navigation link in dashboard
 
 ### API Calls
+
 Use the utilities in `src/utils/api.js`:
+
 ```javascript
-import { apiGet, apiPost } from '../utils/api';
+import { apiGet, apiPost } from "../utils/api";
 
 // GET request
-const data = await apiGet('/getUsers');
+const data = await apiGet("/getUsers");
 
 // POST request
-const result = await apiPost('/createUser', { username, password });
+const result = await apiPost("/createUser", { username, password });
 ```
 
 ### Authentication
+
 Use the AuthContext:
+
 ```javascript
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "../context/AuthContext";
 
 const { user, login, logout } = useAuth();
 ```

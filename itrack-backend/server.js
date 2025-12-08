@@ -927,6 +927,25 @@ app.post('/logout', (req, res) => {
   }
 });
 
+// API Logout route (for dispatch/web compatibility)
+app.post('/api/logout', (req, res) => {
+  try {
+    console.log('👋 API Logout request from:', req.session?.user?.username || req.session?.user?.email);
+    
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('❌ API Logout error:', err);
+        return res.status(500).json({ success: false, message: 'Could not log out' });
+      }
+      
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
+  } catch (error) {
+    console.error('❌ API Logout error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // (Other routes remain unchanged...)
 
 // ========== USER MANAGEMENT ENDPOINTS ==========
@@ -1463,7 +1482,19 @@ const unitAllocationSchema = new mongoose.Schema({
 
 const UnitAllocation = mongoose.model('UnitAllocation', unitAllocationSchema);
 
-// Get all unit allocations
+// Get all unit allocations (singular endpoint for mobile app compatibility)
+app.get('/api/getUnitAllocation', async (req, res) => {
+  try {
+    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} unit allocations`);
+    res.json(allocations);
+  } catch (error) {
+    console.error('❌ Get unit allocations error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get all unit allocations (plural endpoint for web app compatibility)
 app.get('/api/getUnitAllocations', async (req, res) => {
   try {
     const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
@@ -3639,11 +3670,10 @@ app.post('/api/send-notification', async (req, res) => {
 // GET /api/servicerequests - Get service requests for dispatch
 app.get('/api/servicerequests', async (req, res) => {
   try {
-    console.log('📋 Fetching service requests...');
+    console.log('📋 Fetching service requests from servicerequests collection...');
     
-    // For now, return allocations from DriverAllocation collection
-    // In the future, this can be moved to a dedicated ServiceRequest collection
-    const serviceRequests = await DriverAllocation.find({});
+    // Fetch from Servicerequest collection (the correct collection)
+    const serviceRequests = await Servicerequest.find({}).sort({ createdAt: -1 });
     
     console.log(`📊 Found ${serviceRequests.length} service requests`);
     
@@ -3671,7 +3701,7 @@ app.put('/api/servicerequests/:id', async (req, res) => {
     
     console.log(`🔄 Updating service request ${id}:`, updateData);
     
-    const updatedRequest = await DriverAllocation.findByIdAndUpdate(
+    const updatedRequest = await Servicerequest.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
@@ -3710,7 +3740,7 @@ app.put('/api/servicerequests/:id/process', async (req, res) => {
     
     console.log(`🔄 Updating process ${processId} for service request ${id}`);
     
-    const serviceRequest = await DriverAllocation.findById(id);
+    const serviceRequest = await Servicerequest.findById(id);
     if (!serviceRequest) {
       return res.status(404).json({
         success: false,
@@ -3718,18 +3748,43 @@ app.put('/api/servicerequests/:id/process', async (req, res) => {
       });
     }
     
-    // Update the process status (this would be enhanced with actual process tracking)
-    const updateData = {
-      status: completed ? 'Process Completed' : 'In Progress',
-      lastUpdatedBy: completedBy,
-      lastUpdatedAt: completedAt || new Date().toISOString()
-    };
+    // Initialize arrays if not exist
+    if (!serviceRequest.completedServices) {
+      serviceRequest.completedServices = [];
+    }
+    if (!serviceRequest.pendingServices) {
+      serviceRequest.pendingServices = [];
+    }
     
-    const updatedRequest = await DriverAllocation.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    );
+    // Update the process status
+    if (completed) {
+      // Add to completed services if not already there
+      if (!serviceRequest.completedServices.includes(processId)) {
+        serviceRequest.completedServices.push(processId);
+      }
+      // Remove from pending services
+      serviceRequest.pendingServices = serviceRequest.pendingServices.filter(s => s !== processId);
+      
+      // Check if all services are completed
+      const allCompleted = serviceRequest.service.every(s => serviceRequest.completedServices.includes(s));
+      if (allCompleted) {
+        serviceRequest.status = 'Ready for Release';
+        serviceRequest.readyForRelease = true;
+      } else {
+        serviceRequest.status = 'In Progress';
+      }
+    } else {
+      // Remove from completed services
+      serviceRequest.completedServices = serviceRequest.completedServices.filter(s => s !== processId);
+      // Add to pending services if not already there
+      if (!serviceRequest.pendingServices.includes(processId)) {
+        serviceRequest.pendingServices.push(processId);
+      }
+      serviceRequest.status = 'Pending';
+      serviceRequest.readyForRelease = false;
+    }
+    
+    const updatedRequest = await serviceRequest.save();
     
     console.log('✅ Process status updated successfully');
     
@@ -3857,23 +3912,48 @@ app.get('/getServiceRequests', async (req, res) => {
 
 app.post('/createServiceRequest', async (req, res) => {
   try {
-    console.log('📥 Received createServiceRequest');
-    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('📥 POST /createServiceRequest - Received request');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('📊 Target database:', mongoose.connection.db.databaseName);
+    console.log('📊 Target collection: servicerequests');
     
     // Create new service request with the data from frontend
     const newRequest = new Servicerequest(req.body);
     
-    console.log('💾 Saving to database...');
+    console.log('💾 Attempting to save to database...');
     const savedRequest = await newRequest.save();
     
-    console.log('✅ Saved successfully!');
-    console.log('Document ID:', savedRequest._id.toString());
-    console.log('Unit Name:', savedRequest.unitName);
-    console.log('Status:', savedRequest.status);
+    console.log('✅ Service request saved successfully!');
+    console.log('📄 Document ID:', savedRequest._id.toString());
+    console.log('🚗 Unit Name:', savedRequest.unitName);
+    console.log('🔧 Unit ID:', savedRequest.unitId);
+    console.log('📊 Status:', savedRequest.status);
+    console.log('🛠️ Services:', savedRequest.service);
+    console.log('👤 Prepared by:', savedRequest.preparedBy);
     
-    // Verify it exists
-    const count = await Servicerequest.countDocuments({});
-    console.log('📊 Total service requests in database:', count);
+    // Update vehicle status to "In Dispatch" when service request is created
+    if (savedRequest.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: savedRequest.unitId },
+        { 
+          status: 'In Dispatch',
+          lastUpdatedBy: savedRequest.preparedBy || 'System - Service Request',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${savedRequest.unitId} status to "In Dispatch"`);
+    }
+    
+    // Verify database state
+    const totalCount = await Servicerequest.countDocuments({});
+    console.log('📊 Total service requests in database:', totalCount);
+    
+    // Verify the document was actually saved
+    const verifyDoc = await Servicerequest.findById(savedRequest._id);
+    console.log('🔍 Verification check - Document exists in DB:', !!verifyDoc);
+    if (verifyDoc) {
+      console.log('✓ Verified document unitId:', verifyDoc.unitId);
+    }
     
     res.json({ 
       success: true, 
@@ -3882,6 +3962,7 @@ app.post('/createServiceRequest', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error creating service request:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({ 
       success: false, 
       message: error.message 
@@ -3916,6 +3997,64 @@ app.put('/updateServiceRequest/:id', async (req, res) => {
   } catch (error) {
     console.error('❌ Error updating service request:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete service request - removes from database and automatically returns vehicle status to Available
+app.delete('/deleteServiceRequest/:id', async (req, res) => {
+  try {
+    console.log(`🗑️ DELETE /deleteServiceRequest/${req.params.id} - Starting delete operation`);
+    
+    // First, find the request to get details before deletion
+    const requestToDelete = await Servicerequest.findById(req.params.id);
+    
+    if (!requestToDelete) {
+      console.log('❌ Service request not found with ID:', req.params.id);
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+    
+    console.log('📋 Found service request to delete:');
+    console.log('  - Unit Name:', requestToDelete.unitName);
+    console.log('  - Unit ID:', requestToDelete.unitId);
+    console.log('  - Services:', requestToDelete.service);
+    
+    // Delete the request
+    const deleted = await Servicerequest.findByIdAndDelete(req.params.id);
+    
+    // Automatically update vehicle status back to "Available" when service request is deleted
+    if (deleted.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deleted.unitId },
+        { 
+          status: 'Available',
+          lastUpdatedBy: 'System - Service Request Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Automatically returned vehicle ${deleted.unitId} status to "Available"`);
+    }
+    
+    console.log('✅ Service request deleted successfully');
+    
+    // Verify deletion
+    const stillExists = await Servicerequest.findById(req.params.id);
+    console.log('🔍 Verification - Document still exists:', !!stillExists);
+    
+    const remainingCount = await Servicerequest.countDocuments({});
+    console.log('📊 Remaining service requests in database:', remainingCount);
+    
+    res.json({ 
+      success: true, 
+      message: 'Service request deleted successfully and vehicle status returned to Available',
+      data: deleted
+    });
+  } catch (error) {
+    console.error('❌ Error deleting service request:', error);
+    console.error('Error details:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 

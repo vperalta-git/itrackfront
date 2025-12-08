@@ -236,22 +236,26 @@ export default function AdminDashboard() {
 
   const fetchPendingReleases = async () => {
     try {
-      const res = await fetch(buildApiUrl('/api/dispatch/assignments'));
+      // Fetch service requests that are ready for release
+      const res = await fetch(buildApiUrl('/getRequest'));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       
       if (data.success) {
-        // Filter for vehicles that are "Ready for Release"
-        const readyForRelease = (data.data || []).filter(assignment => {
-          // Check if status is explicitly "Ready for Release" OR
-          // if readyForRelease flag is true OR
-          // if overallProgress indicates completion
-          return assignment.status === 'Ready for Release' || 
-                 assignment.readyForRelease === true ||
-                 (assignment.overallProgress && assignment.overallProgress.isComplete === true);
+        // Filter for service requests that are marked ready for release
+        const readyForRelease = (data.data || []).filter(request => {
+          return request.readyForRelease === true && 
+                 !request.releasedToCustomer &&
+                 request.status !== 'Cancelled';
         });
         
-        setPendingReleases(readyForRelease);
+        // Map to match the expected structure for display
+        const mappedReleases = readyForRelease.map(req => ({
+          ...req,
+          processes: req.completedServices || req.service || []
+        }));
+        
+        setPendingReleases(mappedReleases);
         console.log(`Found ${readyForRelease.length} vehicles ready for release`);
       }
     } catch (err) {
@@ -551,34 +555,26 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Create release record
-              const releaseData = {
-                vehicleId: selectedReleaseVehicle._id,
-                unitName: selectedReleaseVehicle.unitName,
-                unitId: selectedReleaseVehicle.unitId,
-                bodyColor: selectedReleaseVehicle.bodyColor,
-                variation: selectedReleaseVehicle.variation,
-                completedProcesses: selectedReleaseVehicle.processes || [],
-                releasedBy: await AsyncStorage.getItem('userName') || 'Admin',
-                releasedAt: new Date().toISOString(),
-                status: 'Released to Customer'
-              };
+              const accountName = await AsyncStorage.getItem('accountName') || 'Admin';
+              
+              console.log('📋 Confirming vehicle release for:', selectedReleaseVehicle._id);
 
-              console.log('📋 Confirming vehicle release:', releaseData);
-
-              // Send to release endpoint
-              const response = await fetch(buildApiUrl('/api/releases'), {
-                method: 'POST',
+              // Use the service request release endpoint
+              const response = await fetch(buildApiUrl(`/releaseToCustomer/${selectedReleaseVehicle._id}`), {
+                method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(releaseData),
+                body: JSON.stringify({ 
+                  releasedBy: accountName,
+                  releasedAt: new Date().toISOString()
+                }),
               });
 
               const result = await response.json();
 
               if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Failed to confirm release');
+                throw new Error(result.message || 'Failed to confirm release');
               }
 
               Alert.alert(

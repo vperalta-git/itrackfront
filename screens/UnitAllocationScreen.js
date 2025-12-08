@@ -10,8 +10,10 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  TextInput,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 
 export default function UnitAllocationScreen() {
@@ -29,6 +31,8 @@ export default function UnitAllocationScreen() {
   const [editAllocation, setEditAllocation] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -353,31 +357,106 @@ export default function UnitAllocationScreen() {
                 </Picker>
               </View>
 
-              {/* Assign To */}
+              {/* Assign To - Searchable with Profile Pictures */}
               <Text style={styles.inputLabel}>
                 Assign To <Text style={styles.required}>*</Text>
               </Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo}
-                  onValueChange={(value) => {
-                    if (isModalOpen) {
-                      setNewAllocation({ ...newAllocation, assignedTo: value });
-                    } else {
-                      setEditAllocation({ ...editAllocation, assignedTo: value });
-                    }
-                  }}
-                  style={styles.picker}
+              <View>
+                <TouchableOpacity
+                  style={styles.searchableDropdown}
+                  onPress={() => setShowAgentDropdown(!showAgentDropdown)}
                 >
-                  <Picker.Item label="Select Sales Agent" value="" />
-                  {agents.map(agent => (
-                    <Picker.Item
-                      key={agent._id}
-                      label={agent.name}
-                      value={agent.name}
-                    />
-                  ))}
-                </Picker>
+                  <View style={styles.selectedAgentContainer}>
+                    {(isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo) ? (
+                      <>
+                        {(() => {
+                          const selectedAgent = agents.find(a => a.name === (isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo));
+                          return selectedAgent ? (
+                            <>
+                              {selectedAgent.picture ? (
+                                <Image source={{ uri: selectedAgent.picture }} style={styles.smallProfilePic} />
+                              ) : (
+                                <View style={styles.smallProfilePlaceholder}>
+                                  <MaterialIcons name="person" size={16} color="#999" />
+                                </View>
+                              )}
+                              <Text style={styles.selectedAgentText}>{selectedAgent.name}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.placeholderText}>Select Sales Agent</Text>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <Text style={styles.placeholderText}>Select Sales Agent</Text>
+                    )}
+                  </View>
+                  <MaterialIcons name={showAgentDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#666" />
+                </TouchableOpacity>
+
+                {showAgentDropdown && (
+                  <View style={styles.dropdownContainer}>
+                    <View style={styles.searchContainer}>
+                      <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search agents..."
+                        value={agentSearchQuery}
+                        onChangeText={setAgentSearchQuery}
+                      />
+                      {agentSearchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setAgentSearchQuery('')}>
+                          <MaterialIcons name="close" size={20} color="#999" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <ScrollView style={styles.agentList} nestedScrollEnabled>
+                      {agents
+                        .filter(agent => 
+                          agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
+                        )
+                        .map(agent => (
+                          <TouchableOpacity
+                            key={agent._id}
+                            style={styles.agentItem}
+                            onPress={() => {
+                              if (isModalOpen) {
+                                setNewAllocation({ ...newAllocation, assignedTo: agent.name });
+                              } else {
+                                setEditAllocation({ ...editAllocation, assignedTo: agent.name });
+                              }
+                              setShowAgentDropdown(false);
+                              setAgentSearchQuery('');
+                            }}
+                          >
+                            {agent.picture ? (
+                              <Image source={{ uri: agent.picture }} style={styles.agentProfilePic} />
+                            ) : (
+                              <View style={styles.agentProfilePlaceholder}>
+                                <MaterialIcons name="person" size={24} color="#999" />
+                              </View>
+                            )}
+                            <View style={styles.agentInfo}>
+                              <Text style={styles.agentName}>{agent.name}</Text>
+                              <Text style={styles.agentRole}>Sales Agent</Text>
+                            </View>
+                            {(isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo) === agent.name && (
+                              <MaterialIcons name="check-circle" size={24} color="#059669" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      {agents.filter(agent => 
+                        agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
+                      ).length === 0 && (
+                        <View style={styles.noResultsContainer}>
+                          <MaterialIcons name="search-off" size={48} color="#ccc" />
+                          <Text style={styles.noResultsText}>No agents found</Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             </ScrollView>
 
@@ -700,5 +779,129 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#6b7280',
+  },
+  // Searchable Dropdown Styles
+  searchableDropdown: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    backgroundColor: '#f9fafb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 50,
+  },
+  selectedAgentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  smallProfilePic: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  smallProfilePlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedAgentText: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    marginTop: 4,
+    maxHeight: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1f2937',
+    padding: 0,
+  },
+  agentList: {
+    maxHeight: 240,
+  },
+  agentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  agentProfilePic: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+  },
+  agentProfilePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agentInfo: {
+    flex: 1,
+  },
+  agentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  agentRole: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 8,
   },
 });

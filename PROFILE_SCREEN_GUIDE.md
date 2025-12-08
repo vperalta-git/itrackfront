@@ -1,17 +1,20 @@
 # Profile Screen Guide
 
 ## Overview
+
 The Profile Screen provides a comprehensive user profile management interface matching the web design. Users can view and edit their profile information, change password, view team members, and manage settings.
 
 ## Features
 
 ### 1. Profile Display
+
 - **Profile Picture**: Displays user's profile picture or default avatar
 - **Name**: User's full name (from `name` or `accountName` field)
 - **Role**: User's role (Admin, Manager, Driver, Sales Agent, etc.)
 - **Email**: User's email address
 
 ### 2. Edit Profile
+
 - **Edit Mode Toggle**: Tap "✏️ Edit Profile" button to enter edit mode
 - **Editable Fields**:
   - Full Name
@@ -22,6 +25,7 @@ The Profile Screen provides a comprehensive user profile management interface ma
 - **Cancel**: Reverts changes and exits edit mode
 
 ### 3. Change Password
+
 - **Current Password**: Validates against existing password
 - **New Password**: Must be at least 8 characters
 - **Confirm Password**: Must match new password
@@ -29,6 +33,7 @@ The Profile Screen provides a comprehensive user profile management interface ma
 - **Audit Logging**: Logs password change action
 
 ### 4. View Other Profiles (Team Profiles)
+
 - **Team List**: Shows all users except current user
 - **Profile Cards**: Display name, role, and profile picture
 - **Detail View**: Tap on any profile to view full details
@@ -39,13 +44,16 @@ The Profile Screen provides a comprehensive user profile management interface ma
   - Other contact information
 
 ### 5. Settings
+
 - **Dark Mode Toggle**: Enable/disable dark mode (UI only, functionality pending)
 - **Change Password**: Opens password change modal
 - **View Other Profiles**: Opens team profiles modal
 - **Logout**: Confirms and logs user out
 
 ### 6. Information Display
+
 All profile fields from database:
+
 - **Full Name**: `name` or `accountName`
 - **Phone Number**: `phoneno` or `phoneNumber`
 - **Email**: `email` (read-only)
@@ -56,6 +64,7 @@ All profile fields from database:
 ## Database Schema
 
 ### User Object Fields
+
 ```json
 {
   "_id": "68c0efaaa0508e15ccb5f9f3",
@@ -82,12 +91,14 @@ All profile fields from database:
 ```
 
 ### Required Fields
+
 - `name` or `accountName`: User's full name
 - `email`: User's email (unique identifier)
 - `password`: User's password (plain text in DB)
 - `role`: User's role (Admin, Manager, Driver, etc.)
 
 ### Optional Fields
+
 - `phoneno` or `phoneNumber`: Contact number
 - `picture`: Base64 encoded profile picture
 - `personalDetails`: Additional contact information
@@ -98,18 +109,23 @@ All profile fields from database:
 ## API Endpoints Used
 
 ### Get Users
+
 ```
 GET /getUsers
 ```
+
 Returns array of all users in the system.
 
 ### Update User
+
 ```
 PUT /updateUser/:id
 ```
+
 Updates user profile with provided data.
 
 **Request Body:**
+
 ```json
 {
   "name": "Updated Name",
@@ -122,12 +138,15 @@ Updates user profile with provided data.
 ```
 
 ### Audit Trail
+
 ```
 POST /api/audit-trail
 ```
+
 Logs user actions for audit purposes.
 
 **Request Body:**
+
 ```json
 {
   "action": "Update",
@@ -180,6 +199,7 @@ ProfileScreen
 ## State Management
 
 ### Local States
+
 ```javascript
 const [loading, setLoading] = useState(false);
 const [fullUser, setFullUser] = useState(null);
@@ -191,28 +211,31 @@ const [teamProfiles, setTeamProfiles] = useState([]);
 const [selectedProfile, setSelectedProfile] = useState(null);
 
 const [formData, setFormData] = useState({
-  name: '',
-  phoneno: '',
-  email: '',
-  personalDetails: '',
-  picture: '',
+  name: "",
+  phoneno: "",
+  email: "",
+  personalDetails: "",
+  picture: "",
 });
 
 const [passwordData, setPasswordData] = useState({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: '',
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
 });
 ```
 
 ### Context
+
 Uses `useAuth()` context for:
+
 - `user`: Current authenticated user
 - `logout`: Logout function
 
 ## Data Flow
 
 ### Profile Load
+
 1. Component mounts
 2. `fetchUserProfile()` called
 3. GET /getUsers fetches all users
@@ -221,6 +244,7 @@ Uses `useAuth()` context for:
 6. UI renders with user data
 
 ### Profile Update
+
 1. User enters edit mode
 2. Modifies fields (name, phone, personalDetails, picture)
 3. Taps "Save Changes"
@@ -232,6 +256,7 @@ Uses `useAuth()` context for:
 9. Shows success alert
 
 ### Password Change
+
 1. User taps "Change Password" in settings
 2. Modal opens with 3 input fields
 3. User enters current, new, and confirm passwords
@@ -247,6 +272,7 @@ Uses `useAuth()` context for:
 9. Shows success alert
 
 ### View Team Profiles
+
 1. User taps "View Other Profiles"
 2. Fetches all users from GET /getUsers
 3. Filters out current user
@@ -257,6 +283,7 @@ Uses `useAuth()` context for:
 8. Returns to team list
 
 ### Image Upload
+
 1. User taps camera icon (edit mode)
 2. Requests media library permissions
 3. Opens image picker
@@ -269,6 +296,7 @@ Uses `useAuth()` context for:
 ## Validation Rules
 
 ### Profile Update
+
 - **Name**: Required, cannot be empty
 - **Phone Number**: Required, cannot be empty
 - **Email**: Read-only, cannot be changed
@@ -277,6 +305,7 @@ Uses `useAuth()` context for:
 - **Picture**: Optional, base64 encoded
 
 ### Password Change
+
 - **Current Password**: Required, must match database
 - **New Password**: Required, minimum 8 characters
 - **Confirm Password**: Required, must match new password
@@ -284,9 +313,12 @@ Uses `useAuth()` context for:
 ## Permissions
 
 ### Image Picker
+
 Requires media library access:
+
 ```javascript
-const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+const permissionResult =
+  await ImagePicker.requestMediaLibraryPermissionsAsync();
 ```
 
 Shows alert if permission denied.
@@ -294,19 +326,23 @@ Shows alert if permission denied.
 ## Error Handling
 
 ### API Errors
+
 All API calls wrapped in try-catch:
+
 ```javascript
 try {
   await apiPut(`/updateUser/${fullUser._id}`, updatedData);
-  Alert.alert('Success', 'Profile updated successfully!');
+  Alert.alert("Success", "Profile updated successfully!");
 } catch (error) {
-  console.error('Error updating profile:', error);
-  Alert.alert('Error', 'Failed to update profile');
+  console.error("Error updating profile:", error);
+  Alert.alert("Error", "Failed to update profile");
 }
 ```
 
 ### Validation Errors
+
 Shows alerts for:
+
 - Empty required fields
 - Password mismatch
 - Password too short
@@ -315,6 +351,7 @@ Shows alerts for:
 ## Styling
 
 ### Colors
+
 - Background: #F3F4F6 (light gray)
 - Sections: #FFFFFF (white)
 - Primary: COLORS.primary (#DC2626 red)
@@ -323,6 +360,7 @@ Shows alerts for:
 - Error: COLORS.error (red)
 
 ### Layout
+
 - **Profile Image**: 120x120 circular
 - **Camera Button**: 40x40 circular, positioned bottom-right
 - **Section Padding**: SPACING.lg
@@ -330,6 +368,7 @@ Shows alerts for:
 - **Border Radius**: BORDER_RADIUS.md (8px)
 
 ### Modals
+
 - **Overlay**: rgba(0, 0, 0, 0.5)
 - **Container**: White background, rounded corners
 - **Width**: 90% of screen width
@@ -338,6 +377,7 @@ Shows alerts for:
 ## Testing Guide
 
 ### Test 1: Profile Display
+
 1. Login as any user
 2. Navigate to Profile from drawer
 3. **Expected**: Profile loads with user's information
@@ -345,6 +385,7 @@ Shows alerts for:
 5. **Expected**: All fields show correct data
 
 ### Test 2: Edit Profile
+
 1. On Profile screen, tap "✏️ Edit Profile"
 2. **Expected**: Edit mode activates
 3. **Expected**: Camera icon appears on profile picture
@@ -356,6 +397,7 @@ Shows alerts for:
 9. **Expected**: Edit mode exits
 
 ### Test 3: Profile Picture Update
+
 1. Enter edit mode
 2. Tap camera icon on profile picture
 3. **Expected**: Image picker opens
@@ -367,6 +409,7 @@ Shows alerts for:
 9. **Expected**: New image persists
 
 ### Test 4: Cancel Edit
+
 1. Enter edit mode
 2. Modify name and phone
 3. Tap "Cancel"
@@ -375,6 +418,7 @@ Shows alerts for:
 6. **Expected**: Edit mode exits
 
 ### Test 5: Change Password
+
 1. Tap "Change Password" in settings
 2. **Expected**: Modal opens
 3. Enter incorrect current password
@@ -394,6 +438,7 @@ Shows alerts for:
 17. **Expected**: Login succeeds
 
 ### Test 6: View Team Profiles
+
 1. Tap "View Other Profiles"
 2. **Expected**: Modal shows list of other users
 3. **Expected**: Current user not in list
@@ -406,11 +451,13 @@ Shows alerts for:
 10. **Expected**: Returns to profile screen
 
 ### Test 7: Dark Mode Toggle
+
 1. Toggle Dark Mode switch
 2. **Expected**: Switch changes state
 3. **Note**: UI change not yet implemented (planned feature)
 
 ### Test 8: Logout
+
 1. Tap "Logout" in settings
 2. **Expected**: Confirmation alert appears
 3. Tap "Cancel"
@@ -421,6 +468,7 @@ Shows alerts for:
 8. **Expected**: Navigates to login screen
 
 ### Test 9: Validation
+
 1. Enter edit mode
 2. Clear name field
 3. Tap "Save Changes"
@@ -433,6 +481,7 @@ Shows alerts for:
 10. **Expected**: Success
 
 ### Test 10: Personal Details
+
 1. Enter edit mode
 2. Enter multi-line text in "Other Contact Information"
 3. Save changes
@@ -443,64 +492,79 @@ Shows alerts for:
 ## Troubleshooting
 
 ### Profile Not Loading
+
 **Symptom**: Loading screen persists indefinitely
 **Causes**:
+
 - API endpoint unreachable
 - User email not found in database
 - Network error
 
 **Solutions**:
+
 1. Check backend server status
 2. Verify user's email in database
 3. Check console for error logs
 4. Verify API_BASE_URL in config
 
 ### Image Not Uploading
+
 **Symptom**: Selected image doesn't display or save
 **Causes**:
+
 - Permissions not granted
 - Image too large
 - Base64 conversion failed
 
 **Solutions**:
+
 1. Check media library permissions
 2. Reduce image quality in picker options
 3. Verify base64 string format: `data:image/jpeg;base64,...`
 4. Check image size limit (usually 1MB recommended)
 
 ### Password Change Fails
+
 **Symptom**: Password change shows error even with correct input
 **Causes**:
+
 - Current password doesn't match database
 - Password not updating in database
 - API error
 
 **Solutions**:
+
 1. Verify current password in database
 2. Check PUT /updateUser/:id response
 3. Ensure password field included in update
 4. Check for password hashing (DB stores plain text currently)
 
 ### Team Profiles Empty
+
 **Symptom**: "No other profiles found" when users exist
 **Causes**:
+
 - GET /getUsers returning empty array
 - All users filtered out
 - API error
 
 **Solutions**:
+
 1. Verify GET /getUsers endpoint working
 2. Check filter logic: `users.filter(u => u._id !== fullUser?._id)`
-3. Ensure fullUser._id is set correctly
+3. Ensure fullUser.\_id is set correctly
 4. Check console for errors
 
 ### Audit Trail Not Logging
+
 **Symptom**: Actions not appearing in audit trail
 **Causes**:
+
 - POST /api/audit-trail endpoint failing
 - Audit trail API silent error
 
 **Solutions**:
+
 1. Check backend audit trail endpoint
 2. Verify request body format matches backend schema
 3. Check backend logs for errors
@@ -509,16 +573,19 @@ Shows alerts for:
 ## Performance Considerations
 
 ### Image Optimization
+
 - **Quality**: Set to 0.5 in ImagePicker for faster upload
 - **Size**: Images compressed automatically
 - **Format**: Convert all images to JPEG for consistency
 
 ### Data Fetching
+
 - **Initial Load**: Single GET /getUsers call
 - **Caching**: Consider caching user data for 5 minutes
 - **Refresh**: Only fetch when needed (profile load, after update)
 
 ### State Management
+
 - **Local State**: All profile data in component state
 - **Context**: Only user authentication data in context
 - **No Redux**: Simple state management sufficient
@@ -526,6 +593,7 @@ Shows alerts for:
 ## Future Enhancements
 
 ### Planned Features
+
 1. **Dark Mode Implementation**: Apply dark theme across app
 2. **Image Cropping**: Allow users to crop profile pictures
 3. **Email Change**: Add ability to change email with verification
@@ -536,6 +604,7 @@ Shows alerts for:
 8. **Profile Completion**: Show percentage of profile completion
 
 ### Additional Settings
+
 - **Notification Preferences**: Email/push notification toggles
 - **Language Selection**: Multi-language support
 - **Time Zone**: Set preferred time zone
@@ -544,6 +613,7 @@ Shows alerts for:
 ## Dependencies
 
 ### Required Packages
+
 ```json
 {
   "expo-image-picker": "~15.1.0",
@@ -553,7 +623,9 @@ Shows alerts for:
 ```
 
 ### Permissions (iOS)
+
 Add to `app.json`:
+
 ```json
 {
   "expo": {
@@ -572,6 +644,7 @@ Add to `app.json`:
 ## API Response Examples
 
 ### Get Users Response
+
 ```json
 [
   {
@@ -589,6 +662,7 @@ Add to `app.json`:
 ```
 
 ### Update User Request
+
 ```json
 {
   "name": "Updated Name",
@@ -600,6 +674,7 @@ Add to `app.json`:
 ```
 
 ### Audit Trail Request
+
 ```json
 {
   "action": "Update",

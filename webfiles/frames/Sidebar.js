@@ -13,7 +13,8 @@ import axios from 'axios';
 import logo from '../icons/itrackwhite.png'; 
 import { getCurrentUser } from '../getCurrentUser';
 import testDriveIcon from '../icons/testdrive.png'; // <--
-import allocationIcon from '../icons/stocks.png'; // Using stocks icon for unit allocation
+import allocationIcon from '../icons/users.png'; // Using users icon for agent allocation
+import releaseIcon from '../icons/release.png';
 
 import '../css/Sidebar.css';
 
@@ -30,13 +31,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
   const menuItems = [
   { name: "Dashboard", icon: dashboardIcon, path: "/dashboard" },
-  
   { name: "Vehicle Stocks", icon: stocksIcon, path: "/inventory" },
-  { name: "Unit Allocation", icon: allocationIcon, path: "/unitallocation" },
-  { name: "Vehicle Preparation and Release", icon: requestIcon, path: "/servicerequest" },
-  // { name: "Vehicle Shipments", icon: shipmentsIcon, path: "/shipments" },
+  { name: "Vehicle Preperation", icon: requestIcon, path: "/servicerequest" },
   { name: "Driver Allocation", icon: driverIcon, path: "/driverallocation" },
-  { name: "Test Drive", icon: testDriveIcon, path: "/testdrive" }, // 
+  { name: "Release", icon: releaseIcon, path: "/release" },
+  { name: "Test Drive", icon: testDriveIcon, path: "/testdrive" },
   { name: "User Management", icon: usersIcon, path: "/users" },
   { name: "Reports", icon: reportsIcon, path: "/reports" },
 ];
@@ -47,9 +46,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         'Dashboard',
         'Reports',
         'Vehicle Stocks',
-        'Unit Allocation',
-        'Vehicle Preparation and Release',
-        'Vehicle Shipments',
+        'Vehicle Preperation',
+        'Driver Allocation',
+        'Release',
         'Test Drive',
       ].includes(item.name))
     : menuItems;
