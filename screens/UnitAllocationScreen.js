@@ -414,7 +414,7 @@ export default function UnitAllocationScreen() {
                     <ScrollView style={styles.agentList} nestedScrollEnabled>
                       {agents
                         .filter(agent => 
-                          agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
+                          agent.name && agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
                         )
                         .map(agent => (
                           <TouchableOpacity
@@ -447,7 +447,7 @@ export default function UnitAllocationScreen() {
                           </TouchableOpacity>
                         ))}
                       {agents.filter(agent => 
-                        agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
+                        agent.name && agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
                       ).length === 0 && (
                         <View style={styles.noResultsContainer}>
                           <MaterialIcons name="search-off" size={48} color="#ccc" />
