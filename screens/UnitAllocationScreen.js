@@ -62,6 +62,7 @@ export default function UnitAllocationScreen() {
       .then(res => {
         console.log('📊 All users:', res.data.map(u => ({ name: u.name, role: u.role })));
         const agentList = res.data.filter(u => {
+          if (!u.name) return false; // Skip users with no name
           const role = u.role?.toLowerCase() || '';
           return role === "sales agent" || role === "sales" || role === "agent" || role === "salesagent";
         });
@@ -79,16 +80,20 @@ export default function UnitAllocationScreen() {
 
   // GET available units from inventory
   const fetchAvailableUnits = () => {
-    axios.get("https://itrack-backend-1.onrender.com/api/getStock")
+    axios.get("https://itrack-backend-1.onrender.com/getStock")
       .then(res => {
-        const units = res.data.filter(u =>
+        console.log('📦 Raw stock response:', res.data);
+        // Handle both response formats: plain array or { success, data }
+        const inventoryData = Array.isArray(res.data) ? res.data : res.data.data || [];
+        const units = inventoryData.filter(u =>
           u.status === "In Stockyard" || u.status === "Available"
         );
         setAvailableUnits(units);
-        console.log(`📦 Loaded ${units.length} available units`);
+        console.log(`📦 Loaded ${units.length} available units (filtered from ${inventoryData.length} total)`);
       })
       .catch(err => {
         console.error('Fetch units error:', err.response?.data || err.message);
+        Alert.alert('Error', 'Failed to load available units. Check console for details.');
       });
   };
 
