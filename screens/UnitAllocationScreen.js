@@ -300,6 +300,8 @@ export default function UnitAllocationScreen() {
         onRequestClose={() => {
           setIsModalOpen(false);
           setEditAllocation(null);
+          setAgentSearchQuery('');
+          setShowAgentDropdown(false);
         }}
       >
         <View style={styles.modalOverlay}>
@@ -312,6 +314,8 @@ export default function UnitAllocationScreen() {
                 onPress={() => {
                   setIsModalOpen(false);
                   setEditAllocation(null);
+                  setAgentSearchQuery('');
+                  setShowAgentDropdown(false);
                 }}
               >
                 <Text style={styles.closeButton}>✕</Text>
@@ -329,18 +333,22 @@ export default function UnitAllocationScreen() {
                   onValueChange={(value) => {
                     const selectedUnit = availableUnits.find(u => u.unitId === value);
                     if (selectedUnit) {
-                      const allocationData = {
-                        unitName: selectedUnit.unitName,
-                        unitId: selectedUnit.unitId,
-                        bodyColor: selectedUnit.bodyColor,
-                        variation: selectedUnit.variation,
-                        assignedTo: isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo
-                      };
-
                       if (isModalOpen) {
-                        setNewAllocation({ ...newAllocation, ...allocationData });
+                        setNewAllocation({
+                          ...newAllocation,
+                          unitName: selectedUnit.unitName,
+                          unitId: selectedUnit.unitId,
+                          bodyColor: selectedUnit.bodyColor,
+                          variation: selectedUnit.variation,
+                        });
                       } else {
-                        setEditAllocation({ ...editAllocation, ...allocationData });
+                        setEditAllocation({
+                          ...editAllocation,
+                          unitName: selectedUnit.unitName,
+                          unitId: selectedUnit.unitId,
+                          bodyColor: selectedUnit.bodyColor,
+                          variation: selectedUnit.variation,
+                        });
                       }
                     }
                   }}
@@ -481,6 +489,8 @@ export default function UnitAllocationScreen() {
                 onPress={() => {
                   setIsModalOpen(false);
                   setEditAllocation(null);
+                  setAgentSearchQuery('');
+                  setShowAgentDropdown(false);
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
