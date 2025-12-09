@@ -60,12 +60,20 @@ export default function UnitAllocationScreen() {
   const fetchAgents = () => {
     axios.get("https://itrack-backend-1.onrender.com/api/getUsers")
       .then(res => {
-        const agentList = res.data.filter(u => u.role?.toLowerCase() === "sales agent");
+        console.log('📊 All users:', res.data.map(u => ({ name: u.name, role: u.role })));
+        const agentList = res.data.filter(u => {
+          const role = u.role?.toLowerCase() || '';
+          return role === "sales agent" || role === "sales" || role === "agent" || role === "salesagent";
+        });
         setAgents(agentList);
-        console.log(`📊 Loaded ${agentList.length} sales agents`);
+        console.log(`📊 Loaded ${agentList.length} sales agents:`, agentList.map(a => a.name));
+        if (agentList.length === 0) {
+          console.warn('⚠️ No sales agents found. Check user roles in database.');
+        }
       })
       .catch(err => {
         console.error('Fetch agents error:', err.response?.data || err.message);
+        Alert.alert('Error', 'Failed to load sales agents');
       });
   };
 
@@ -378,7 +386,13 @@ export default function UnitAllocationScreen() {
               <Text style={styles.inputLabel}>
                 Assign To <Text style={styles.required}>*</Text>
               </Text>
-              <View>
+              {agents.length === 0 ? (
+                <View style={styles.noAgentsWarning}>
+                  <MaterialIcons name="warning" size={24} color="#f59e0b" />
+                  <Text style={styles.noAgentsText}>No sales agents available. Please add sales agents first.</Text>
+                </View>
+              ) : (
+                <View>
                 <TouchableOpacity
                   style={styles.searchableDropdown}
                   onPress={() => setShowAgentDropdown(!showAgentDropdown)}
@@ -475,6 +489,7 @@ export default function UnitAllocationScreen() {
                   </View>
                 )}
               </View>
+              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -710,40 +725,46 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
+    maxWidth: 450,
+    maxHeight: '85%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#fafafa',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#333',
+    color: '#111827',
+    letterSpacing: 0.3,
   },
   closeButton: {
-    fontSize: 28,
-    color: '#666',
+    fontSize: 30,
+    color: '#9ca3af',
     fontWeight: '300',
+    width: 36,
+    height: 36,
+    textAlign: 'center',
+    lineHeight: 36,
   },
   modalBody: {
     padding: 20,
@@ -774,30 +795,39 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#fafafa',
   },
   modalButton: {
     flex: 1,
-    height: 48,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   confirmButton: {
     backgroundColor: '#DC2626',
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.5,
   },
   cancelButton: {
     backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#374151',
   },
   // Searchable Dropdown Styles
   searchableDropdown: {
@@ -922,5 +952,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     marginTop: 8,
+  },
+  noAgentsWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  noAgentsText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400e',
+    lineHeight: 18,
   },
 });
