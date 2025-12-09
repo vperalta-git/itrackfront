@@ -49,7 +49,10 @@ export default function UnitAllocationScreen() {
         console.log('Allocations:', res.data);
         setAllocations(res.data);
       })
-      .catch(err => console.error(err))
+      .catch(err => {
+        console.error('Fetch allocations error:', err.response?.data || err.message);
+        Alert.alert('Error', `Failed to load allocations: ${err.response?.data?.message || err.message}`);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -59,8 +62,11 @@ export default function UnitAllocationScreen() {
       .then(res => {
         const agentList = res.data.filter(u => u.role?.toLowerCase() === "sales agent");
         setAgents(agentList);
+        console.log(`📊 Loaded ${agentList.length} sales agents`);
       })
-      .catch(err => console.error(err));
+      .catch(err => {
+        console.error('Fetch agents error:', err.response?.data || err.message);
+      });
   };
 
   // GET available units from inventory
@@ -71,8 +77,11 @@ export default function UnitAllocationScreen() {
           u.status === "In Stockyard" || u.status === "Available"
         );
         setAvailableUnits(units);
+        console.log(`📦 Loaded ${units.length} available units`);
       })
-      .catch(err => console.error(err));
+      .catch(err => {
+        console.error('Fetch units error:', err.response?.data || err.message);
+      });
   };
 
   // CREATE allocation
@@ -98,8 +107,8 @@ export default function UnitAllocationScreen() {
         Alert.alert("Success", "Unit allocated successfully!");
       })
       .catch(err => {
-        console.error(err);
-        Alert.alert("Error", "Failed to allocate unit");
+        console.error('Create allocation error:', err.response?.data || err.message);
+        Alert.alert("Error", `Failed to allocate unit: ${err.response?.data?.message || err.message}`);
       });
   };
 
