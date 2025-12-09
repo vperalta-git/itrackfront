@@ -19,11 +19,11 @@ export default function VehiclePreparationAdmin({ navigation }) {
   const [filterType, setFilterType] = useState('recent'); // 'recent' or 'alphabetical'
   
   const [newRequest, setNewRequest] = useState({
-    dateCreated: new Date().toISOString().split('T')[0],
+    dateCreated: '',
     unitId: '',
     unitName: '',
     service: [],
-    status: 'Pending'
+    status: 'In Dispatch'
   });
 
   const availableServices = ['Carwash', 'Tinting', 'Ceramic Coating', 'Accessories', 'Rust Proof'];
@@ -74,18 +74,11 @@ export default function VehiclePreparationAdmin({ navigation }) {
   };
 
   const handleCreateRequest = async () => {
-    const { dateCreated, unitId, unitName, service } = newRequest;
+    const { unitId, unitName, service } = newRequest;
 
     // Validation
-    if (!dateCreated || !unitId || !unitName || service.length === 0) {
+    if (!unitId || !unitName || service.length === 0) {
       Alert.alert('Validation Error', 'All fields are required.');
-      return;
-    }
-
-    // Validate conduction number (6-8 alphanumeric characters)
-    const regex = /^[A-Za-z0-9]{6,8}$/;
-    if (!regex.test(unitId)) {
-      Alert.alert('Validation Error', 'Conduction Number must be 6-8 alphanumeric characters.');
       return;
     }
 
@@ -93,7 +86,11 @@ export default function VehiclePreparationAdmin({ navigation }) {
       const accountName = await AsyncStorage.getItem('accountName') || 'Admin';
       
       const requestData = {
-        ...newRequest,
+        unitId,
+        unitName,
+        service,
+        status: 'In Dispatch',
+        dateCreated: new Date(),
         preparedBy: accountName,
         createdAt: new Date().toISOString()
       };
@@ -107,17 +104,14 @@ export default function VehiclePreparationAdmin({ navigation }) {
       const result = await response.json();
 
       if (result.success || response.ok) {
-        // Update inventory status to "In Dispatch"
-        await updateInventoryStatus(unitId, 'In Dispatch');
-        
         Alert.alert('Success', 'Service request created successfully!');
         setModalVisible(false);
         setNewRequest({
-          dateCreated: new Date().toISOString().split('T')[0],
+          dateCreated: '',
           unitId: '',
           unitName: '',
           service: [],
-          status: 'Pending'
+          status: 'In Dispatch'
         });
         loadData();
       } else {
@@ -145,9 +139,6 @@ export default function VehiclePreparationAdmin({ navigation }) {
               });
 
               if (response.ok) {
-                // Update inventory status back to "Available"
-                await updateInventoryStatus(request.unitId, 'Available');
-                
                 Alert.alert('Success', 'Request deleted successfully!');
                 loadData();
               } else {
@@ -161,31 +152,6 @@ export default function VehiclePreparationAdmin({ navigation }) {
         }
       ]
     );
-  };
-
-  const updateInventoryStatus = async (unitId, newStatus) => {
-    try {
-      // Find the inventory item
-      const inventoryItem = inventory.find(item => item.unitId === unitId);
-      if (!inventoryItem) {
-        console.log('Inventory item not found for unitId:', unitId);
-        return;
-      }
-
-      const response = await fetch(buildApiUrl(`/updateStock/${inventoryItem._id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (response.ok) {
-        console.log(`Updated inventory status to ${newStatus} for ${unitId}`);
-        // Reload inventory to reflect changes
-        loadInventory();
-      }
-    } catch (error) {
-      console.error('Update inventory status error:', error);
-    }
   };
 
   const toggleService = (service) => {
@@ -205,8 +171,12 @@ export default function VehiclePreparationAdmin({ navigation }) {
     }));
   };
 
-  // Get available inventory (only "Available" status)
-  const availableInventory = inventory.filter(item => item.status === 'Available');
+  // Get available inventory (only "In Stockyard" or "Available" status, not already in requests)
+  const availableInventory = inventory.filter(item => {
+    const isAvailable = item.status === "In Stockyard" || item.status === "Available";
+    const isAlreadyUsed = requests.some(req => req.unitId === item.unitId);
+    return isAvailable && !isAlreadyUsed;
+  });
 
   // Filter and sort requests
   const getFilteredRequests = () => {
@@ -321,24 +291,12 @@ export default function VehiclePreparationAdmin({ navigation }) {
         </View>
 
         <ScrollView style={styles.modalBody}>
-          {/* Date Created */}
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>
-              Date Created <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.formInput}
-              value={newRequest.dateCreated}
-              editable={false}
-            />
-          </View>
-
           {/* Select from Available Inventory */}
           <View style={styles.formGroup}>
             <Text style={styles.formLabel}>
               Select Existing Unit <Text style={styles.required}>*</Text>
             </Text>
-            <Text style={styles.formHint}>Only vehicles with "Available" status</Text>
+            <Text style={styles.formHint}>Only vehicles with "In Stockyard" or "Available" status</Text>
             
             <ScrollView style={styles.inventoryList}>
               {availableInventory.length > 0 ? (
