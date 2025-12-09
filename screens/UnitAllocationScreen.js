@@ -18,7 +18,9 @@ import axios from 'axios';
 
 export default function UnitAllocationScreen() {
   const [allocations, setAllocations] = useState([]);
+  const [filteredAllocations, setFilteredAllocations] = useState([]);
   const [agents, setAgents] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [availableUnits, setAvailableUnits] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newAllocation, setNewAllocation] = useState({
@@ -33,13 +35,22 @@ export default function UnitAllocationScreen() {
   const [loading, setLoading] = useState(false);
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('recent'); // 'recent' or 'team'
+  const [selectedTeam, setSelectedTeam] = useState('all'); // 'all' or manager name
   const itemsPerPage = 6;
 
   useEffect(() => {
     fetchAllocations();
     fetchAgents();
+    fetchManagers();
     fetchAvailableUnits();
   }, []);
+
+  // Apply search and filter whenever allocations, search, or sort changes
+  useEffect(() => {
+    applyFilters();
+  }, [allocations, searchQuery, sortBy, selectedTeam]);
 
   // GET all allocations
   const fetchAllocations = () => {
@@ -67,7 +78,7 @@ export default function UnitAllocationScreen() {
           return role === "sales agent" || role === "sales" || role === "agent" || role === "salesagent";
         });
         setAgents(agentList);
-        console.log(`📊 Loaded ${agentList.length} sales agents:`, agentList.map(a => a.name));
+        console.log(`📊 Loaded ${agentList.length} sales agents:`, agentList.map(a => ({ name: a.name, manager: a.manager })));
         if (agentList.length === 0) {
           console.warn('⚠️ No sales agents found. Check user roles in database.');
         }
@@ -78,18 +89,75 @@ export default function UnitAllocationScreen() {
       });
   };
 
-  // GET available units from inventory
+  // GET all Managers
+  const fetchManagers = () => {
+    axios.get("https://itrack-backend-1.onrender.com/api/getUsers")
+      .then(res => {
+        const managerList = res.data.filter(u => {
+          if (!u.name) return false;
+          const role = u.role?.toLowerCase() || '';
+          return role === "manager";
+        });
+        setManagers(managerList);
+        console.log(`👔 Loaded ${managerList.length} managers:`, managerList.map(m => m.name));
+      })
+      .catch(err => {
+        console.error('Fetch managers error:', err.response?.data || err.message);
+      });
+  };
+
+  // Apply search and sort filters
+  const applyFilters = () => {
+    let filtered = [...allocations];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(alloc =>
+        alloc.unitName?.toLowerCase().includes(query) ||
+        alloc.unitId?.toLowerCase().includes(query) ||
+        alloc.assignedTo?.toLowerCase().includes(query) ||
+        alloc.bodyColor?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply team filter
+    if (selectedTeam !== 'all') {
+      const agentsInTeam = agents.filter(a => a.manager === selectedTeam).map(a => a.name);
+      filtered = filtered.filter(alloc => agentsInTeam.includes(alloc.assignedTo));
+    }
+
+    // Apply sort
+    if (sortBy === 'recent') {
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (sortBy === 'team') {
+      filtered.sort((a, b) => {
+        const agentA = agents.find(agent => agent.name === a.assignedTo);
+        const agentB = agents.find(agent => agent.name === b.assignedTo);
+        const managerA = agentA?.manager || '';
+        const managerB = agentB?.manager || '';
+        return managerA.localeCompare(managerB);
+      });
+    }
+
+    setFilteredAllocations(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // GET available units from inventory (exclude only Released status)
   const fetchAvailableUnits = () => {
     axios.get("https://itrack-backend-1.onrender.com/getStock")
       .then(res => {
         console.log('📦 Raw stock response:', res.data);
         // Handle both response formats: plain array or { success, data }
         const inventoryData = Array.isArray(res.data) ? res.data : res.data.data || [];
-        const units = inventoryData.filter(u =>
-          u.status === "In Stockyard" || u.status === "Available"
-        );
+        // Allow all statuses EXCEPT "Released"
+        const units = inventoryData.filter(u => {
+          const status = u.status?.toLowerCase() || '';
+          return status !== "released";
+        });
         setAvailableUnits(units);
-        console.log(`📦 Loaded ${units.length} available units (filtered from ${inventoryData.length} total)`);
+        console.log(`📦 Loaded ${units.length} available units (filtered from ${inventoryData.length} total, excluding Released)`);
       })
       .catch(err => {
         console.error('Fetch units error:', err.response?.data || err.message);
@@ -170,14 +238,26 @@ export default function UnitAllocationScreen() {
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentAllocations = allocations.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(allocations.length / itemsPerPage);
+  const currentAllocations = filteredAllocations.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAllocations.length / itemsPerPage);
 
-  const renderAllocationCard = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.unitName}</Text>
-      </View>
+  // Get unique manager names from agents
+  const managerTeams = [...new Set(agents.map(a => a.manager).filter(Boolean))];
+
+  const renderAllocationCard = ({ item }) => {
+    const agent = agents.find(a => a.name === item.assignedTo);
+    const managerName = agent?.manager || 'No Team';
+    
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{item.unitName}</Text>
+          {managerName && (
+            <View style={styles.teamBadge}>
+              <Text style={styles.teamBadgeText}>{managerName} Group</Text>
+            </View>
+          )}
+        </View>
 
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
@@ -223,31 +303,89 @@ export default function UnitAllocationScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.header}>Unit Allocation</Text>
 
-      {/* Summary Cards */}
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#DC2626' }]}>
-          <Text style={styles.summaryNumber}>{allocations.length}</Text>
-          <Text style={styles.summaryLabel}>Total Allocations</Text>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by unit, agent, color..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <MaterialIcons name="close" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Sort and Filter Controls */}
+      <View style={styles.filterContainer}>
+        <View style={styles.filterRow}>
+          <Text style={styles.filterLabel}>Sort By:</Text>
+          <View style={styles.sortButtons}>
+            <TouchableOpacity
+              style={[styles.sortButton, sortBy === 'recent' && styles.sortButtonActive]}
+              onPress={() => setSortBy('recent')}
+            >
+              <MaterialIcons name="schedule" size={16} color={sortBy === 'recent' ? '#fff' : '#666'} />
+              <Text style={[styles.sortButtonText, sortBy === 'recent' && styles.sortButtonTextActive]}>
+                Recent
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sortButton, sortBy === 'team' && styles.sortButtonActive]}
+              onPress={() => setSortBy('team')}
+            >
+              <MaterialIcons name="groups" size={16} color={sortBy === 'team' ? '#fff' : '#666'} />
+              <Text style={[styles.sortButtonText, sortBy === 'team' && styles.sortButtonTextActive]}>
+                Team
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: '#059669' }]}>
-          <Text style={styles.summaryNumber}>{availableUnits.length}</Text>
-          <Text style={styles.summaryLabel}>Available Units</Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: '#2563EB' }]}>
-          <Text style={styles.summaryNumber}>{agents.length}</Text>
-          <Text style={styles.summaryLabel}>Active Agents</Text>
-        </View>
+        {/* Team Filter */}
+        {managerTeams.length > 0 && (
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Filter Team:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamFilterScroll}>
+              <TouchableOpacity
+                style={[styles.teamFilterButton, selectedTeam === 'all' && styles.teamFilterButtonActive]}
+                onPress={() => setSelectedTeam('all')}
+              >
+                <Text style={[styles.teamFilterButtonText, selectedTeam === 'all' && styles.teamFilterButtonTextActive]}>
+                  All Teams
+                </Text>
+              </TouchableOpacity>
+              {managerTeams.map((manager, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.teamFilterButton, selectedTeam === manager && styles.teamFilterButtonActive]}
+                  onPress={() => setSelectedTeam(manager)}
+                >
+                  <Text style={[styles.teamFilterButtonText, selectedTeam === manager && styles.teamFilterButtonTextActive]}>
+                    {manager} Group
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {/* Add Button */}
       <View style={styles.actionBar}>
+        <Text style={styles.resultCount}>
+          {filteredAllocations.length} {filteredAllocations.length === 1 ? 'allocation' : 'allocations'}
+        </Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setIsModalOpen(true)}
         >
-          <Text style={styles.addButtonText}>+ Allocate Unit</Text>
+          <MaterialIcons name="add" size={20} color="#fff" />
+          <Text style={styles.addButtonText}>Allocate Unit</Text>
         </TouchableOpacity>
       </View>
 
@@ -257,10 +395,15 @@ export default function UnitAllocationScreen() {
           <ActivityIndicator size="large" color="#DC2626" />
           <Text style={styles.loadingText}>Loading allocations...</Text>
         </View>
-      ) : allocations.length === 0 ? (
+      ) : filteredAllocations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No allocations found</Text>
-          <Text style={styles.emptySubtext}>Start by allocating units to sales agents</Text>
+          <MaterialIcons name="inbox" size={80} color="#d1d5db" />
+          <Text style={styles.emptyText}>
+            {searchQuery || selectedTeam !== 'all' ? 'No allocations match your filters' : 'No allocations found'}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery || selectedTeam !== 'all' ? 'Try adjusting your search or filters' : 'Start by allocating units to sales agents'}
+          </Text>
         </View>
       ) : (
         <>
@@ -542,49 +685,122 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
     letterSpacing: 0.5,
   },
-  summaryContainer: {
+  // Search Bar Styles
+  searchContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1f2937',
+    paddingVertical: 6,
+  },
+  // Filter and Sort Styles
+  filterContainer: {
     paddingHorizontal: 16,
     marginBottom: 16,
-    gap: 12,
   },
-  summaryCard: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 12,
+  filterRow: {
+    marginBottom: 12,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sortButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  summaryNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+  sortButtonActive: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
-  summaryLabel: {
-    fontSize: 12,
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sortButtonTextActive: {
     color: '#fff',
-    opacity: 0.9,
-    textAlign: 'center',
+  },
+  teamFilterScroll: {
+    flexDirection: 'row',
+  },
+  teamFilterButton: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  teamFilterButtonActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  teamFilterButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  teamFilterButtonTextActive: {
+    color: '#fff',
   },
   actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  resultCount: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
   addButton: {
-    backgroundColor: '#DC2626',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    gap: 6,
     shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -593,7 +809,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   loadingContainer: {
@@ -643,6 +859,9 @@ const styles = StyleSheet.create({
     borderColor: '#f1f5f9',
   },
   cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 20,
     paddingBottom: 16,
     backgroundColor: '#f8fafc',
@@ -653,6 +872,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1f2937',
+    flex: 1,
+  },
+  teamBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+  },
+  teamBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1e40af',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cardBody: {
     padding: 20,
