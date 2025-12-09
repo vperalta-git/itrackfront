@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Modal,
+  Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { buildApiUrl } from '../constants/api';
@@ -270,10 +271,22 @@ export default function UserManagementScreen() {
 
     return (
       <View style={styles.userCard}>
-        <View style={styles.userCardHeader}>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{item.accountName || item.name || 'No Name'}</Text>
-            <Text style={styles.userUsername}>{item.email || 'no-email'}</Text>
+        {/* Profile Picture & Main Info */}
+        <View style={styles.userCardTop}>
+          <View style={styles.profileSection}>
+            {item.picture ? (
+              <Image source={{ uri: item.picture }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profilePlaceholder}>
+                <Text style={styles.profilePlaceholderText}>
+                  {(item.accountName || item.name || 'U').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.userMainInfo}>
+              <Text style={styles.userName}>{item.accountName || item.name || 'No Name'}</Text>
+              <Text style={styles.userUsername}>{item.email || 'no-email'}</Text>
+            </View>
           </View>
           <View style={[styles.roleBadge, roleStyle]}>
             <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>
@@ -282,14 +295,8 @@ export default function UserManagementScreen() {
           </View>
         </View>
 
+        {/* Details Section */}
         <View style={styles.userCardContent}>
-          {item.phoneNo && (
-            <View style={styles.userDetailRow}>
-              <Text style={styles.userDetailLabel}>Phone:</Text>
-              <Text style={styles.userDetailValue}>{item.phoneNo}</Text>
-            </View>
-          )}
-
           {assignedManager && (
             <View style={styles.userDetailRow}>
               <Text style={styles.userDetailLabel}>Manager:</Text>
@@ -307,6 +314,7 @@ export default function UserManagementScreen() {
           </View>
         </View>
 
+        {/* Action Buttons */}
         <View style={styles.userCardActions}>
           <TouchableOpacity 
             style={styles.editUserBtn}
@@ -787,26 +795,61 @@ const createStyles = (theme) => StyleSheet.create({
   userCard: {
     backgroundColor: theme.card,
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
     borderWidth: 1,
     borderColor: theme.border,
   },
 
-  userCardHeader: {
+  userCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 12,
+    backgroundColor: theme.surface,
   },
 
-  userInfo: {
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    borderColor: theme.primary,
+    marginRight: 12,
+  },
+
+  profilePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 3,
+    borderColor: theme.primary + '30',
+  },
+
+  profilePlaceholderText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  userMainInfo: {
     flex: 1,
   },
 
@@ -815,72 +858,104 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.text,
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
 
   userUsername: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.textSecondary,
+    fontWeight: '500',
   },
 
   roleBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginLeft: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   userCardContent: {
-    gap: 8,
-    marginBottom: 16,
+    padding: 16,
+    paddingTop: 12,
+    gap: 10,
+    backgroundColor: theme.card,
   },
 
   userDetailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 6,
   },
 
   userDetailLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   userDetailValue: {
     fontSize: 14,
     color: theme.text,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   userCardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: 10,
+    padding: 16,
+    paddingTop: 12,
+    backgroundColor: theme.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.border + '40',
   },
 
   editUserBtn: {
     backgroundColor: theme.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   deleteUserBtn: {
     backgroundColor: '#DC2626',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   userActionBtnText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 14,
+    letterSpacing: 0.3,
   },
 
   // Empty State Styles
