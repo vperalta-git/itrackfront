@@ -44,7 +44,7 @@ export default function UnitAllocationScreen() {
   // GET all allocations
   const fetchAllocations = () => {
     setLoading(true);
-    axios.get("https://itrack-web-backend.onrender.com/api/getUnitAllocation")
+    axios.get("https://itrack-backend-1.onrender.com/api/getUnitAllocation")
       .then(res => {
         console.log('Allocations:', res.data);
         setAllocations(res.data);
@@ -58,7 +58,7 @@ export default function UnitAllocationScreen() {
 
   // GET all Sales Agents
   const fetchAgents = () => {
-    axios.get("https://itrack-web-backend.onrender.com/api/getUsers")
+    axios.get("https://itrack-backend-1.onrender.com/api/getUsers")
       .then(res => {
         const agentList = res.data.filter(u => u.role?.toLowerCase() === "sales agent");
         setAgents(agentList);
@@ -71,7 +71,7 @@ export default function UnitAllocationScreen() {
 
   // GET available units from inventory
   const fetchAvailableUnits = () => {
-    axios.get("https://itrack-web-backend.onrender.com/api/getStock")
+    axios.get("https://itrack-backend-1.onrender.com/api/getStock")
       .then(res => {
         const units = res.data.filter(u =>
           u.status === "In Stockyard" || u.status === "Available"
@@ -91,7 +91,7 @@ export default function UnitAllocationScreen() {
       return;
     }
 
-    axios.post("https://itrack-web-backend.onrender.com/api/createUnitAllocation", newAllocation)
+    axios.post("https://itrack-backend-1.onrender.com/api/createUnitAllocation", newAllocation)
       .then(() => {
         fetchAllocations();
         fetchAvailableUnits(); // Refresh available units
@@ -114,7 +114,7 @@ export default function UnitAllocationScreen() {
 
   // UPDATE allocation
   const handleUpdateAllocation = (id) => {
-    axios.put(`https://itrack-web-backend.onrender.com/api/updateUnitAllocation/${id}`, editAllocation)
+    axios.put(`https://itrack-backend-1.onrender.com/api/updateUnitAllocation/${id}`, editAllocation)
       .then(() => {
         fetchAllocations();
         setEditAllocation(null);
@@ -137,7 +137,7 @@ export default function UnitAllocationScreen() {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            axios.delete(`https://itrack-web-backend.onrender.com/api/deleteUnitAllocation/${id}`)
+            axios.delete(`https://itrack-backend-1.onrender.com/api/deleteUnitAllocation/${id}`)
               .then(() => {
                 fetchAllocations();
                 fetchAvailableUnits(); // Refresh available units
