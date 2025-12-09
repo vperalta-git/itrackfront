@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-// Force deployment refresh - latest version with itrackDB connection
+// Force deployment refresh - v2.0 with mobile API auth bypass
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
@@ -52,7 +52,7 @@ app.use(session({
   }
 }));
 
-// CORS configuration - Updated for production security
+// CORS configuration - Updated for mobile app and production security
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? [
       'https://itrack-backend-1.onrender.com',
@@ -63,7 +63,29 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
 
 app.use(cors({
   credentials: true,
-  origin: allowedOrigins
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins === true) {
+      return callback(null, true);
+    }
+    
+    if (Array.isArray(allowedOrigins)) {
+      const isAllowed = allowedOrigins.some(allowed => {
+        if (typeof allowed === 'string') return allowed === origin;
+        if (allowed instanceof RegExp) return allowed.test(origin);
+        return false;
+      });
+      
+      if (isAllowed) {
+        return callback(null, true);
+      }
+    }
+    
+    // Default: allow the origin
+    callback(null, true);
+  }
 }));
 app.use(express.json({ limit: '50mb' })); // Support larger payloads for profile pictures
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -1473,7 +1495,9 @@ app.post('/completeAllocation', async (req, res) => {
 const unitAllocationSchema = new mongoose.Schema({
   unitId: { type: String, required: true },
   unitName: { type: String, required: true },
-  assignedAgent: { type: String, required: true },
+  bodyColor: String,
+  variation: String,
+  assignedTo: { type: String, required: true }, // Changed from assignedAgent to assignedTo
   allocatedBy: String,
   status: { type: String, default: 'Active' },
   createdAt: { type: Date, default: Date.now },
@@ -1529,12 +1553,12 @@ app.post('/api/createUnitAllocation', async (req, res) => {
       await Inventory.findOneAndUpdate(
         { unitId: allocationData.unitId },
         { 
-          assignedAgent: allocationData.assignedAgent,
+          assignedTo: allocationData.assignedTo, // Changed from assignedAgent
           lastUpdatedBy: allocationData.allocatedBy || 'System',
           dateUpdated: new Date()
         }
       );
-      console.log(`✅ Updated vehicle ${allocationData.unitId} assignedAgent to "${allocationData.assignedAgent}"`);
+      console.log(`✅ Updated vehicle ${allocationData.unitId} assignedTo "${allocationData.assignedTo}"`);
     }
     
     console.log('✅ Created unit allocation:', newAllocation.unitName);
@@ -1563,7 +1587,7 @@ app.delete('/api/deleteUnitAllocation/:id', async (req, res) => {
       await Inventory.findOneAndUpdate(
         { unitId: deletedAllocation.unitId },
         { 
-          assignedAgent: null,
+          assignedTo: null, // Changed from assignedAgent
           lastUpdatedBy: 'System - Allocation Deleted',
           dateUpdated: new Date()
         }
@@ -4051,6 +4075,122 @@ app.delete('/deleteServiceRequest/:id', async (req, res) => {
   } catch (error) {
     console.error('❌ Error deleting service request:', error);
     console.error('Error details:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// ========== MOBILE APP COMPATIBILITY ENDPOINTS ==========
+// These are aliases for the mobile app that calls /createRequest instead of /createServiceRequest
+
+// POST /createRequest - Alias for mobile app compatibility
+app.post('/createRequest', async (req, res) => {
+  try {
+    console.log('📱 POST /createRequest (mobile app) - Redirecting to createServiceRequest logic');
+    
+    // Create new service request
+    const newRequest = new Servicerequest(req.body);
+    const savedRequest = await newRequest.save();
+    
+    console.log('✅ Service request created via mobile app');
+    console.log('📄 Document ID:', savedRequest._id.toString());
+    
+    // Update vehicle status to "In Dispatch"
+    if (savedRequest.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: savedRequest.unitId },
+        { 
+          status: 'In Dispatch',
+          lastUpdatedBy: savedRequest.preparedBy || 'System - Service Request',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated vehicle ${savedRequest.unitId} status to "In Dispatch"`);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Service request created successfully',
+      data: savedRequest 
+    });
+  } catch (error) {
+    console.error('❌ Error creating service request (mobile):', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// PUT /updateRequest/:id - Alias for mobile app compatibility
+app.put('/updateRequest/:id', async (req, res) => {
+  try {
+    console.log(`📱 PUT /updateRequest/${req.params.id} (mobile app)`);
+    
+    const updatedRequest = await Servicerequest.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedRequest) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+    
+    console.log('✅ Service request updated via mobile app');
+    
+    res.json({ 
+      success: true, 
+      message: 'Service request updated successfully',
+      data: updatedRequest 
+    });
+  } catch (error) {
+    console.error('❌ Error updating service request (mobile):', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// DELETE /deleteRequest/:id - Alias for mobile app compatibility
+app.delete('/deleteRequest/:id', async (req, res) => {
+  try {
+    console.log(`📱 DELETE /deleteRequest/${req.params.id} (mobile app)`);
+    
+    // Find and delete the request
+    const requestToDelete = await Servicerequest.findById(req.params.id);
+    
+    if (!requestToDelete) {
+      return res.status(404).json({ success: false, message: 'Service request not found' });
+    }
+    
+    const deleted = await Servicerequest.findByIdAndDelete(req.params.id);
+    
+    // Automatically return vehicle status to "Available"
+    if (deleted.unitId) {
+      await Inventory.findOneAndUpdate(
+        { unitId: deleted.unitId },
+        { 
+          status: 'Available',
+          lastUpdatedBy: 'System - Service Request Deleted',
+          dateUpdated: new Date()
+        }
+      );
+      console.log(`✅ Returned vehicle ${deleted.unitId} status to "Available"`);
+    }
+    
+    console.log('✅ Service request deleted via mobile app');
+    
+    res.json({ 
+      success: true, 
+      message: 'Service request deleted successfully',
+      data: deleted 
+    });
+  } catch (error) {
+    console.error('❌ Error deleting service request (mobile):', error);
     res.status(500).json({ 
       success: false, 
       message: error.message 
