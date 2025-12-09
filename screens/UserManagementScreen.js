@@ -246,9 +246,13 @@ export default function UserManagementScreen() {
         return filteredUsers.filter(user => 
           user.role?.toLowerCase().includes('agent')
         );
-      case 'others':
+      case 'managers':
         return filteredUsers.filter(user => 
-          !user.role?.toLowerCase().includes('agent')
+          user.role?.toLowerCase() === 'manager'
+        );
+      case 'drivers':
+        return filteredUsers.filter(user => 
+          user.role?.toLowerCase() === 'driver'
         );
       default:
         return filteredUsers;
@@ -350,61 +354,45 @@ export default function UserManagementScreen() {
           />
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
+        {/* Stats Cards - Now Pressable for Filtering */}
+        <View style={styles.statsContainer}>
           <TouchableOpacity 
-            style={[styles.tab, currentTab === 'all' && styles.activeTab]}
+            style={[styles.statCard, { backgroundColor: theme.primary }, currentTab === 'all' && styles.activeStatCard]}
             onPress={() => setCurrentTab('all')}
           >
-            <Text style={[styles.tabText, currentTab === 'all' && styles.activeTabText]}>
-              All Users ({users.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, currentTab === 'agents' && styles.activeTab]}
-            onPress={() => setCurrentTab('agents')}
-          >
-            <Text style={[styles.tabText, currentTab === 'agents' && styles.activeTabText]}>
-              Agents ({users.filter(u => u.role?.toLowerCase().includes('agent')).length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, currentTab === 'others' && styles.activeTab]}
-            onPress={() => setCurrentTab('others')}
-          >
-            <Text style={[styles.tabText, currentTab === 'others' && styles.activeTabText]}>
-              Others ({users.filter(u => !u.role?.toLowerCase().includes('agent')).length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
             <Text style={styles.statNumber}>{users.length}</Text>
             <Text style={styles.statLabel}>Total Users</Text>
-          </View>
+          </TouchableOpacity>
           
-          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
+          <TouchableOpacity 
+            style={[styles.statCard, { backgroundColor: theme.primary }, currentTab === 'agents' && styles.activeStatCard]}
+            onPress={() => setCurrentTab('agents')}
+          >
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase().includes('agent')).length}
             </Text>
             <Text style={styles.statLabel}>Sales Agents</Text>
-          </View>
+          </TouchableOpacity>
           
-          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
+          <TouchableOpacity 
+            style={[styles.statCard, { backgroundColor: theme.primary }, currentTab === 'managers' && styles.activeStatCard]}
+            onPress={() => setCurrentTab('managers')}
+          >
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'manager').length}
             </Text>
             <Text style={styles.statLabel}>Managers</Text>
-          </View>
+          </TouchableOpacity>
           
-          <View style={[styles.statCard, { backgroundColor: theme.primary }]}>
+          <TouchableOpacity 
+            style={[styles.statCard, { backgroundColor: theme.primary }, currentTab === 'drivers' && styles.activeStatCard]}
+            onPress={() => setCurrentTab('drivers')}
+          >
             <Text style={styles.statNumber}>
               {users.filter(u => u.role?.toLowerCase() === 'driver').length}
             </Text>
             <Text style={styles.statLabel}>Drivers</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Users List */}
@@ -416,14 +404,13 @@ export default function UserManagementScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={getFilteredUsers()}
-            renderItem={renderUserCard}
-            keyExtractor={(item) => item._id}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
-          />
+          <View style={{ paddingBottom: 20 }}>
+            {getFilteredUsers().map((item) => (
+              <View key={item._id}>
+                {renderUserCard({ item })}
+              </View>
+            ))}
+          </View>
         )}
       </ScrollView>
 
@@ -771,6 +758,17 @@ const createStyles = (theme) => StyleSheet.create({
     elevation: 3,
   },
 
+  activeStatCard: {
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    transform: [{ scale: 1.05 }],
+  },
+
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -873,7 +871,7 @@ const createStyles = (theme) => StyleSheet.create({
   },
 
   deleteUserBtn: {
-    backgroundColor: theme.primaryDark,
+    backgroundColor: '#DC2626',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
