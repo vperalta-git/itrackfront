@@ -39,15 +39,15 @@ const StocksOverview = ({ inventory = [], theme }) => {
     ];
 
     return Object.entries(unitCounts)
+      .sort((a, b) => b[1] - a[1]) // Sort by count descending FIRST
       .map(([name, count], index) => ({
         name: name,
         count: count,
         value: count,
         color: colors[index % colors.length],
-        focused: index === 0, // Focus on the first (largest) item
+        focused: index === 0, // Focus on the first item (which is now the largest)
         onPress: () => handleSegmentPress({ name, count, color: colors[index % colors.length] })
-      }))
-      .sort((a, b) => b.count - a.count); // Sort by count descending
+      }));
   };
 
   const handleSegmentPress = (segment) => {

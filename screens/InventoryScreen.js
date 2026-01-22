@@ -397,14 +397,19 @@ export default function InventoryScreen() {
 
       {/* Search and Filter */}
       <View style={styles.searchFilterContainer}>
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={20} color="#666" />
+        <View style={styles.searchContainer}>
+          <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search vehicles..."
             value={searchTerm}
             onChangeText={setSearchTerm}
           />
+          {searchTerm.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTerm('')}>
+              <MaterialIcons name="close" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity 
           style={styles.filterButton}
@@ -603,23 +608,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     gap: 12,
   },
-  searchBox: {
+  searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+    backgroundColor: '#fff',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#1f2937',
+    paddingVertical: 6,
   },
   filterButton: {
     flexDirection: 'row',

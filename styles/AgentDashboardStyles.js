@@ -601,21 +601,35 @@ export default StyleSheet.create({
   },
 
   // Search Input
-  searchInput: {
-    backgroundColor: "#FFFFFF", // White
-    borderWidth: 1,
-    borderColor: "#6B7280", // Gray
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#2D2D2D", // Dark Gray
+  searchContainerWrapper: {
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+  },
+  
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 2,
+  },
+
+  searchIcon: {
+    marginRight: 8,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1f2937',
+    paddingVertical: 6,
   },
 
   // Section styles
@@ -941,16 +955,6 @@ export default StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
-  },
-
-  stocksSearchInput: {
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-    color: '#334155',
   },
 
   // Stats Section

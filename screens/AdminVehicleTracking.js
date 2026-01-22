@@ -180,6 +180,7 @@ export default function AdminVehicleTracking() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search vehicles, drivers, or unit IDs..."
@@ -187,14 +188,11 @@ export default function AdminVehicleTracking() {
           onChangeText={setSearchTerm}
           placeholderTextColor="#94a3b8"
         />
-        {searchTerm ? (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => setSearchTerm('')}
-          >
-            <Text style={styles.clearButtonText}>✕</Text>
+        {searchTerm.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchTerm('')}>
+            <MaterialIcons name="close" size={20} color="#999" />
           </TouchableOpacity>
-        ) : null}
+        )}
       </View>
 
       {loading ? (
@@ -416,31 +414,28 @@ const createStyles = (theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.card,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     elevation: 2,
     shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
+  },
+
+  searchIcon: {
+    marginRight: 8,
   },
 
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: theme.text,
-  },
-
-  clearButton: {
-    padding: 8,
-  },
-
-  clearButtonText: {
-    fontSize: 16,
-    color: theme.textTertiary,
-    fontWeight: 'bold',
+    paddingVertical: 6,
   },
 
   content: {

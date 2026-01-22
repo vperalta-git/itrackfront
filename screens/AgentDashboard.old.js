@@ -541,21 +541,13 @@ export default function AgentDashboard() {
 
             {/* Search Section */}
             <View style={styles.stocksSearchSection}>
-              <View style={styles.searchContainer}>
-                <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search by unit name, color, or variation..."
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholderTextColor="#6B7280"
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')}>
-                    <MaterialIcons name="close" size={20} color="#999" />
-                  </TouchableOpacity>
-                )}
-              </View>
+              <TextInput
+                style={styles.stocksSearchInput}
+                placeholder="Search by unit name, color, or variation..."
+                value={search}
+                onChangeText={setSearch}
+                placeholderTextColor="#6B7280"
+              />
             </View>
 
             {/* Stats Cards */}
@@ -662,23 +654,13 @@ export default function AgentDashboard() {
             </View>
 
             {/* Search */}
-            <View style={styles.searchContainerWrapper}>
-              <View style={styles.searchContainer}>
-                <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search by Unit ID, Model, or Driver..."
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholderTextColor="#6B7280"
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')}>
-                    <MaterialIcons name="close" size={20} color="#999" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by Unit ID, Model, or Driver..."
+              value={search}
+              onChangeText={setSearch}
+              placeholderTextColor="#6B7280"
+            />
 
             {/* Vehicle Preparation Cards */}
             <View style={styles.section}>

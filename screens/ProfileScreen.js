@@ -329,13 +329,15 @@ export default function ProfileScreen() {
     }
   };
 
+  // State for viewing other user's profile
+  const [viewingUser, setViewingUser] = useState(null);
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+
   // View another user's profile
-  const viewUserProfile = (user) => {
-    Alert.alert(
-      `${user.name}'s Profile`,
-      `Role: ${user.role}\nEmail: ${user.email}\nPhone: ${user.phoneNumber || 'N/A'}\n\nPersonal Details:\n${user.personalDetails || 'No details available'}`,
-      [{ text: 'Close', style: 'cancel' }]
-    );
+  const viewOtherProfile = (user) => {
+    setViewingUser(user);
+    setShowOtherProfiles(false);
+    setShowUserProfileModal(true);
   };
 
   const handleLogout = () => {
@@ -396,26 +398,32 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.cardBackground, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Profile</Text>
-        <TouchableOpacity
-          onPress={() => setIsEditing(!isEditing)}
-          style={styles.editButton}
-        >
-          <Ionicons
-            name={isEditing ? "close" : "create"}
-            size={24}
-            color={isEditing ? "#dc3545" : "#007bff"}
-          />
-        </TouchableOpacity>
+      {/* Modern Gradient Header */}
+      <View style={styles.headerGradient}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <View style={styles.backButtonCircle}>
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Profile</Text>
+          <TouchableOpacity
+            onPress={() => setIsEditing(!isEditing)}
+            style={styles.editButton}
+          >
+            <View style={[styles.editButtonCircle, { backgroundColor: isEditing ? "#fff" : "#e50914" }]}>
+              <Ionicons
+                name={isEditing ? "close" : "create"}
+                size={20}
+                color={isEditing ? "#e50914" : "#fff"}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
+        {/* Enhanced Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: themeColors.cardBackground }]}>
           {/* Profile Picture Section */}
           <View style={styles.profilePictureSection}>
@@ -424,19 +432,21 @@ export default function ProfileScreen() {
               onPress={isEditing ? handleProfilePictureChange : null}
               disabled={!isEditing}
             >
-              {(editForm.picture || userProfile.picture) ? (
-                <Image
-                  source={{ uri: editForm.picture || userProfile.picture }}
-                  style={styles.profilePicture}
-                />
-              ) : (
-                <View style={[styles.profilePicturePlaceholder, { backgroundColor: themeColors.border }]}>
-                  <Ionicons name="person" size={50} color={themeColors.textSecondary} />
-                </View>
-              )}
+              <View style={styles.profilePictureRing}>
+                {(editForm.picture || userProfile.picture) ? (
+                  <Image
+                    source={{ uri: editForm.picture || userProfile.picture }}
+                    style={styles.profilePicture}
+                  />
+                ) : (
+                  <View style={[styles.profilePicturePlaceholder, { backgroundColor: '#e50914' }]}>
+                    <Ionicons name="person" size={60} color="#fff" />
+                  </View>
+                )}
+              </View>
               {isEditing && (
-                <View style={styles.cameraIcon}>
-                  <Ionicons name="camera" size={20} color="#fff" />
+                <View style={styles.cameraIconEnhanced}>
+                  <Ionicons name="camera" size={18} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
@@ -445,178 +455,224 @@ export default function ProfileScreen() {
               <Text style={[styles.profileName, { color: themeColors.text }]}>
                 {userProfile.name}
               </Text>
-              <Text style={[styles.profileRole, { color: themeColors.textSecondary }]}>
-                {userProfile.role}
-              </Text>
-              <Text style={[styles.profileEmail, { color: themeColors.textSecondary }]}>
-                {userProfile.email}
-              </Text>
+              <View style={styles.profileRoleBadge}>
+                <Ionicons name="briefcase-outline" size={14} color="#e50914" />
+                <Text style={styles.profileRoleText}>
+                  {userProfile.role}
+                </Text>
+              </View>
+              <View style={styles.profileEmailRow}>
+                <Ionicons name="mail-outline" size={14} color={themeColors.textSecondary} />
+                <Text style={[styles.profileEmail, { color: themeColors.textSecondary }]}>
+                  {userProfile.email}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Profile Details */}
+        {/* Enhanced Profile Details */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.cardBackground }]}>
+          <Text style={[styles.sectionTitleEnhanced, { color: themeColors.text }]}>
+            <Ionicons name="person-circle-outline" size={20} color="#e50914" /> Personal Information
+          </Text>
+          
           {/* Name */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Full Name</Text>
-            {isEditing ? (
-              <TextInput
-                style={[styles.textInput, { 
-                  backgroundColor: themeColors.background, 
-                  color: themeColors.text,
-                  borderColor: themeColors.border 
-                }]}
-                value={editForm.name}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
-                placeholder="Enter your full name"
-                placeholderTextColor={themeColors.textSecondary}
-              />
-            ) : (
-              <Text style={[styles.fieldValue, { color: themeColors.textSecondary }]}>
-                {userProfile.name || 'Not set'}
-              </Text>
-            )}
+          <View style={styles.fieldContainerEnhanced}>
+            <View style={styles.fieldIconCircle}>
+              <Ionicons name="person-outline" size={18} color="#e50914" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.textInputEnhanced, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: '#e50914' 
+                  }]}
+                  value={editForm.name}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
+                  placeholder="Enter your full name"
+                  placeholderTextColor={themeColors.textSecondary}
+                />
+              ) : (
+                <Text style={[styles.fieldValueEnhanced, { color: themeColors.text }]}>
+                  {userProfile.name || 'Not set'}
+                </Text>
+              )}
+            </View>
           </View>
 
           {/* Phone Number */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Phone Number</Text>
-            {isEditing ? (
-              <TextInput
-                style={[styles.textInput, { 
-                  backgroundColor: themeColors.background, 
-                  color: themeColors.text,
-                  borderColor: themeColors.border 
-                }]}
-                value={editForm.phoneNumber}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, phoneNumber: text }))}
-                placeholder="Enter your phone number"
-                placeholderTextColor={themeColors.textSecondary}
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <Text style={[styles.fieldValue, { color: themeColors.textSecondary }]}>
-                {userProfile.phoneNumber || 'Not set'}
-              </Text>
-            )}
+          <View style={styles.fieldContainerEnhanced}>
+            <View style={styles.fieldIconCircle}>
+              <Ionicons name="call-outline" size={18} color="#e50914" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.textInputEnhanced, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: '#e50914' 
+                  }]}
+                  value={editForm.phoneNumber}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, phoneNumber: text }))}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor={themeColors.textSecondary}
+                  keyboardType="phone-pad"
+                />
+              ) : (
+                <Text style={[styles.fieldValueEnhanced, { color: themeColors.text }]}>
+                  {userProfile.phoneNumber || 'Not set'}
+                </Text>
+              )}
+            </View>
           </View>
 
           {/* Email (Read-only) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Email</Text>
-            <Text style={[styles.fieldValue, { color: themeColors.textSecondary }]}>
-              {userProfile.email}
-            </Text>
+          <View style={styles.fieldContainerEnhanced}>
+            <View style={styles.fieldIconCircle}>
+              <Ionicons name="mail-outline" size={18} color="#e50914" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Email</Text>
+              <Text style={[styles.fieldValueEnhanced, { color: themeColors.text }]}>
+                {userProfile.email}
+              </Text>
+            </View>
           </View>
 
           {/* Role (Read-only) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Role</Text>
-            <Text style={[styles.fieldValue, { color: themeColors.textSecondary }]}>
-              {userProfile.role}
-            </Text>
+          <View style={styles.fieldContainerEnhanced}>
+            <View style={styles.fieldIconCircle}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#e50914" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Role</Text>
+              <Text style={[styles.fieldValueEnhanced, { color: themeColors.text }]}>
+                {userProfile.role}
+              </Text>
+            </View>
           </View>
 
           {/* Personal Details */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Personal Details</Text>
-            {isEditing ? (
-              <TextInput
-                style={[styles.textArea, { 
-                  backgroundColor: themeColors.background, 
-                  color: themeColors.text,
-                  borderColor: themeColors.border 
-                }]}
-                value={editForm.personalDetails}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, personalDetails: text }))}
-                placeholder="Enter personal or work-related details..."
-                placeholderTextColor={themeColors.textSecondary}
-                multiline
-                numberOfLines={4}
-              />
-            ) : (
-              <Text style={[styles.fieldValue, { color: themeColors.textSecondary }]}>
-                {userProfile.personalDetails || 'No details added yet'}
-              </Text>
-            )}
+          <View style={styles.fieldContainerEnhanced}>
+            <View style={styles.fieldIconCircle}>
+              <Ionicons name="document-text-outline" size={18} color="#e50914" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Personal Details</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.textAreaEnhanced, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: '#e50914' 
+                  }]}
+                  value={editForm.personalDetails}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, personalDetails: text }))}
+                  placeholder="Enter personal or work-related details..."
+                  placeholderTextColor={themeColors.textSecondary}
+                  multiline
+                  numberOfLines={4}
+                />
+              ) : (
+                <Text style={[styles.fieldValueEnhanced, { color: themeColors.text }]}>
+                  {userProfile.personalDetails || 'No details added yet'}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
-        {/* Settings Card */}
+        {/* Enhanced Settings Card */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.cardBackground }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Settings</Text>
+          <Text style={[styles.sectionTitleEnhanced, { color: themeColors.text }]}>
+            <Ionicons name="settings-outline" size={20} color="#e50914" /> Settings & Actions
+          </Text>
           
           {/* Dark Mode Toggle */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="moon" size={20} color={themeColors.text} />
+          <View style={styles.settingRowEnhanced}>
+            <View style={styles.settingInfoEnhanced}>
+              <View style={[styles.settingIconCircle, { backgroundColor: '#fef3c7' }]}>
+                <Ionicons name="moon" size={20} color="#f59e0b" />
+              </View>
               <Text style={[styles.settingLabel, { color: themeColors.text }]}>Dark Mode</Text>
             </View>
             <Switch
               value={userProfile.isDarkMode}
               onValueChange={toggleDarkMode}
-              trackColor={{ false: '#767577', true: '#007bff' }}
+              trackColor={{ false: '#e5e7eb', true: '#e50914' }}
               thumbColor={userProfile.isDarkMode ? '#ffffff' : '#f4f3f4'}
+              ios_backgroundColor="#e5e7eb"
             />
           </View>
 
           {/* Change Password */}
           <TouchableOpacity
-            style={styles.settingRow}
+            style={styles.settingRowEnhanced}
             onPress={() => setShowPasswordModal(true)}
           >
-            <View style={styles.settingInfo}>
-              <Ionicons name="lock-closed" size={20} color={themeColors.text} />
+            <View style={styles.settingInfoEnhanced}>
+              <View style={[styles.settingIconCircle, { backgroundColor: '#fee' }]}>
+                <Ionicons name="lock-closed" size={20} color="#e50914" />
+              </View>
               <Text style={[styles.settingLabel, { color: themeColors.text }]}>Change Password</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={themeColors.textSecondary} />
+            <Ionicons name="chevron-forward" size={22} color="#9ca3af" />
           </TouchableOpacity>
 
           {/* View Other Profiles */}
           <TouchableOpacity
-            style={styles.settingRow}
+            style={styles.settingRowEnhanced}
             onPress={() => setShowOtherProfiles(true)}
           >
-            <View style={styles.settingInfo}>
-              <Ionicons name="people" size={20} color={themeColors.text} />
-              <Text style={[styles.settingLabel, { color: themeColors.text }]}>View Other Profiles</Text>
+            <View style={styles.settingInfoEnhanced}>
+              <View style={[styles.settingIconCircle, { backgroundColor: '#fee' }]}>
+                <Ionicons name="people" size={20} color="#e50914" />
+              </View>
+              <Text style={[styles.settingLabel, { color: themeColors.text }]}>Team Profiles</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={themeColors.textSecondary} />
+            <Ionicons name="chevron-forward" size={22} color="#9ca3af" />
           </TouchableOpacity>
         </View>
 
-        {/* Save Button */}
+        {/* Enhanced Save Button */}
         {isEditing && (
           <TouchableOpacity
-            style={styles.saveButton}
+            style={styles.saveButtonEnhanced}
             onPress={saveProfile}
             disabled={saving}
+            activeOpacity={0.8}
           >
             {saving ? (
               <UniformLoading size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={20} color="#fff" />
+                <Ionicons name="checkmark-circle" size={24} color="#fff" />
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
-        {/* Logout Button - Only for Dispatch role */}
+        {/* Enhanced Logout Button - Only for Dispatch role */}
         {userProfile.role?.toLowerCase() === 'dispatch' && (
           <TouchableOpacity
-            style={styles.logoutButton}
+            style={styles.logoutButtonEnhanced}
             onPress={handleLogout}
+            activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
+            <Ionicons name="log-out-outline" size={22} color="#fff" />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      {/* Password Change Modal */}
+      {/* Enhanced Password Change Modal */}
       <Modal
         visible={showPasswordModal}
         animationType="slide"
@@ -624,60 +680,99 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowPasswordModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBackground }]}>
-            <Text style={[styles.modalTitle, { color: themeColors.text }]}>Change Password</Text>
+          <View style={[styles.passwordModalContent, { backgroundColor: themeColors.cardBackground }]}>
+            {/* Modal Header */}
+            <View style={styles.passwordModalHeader}>
+              <View style={styles.passwordIconCircle}>
+                <Ionicons name="lock-closed" size={28} color="#fff" />
+              </View>
+              <Text style={[styles.passwordModalTitle, { color: themeColors.text }]}>Change Password</Text>
+              <Text style={[styles.passwordModalSubtitle, { color: themeColors.textSecondary }]}>
+                Please enter your current and new password
+              </Text>
+            </View>
             
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: themeColors.background, 
-                color: themeColors.text,
-                borderColor: themeColors.border 
-              }]}
-              placeholder="Current Password"
-              placeholderTextColor={themeColors.textSecondary}
-              secureTextEntry
-              value={passwordForm.currentPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, currentPassword: text }))}
-            />
+            {/* Password Input Fields */}
+            <View style={styles.passwordInputsContainer}>
+              <View style={styles.passwordInputWrapper}>
+                <View style={styles.passwordInputIconCircle}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#e50914" />
+                </View>
+                <TextInput
+                  style={[styles.passwordInput, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: themeColors.border 
+                  }]}
+                  placeholder="Current Password"
+                  placeholderTextColor={themeColors.textSecondary}
+                  secureTextEntry
+                  value={passwordForm.currentPassword}
+                  onChangeText={(text) => setPasswordForm(prev => ({ ...prev, currentPassword: text }))}
+                />
+              </View>
+              
+              <View style={styles.passwordInputWrapper}>
+                <View style={styles.passwordInputIconCircle}>
+                  <Ionicons name="key-outline" size={20} color="#e50914" />
+                </View>
+                <TextInput
+                  style={[styles.passwordInput, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: themeColors.border 
+                  }]}
+                  placeholder="New Password"
+                  placeholderTextColor={themeColors.textSecondary}
+                  secureTextEntry
+                  value={passwordForm.newPassword}
+                  onChangeText={(text) => setPasswordForm(prev => ({ ...prev, newPassword: text }))}
+                />
+              </View>
+              
+              <View style={styles.passwordInputWrapper}>
+                <View style={styles.passwordInputIconCircle}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#e50914" />
+                </View>
+                <TextInput
+                  style={[styles.passwordInput, { 
+                    backgroundColor: themeColors.background, 
+                    color: themeColors.text,
+                    borderColor: themeColors.border 
+                  }]}
+                  placeholder="Confirm New Password"
+                  placeholderTextColor={themeColors.textSecondary}
+                  secureTextEntry
+                  value={passwordForm.confirmPassword}
+                  onChangeText={(text) => setPasswordForm(prev => ({ ...prev, confirmPassword: text }))}
+                />
+              </View>
+            </View>
             
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: themeColors.background, 
-                color: themeColors.text,
-                borderColor: themeColors.border 
-              }]}
-              placeholder="New Password"
-              placeholderTextColor={themeColors.textSecondary}
-              secureTextEntry
-              value={passwordForm.newPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, newPassword: text }))}
-            />
+            {/* Password Requirements Info */}
+            <View style={styles.passwordRequirements}>
+              <Text style={[styles.requirementsTitle, { color: themeColors.textSecondary }]}>
+                <Ionicons name="information-circle-outline" size={16} color={themeColors.textSecondary} /> Password Requirements:
+              </Text>
+              <Text style={[styles.requirementText, { color: themeColors.textSecondary }]}>• At least 6 characters long</Text>
+            </View>
             
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: themeColors.background, 
-                color: themeColors.text,
-                borderColor: themeColors.border 
-              }]}
-              placeholder="Confirm New Password"
-              placeholderTextColor={themeColors.textSecondary}
-              secureTextEntry
-              value={passwordForm.confirmPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, confirmPassword: text }))}
-            />
-            
-            <View style={styles.modalButtons}>
+            {/* Action Buttons */}
+            <View style={styles.passwordModalButtons}>
               <TouchableOpacity
-                style={styles.modalButton}
+                style={[styles.passwordCancelButton, { borderColor: themeColors.border }]}
                 onPress={() => setShowPasswordModal(false)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.modalButtonText}>Cancel</Text>
+                <Text style={[styles.passwordCancelButtonText, { color: themeColors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.primaryButton]}
+                style={styles.passwordChangeButton}
                 onPress={changePassword}
+                activeOpacity={0.8}
               >
-                <Text style={styles.primaryButtonText}>Change</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                <Text style={styles.passwordChangeButtonText}>Change Password</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -695,27 +790,35 @@ export default function ProfileScreen() {
           <View style={[styles.modalContent, { backgroundColor: themeColors.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: themeColors.text }]}>Team Profiles</Text>
             
-            <ScrollView style={styles.userList}>
+            <ScrollView style={styles.userList} showsVerticalScrollIndicator={false}>
               {otherUsers.map((user, index) => (
                 <TouchableOpacity
                   key={user._id || index}
-                  style={[styles.userItem, { borderBottomColor: themeColors.border }]}
+                  style={[styles.userItemEnhanced, { backgroundColor: themeColors.background }]}
                   onPress={() => viewOtherProfile(user)}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.userInfo}>
-                    <View style={[styles.userAvatar, { backgroundColor: themeColors.border }]}>
+                    <View style={styles.userAvatarEnhanced}>
                       {user.picture ? (
                         <Image source={{ uri: user.picture }} style={styles.userAvatarImage} />
                       ) : (
-                        <Ionicons name="person" size={20} color={themeColors.textSecondary} />
+                        <View style={[styles.userAvatarPlaceholder, { backgroundColor: '#e50914' }]}>
+                          <Ionicons name="person" size={24} color="#fff" />
+                        </View>
                       )}
                     </View>
-                    <View style={styles.userDetails}>
-                      <Text style={[styles.userName, { color: themeColors.text }]}>{user.name}</Text>
-                      <Text style={[styles.userRole, { color: themeColors.textSecondary }]}>{user.role}</Text>
+                    <View style={styles.userDetailsEnhanced}>
+                      <Text style={[styles.userNameEnhanced, { color: themeColors.text }]}>{user.name || 'Unknown User'}</Text>
+                      <View style={styles.userRoleBadgeSmall}>
+                        <Ionicons name="briefcase-outline" size={12} color="#6b7280" />
+                        <Text style={styles.userRoleEnhanced}>{user.role || 'No Role'}</Text>
+                      </View>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={themeColors.textSecondary} />
+                  <View style={styles.chevronCircle}>
+                    <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -729,6 +832,150 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* User Profile View Modal - Professional Design */}
+      <Modal
+        visible={showUserProfileModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowUserProfileModal(false)}
+      >
+        <View style={styles.profileModalOverlay}>
+          <View style={[styles.profileModalContent, { backgroundColor: themeColors.background }]}>
+            {/* Header */}
+            <View style={[styles.profileModalHeader, { backgroundColor: themeColors.cardBackground, borderBottomColor: themeColors.border }]}>
+              <TouchableOpacity
+                onPress={() => setShowUserProfileModal(false)}
+                style={styles.profileModalBackButton}
+              >
+                <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.profileModalHeaderTitle, { color: themeColors.text }]}>Agent Profile</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView style={styles.profileModalScroll} showsVerticalScrollIndicator={false}>
+              {viewingUser && (
+                <>
+                  {/* Profile Header Card */}
+                  <View style={[styles.profileViewCard, { backgroundColor: themeColors.cardBackground }]}>
+                    <View style={styles.profileViewPictureSection}>
+                      <View style={styles.profileViewPictureContainer}>
+                        {viewingUser.picture ? (
+                          <Image
+                            source={{ uri: viewingUser.picture }}
+                            style={styles.profileViewPicture}
+                          />
+                        ) : (
+                          <View style={[styles.profileViewPicturePlaceholder, { backgroundColor: themeColors.border }]}>
+                            <Ionicons name="person" size={60} color={themeColors.textSecondary} />
+                          </View>
+                        )}
+                      </View>
+                      
+                      <View style={styles.profileViewInfo}>
+                        <Text style={[styles.profileViewName, { color: themeColors.text }]}>
+                          {viewingUser.name || 'Name not set'}
+                        </Text>
+                        <View style={styles.profileViewRoleBadge}>
+                          <Ionicons name="briefcase" size={16} color="#007bff" />
+                          <Text style={styles.profileViewRoleText}>
+                            {viewingUser.role || 'Role not assigned'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Contact Information Card */}
+                  <View style={[styles.profileViewDetailsCard, { backgroundColor: themeColors.cardBackground }]}>
+                    <Text style={[styles.profileViewSectionTitle, { color: themeColors.text }]}>
+                      <Ionicons name="call" size={18} color="#e50914" /> Contact Information
+                    </Text>
+                    
+                    <View style={styles.profileViewDetailRow}>
+                      <View style={styles.profileViewDetailIcon}>
+                        <Ionicons name="mail" size={18} color={themeColors.textSecondary} />
+                      </View>
+                      <View style={styles.profileViewDetailContent}>
+                        <Text style={[styles.profileViewDetailLabel, { color: themeColors.textSecondary }]}>Email</Text>
+                        <Text style={[styles.profileViewDetailValue, { color: themeColors.text }]}>
+                          {viewingUser.email || 'Not provided'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.profileViewDetailRow}>
+                      <View style={styles.profileViewDetailIcon}>
+                        <Ionicons name="call" size={18} color={themeColors.textSecondary} />
+                      </View>
+                      <View style={styles.profileViewDetailContent}>
+                        <Text style={[styles.profileViewDetailLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
+                        <Text style={[styles.profileViewDetailValue, { color: themeColors.text }]}>
+                          {viewingUser.phoneNumber || viewingUser.phoneno || 'Not provided'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Personal Details Card */}
+                  {viewingUser.personalDetails && (
+                    <View style={[styles.profileViewDetailsCard, { backgroundColor: themeColors.cardBackground }]}>
+                      <Text style={[styles.profileViewSectionTitle, { color: themeColors.text }]}>
+                        <Ionicons name="document-text" size={18} color="#e50914" /> Personal Details
+                      </Text>
+                      <Text style={[styles.profileViewPersonalDetails, { color: themeColors.textSecondary }]}>
+                        {viewingUser.personalDetails}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Account Information Card */}
+                  <View style={[styles.profileViewDetailsCard, { backgroundColor: themeColors.cardBackground }]}>
+                    <Text style={[styles.profileViewSectionTitle, { color: themeColors.text }]}>
+                      <Ionicons name="information-circle" size={18} color="#e50914" /> Account Information
+                    </Text>
+                    
+                    <View style={styles.profileViewDetailRow}>
+                      <View style={styles.profileViewDetailIcon}>
+                        <Ionicons name="person-circle" size={18} color={themeColors.textSecondary} />
+                      </View>
+                      <View style={styles.profileViewDetailContent}>
+                        <Text style={[styles.profileViewDetailLabel, { color: themeColors.textSecondary }]}>Account Name</Text>
+                        <Text style={[styles.profileViewDetailValue, { color: themeColors.text }]}>
+                          {viewingUser.accountName || viewingUser.name || 'Not set'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.profileViewDetailRow}>
+                      <View style={styles.profileViewDetailIcon}>
+                        <Ionicons name="shield-checkmark" size={18} color={themeColors.textSecondary} />
+                      </View>
+                      <View style={styles.profileViewDetailContent}>
+                        <Text style={[styles.profileViewDetailLabel, { color: themeColors.textSecondary }]}>User ID</Text>
+                        <Text style={[styles.profileViewDetailValue, { color: themeColors.text }]} numberOfLines={1}>
+                          {viewingUser._id || 'Not available'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            {/* Footer Button */}
+            <View style={[styles.profileModalFooter, { backgroundColor: themeColors.cardBackground, borderTopColor: themeColors.border }]}>
+              <TouchableOpacity
+                style={styles.profileModalCloseButton}
+                onPress={() => setShowUserProfileModal(false)}
+              >
+                <Text style={styles.profileModalCloseButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -737,258 +984,696 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  // Modern Gradient Header Styles
+  headerGradient: {
+    backgroundColor: '#e50914',
+    paddingTop: 50,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingBottom: 16,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
   },
   backButton: {
     padding: 4,
   },
+  backButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   editButton: {
     padding: 4,
+  },
+  editButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
     padding: 16,
   },
+  // Enhanced Profile Card Styles
   profileCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    marginTop: -30,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
   profilePictureSection: {
     alignItems: 'center',
   },
   profilePictureContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  profilePictureRing: {
+    padding: 4,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: '#e50914',
+    backgroundColor: '#fff',
   },
   profilePicture: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
   profilePicturePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cameraIcon: {
+  cameraIconEnhanced: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#007bff',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#e50914',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
   },
   profileInfo: {
     alignItems: 'center',
   },
   profileName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
-  profileRole: {
-    fontSize: 16,
-    marginBottom: 2,
+  profileRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  profileRoleText: {
+    fontSize: 14,
+    color: '#e50914',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  profileEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   profileEmail: {
     fontSize: 14,
+    marginLeft: 6,
   },
+  // Enhanced Details Card Styles
   detailsCard: {
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
   },
-  sectionTitle: {
-    fontSize: 18,
+  sectionTitleEnhanced: {
+    fontSize: 19,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#fee',
   },
-  fieldContainer: {
-    marginBottom: 16,
+  // Enhanced Field Container Styles
+  fieldContainerEnhanced: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  fieldIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  fieldContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
   fieldLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  fieldValue: {
+  fieldValueEnhanced: {
     fontSize: 16,
     lineHeight: 22,
+    fontWeight: '500',
   },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+  textInputEnhanced: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
+    fontWeight: '500',
   },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+  textAreaEnhanced: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
+    fontWeight: '500',
   },
-  settingRow: {
+  // Enhanced Settings Row Styles
+  settingRowEnhanced: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
-  settingInfo: {
+  settingInfoEnhanced: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  settingIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
   settingLabel: {
     fontSize: 16,
-    marginLeft: 12,
+    fontWeight: '500',
   },
-  saveButton: {
-    backgroundColor: '#007bff',
+  // Enhanced Buttons
+  saveButtonEnhanced: {
+    backgroundColor: '#e50914',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginBottom: 20,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
-  logoutButton: {
-    backgroundColor: '#DC2626',
+  logoutButtonEnhanced: {
+    backgroundColor: '#dc3545',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 14,
     marginBottom: 30,
-    marginTop: 10,
+    marginTop: 6,
+    elevation: 3,
+    shadowColor: '#dc3545',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   logoutButtonText: {
     color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.5,
+  },
+  // Enhanced Password Modal Styles
+  passwordModalContent: {
+    width: width * 0.92,
+    maxHeight: '80%',
+    borderRadius: 24,
+    padding: 0,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+  },
+  passwordModalHeader: {
+    alignItems: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  passwordIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#e50914',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 4,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+  },
+  passwordModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  passwordModalSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  passwordInputsContainer: {
+    padding: 24,
+    paddingTop: 30,
+  },
+  passwordInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  passwordInputIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  passwordRequirements: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: '#f9fafb',
+    marginHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  requirementsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  requirementText: {
+    fontSize: 12,
+    marginLeft: 8,
+    marginVertical: 2,
+  },
+  passwordModalButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  passwordCancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  passwordCancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
   },
+  passwordChangeButton: {
+    flex: 1,
+    backgroundColor: '#e50914',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#e50914',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    gap: 8,
+  },
+  passwordChangeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     width: width * 0.9,
-    maxHeight: '80%',
-    borderRadius: 12,
-    padding: 20,
+    maxHeight: '75%',
+    borderRadius: 20,
+    padding: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 24,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    borderRadius: 8,
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderRadius: 12,
+    marginHorizontal: 6,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
   },
   primaryButton: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
+    backgroundColor: '#e50914',
+    borderColor: '#e50914',
   },
   modalButtonText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6b7280',
+    fontWeight: '600',
   },
   primaryButtonText: {
     fontSize: 16,
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   modalCloseButton: {
-    marginTop: 20,
-    paddingVertical: 12,
+    marginTop: 16,
+    paddingVertical: 14,
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
   },
+  // Enhanced User List Styles
   userList: {
-    maxHeight: 300,
+    maxHeight: 400,
   },
-  userItem: {
+  userItemEnhanced: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  userAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  userDetails: {
     flex: 1,
   },
-  userName: {
+  userAvatarEnhanced: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    marginRight: 14,
+    overflow: 'hidden',
+  },
+  userAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userAvatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  userDetailsEnhanced: {
+    flex: 1,
+  },
+  userNameEnhanced: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  userRoleBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  userRoleEnhanced: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  chevronCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Professional Profile View Modal Styles
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  profileModalContent: {
+    flex: 1,
+    marginTop: 50,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  profileModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  profileModalBackButton: {
+    padding: 4,
+  },
+  profileModalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  profileModalScroll: {
+    flex: 1,
+    padding: 16,
+  },
+  profileViewCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  profileViewPictureSection: {
+    alignItems: 'center',
+  },
+  profileViewPictureContainer: {
+    marginBottom: 16,
+  },
+  profileViewPicture: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#e50914',
+  },
+  profileViewPicturePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#e9ecef',
+  },
+  profileViewInfo: {
+    alignItems: 'center',
+  },
+  profileViewName: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  profileViewRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  profileViewRoleText: {
+    fontSize: 15,
+    color: '#e50914',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  profileViewDetailsCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  profileViewSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    paddingBottom: 8,
+  },
+  profileViewDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  profileViewDetailIcon: {
+    width: 40,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  profileViewDetailContent: {
+    flex: 1,
+  },
+  profileViewDetailLabel: {
+    fontSize: 13,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  profileViewDetailValue: {
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  profileViewPersonalDetails: {
+    fontSize: 15,
+    lineHeight: 24,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#e50914',
+  },
+  profileModalFooter: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+  },
+  profileModalCloseButton: {
+    backgroundColor: '#e50914',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  profileModalCloseButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  userRole: {
-    fontSize: 14,
   },
 });
