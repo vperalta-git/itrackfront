@@ -109,12 +109,16 @@ export default function VehicleAssignmentScreen({ navigation }) {
         return;
       }
 
+      const agentRecord = agents.find(a => a._id === selectedAgent || a.username === selectedAgent || a.accountName === selectedAgent);
+      const managerId = agentRecord?.assignedTo || agentRecord?.managerId || '';
       const allocationPayload = {
         unitName: selectedVehicle.unitName,
         unitId: selectedVehicle.unitId || selectedVehicle._id,
         bodyColor: selectedVehicle.bodyColor,
         variation: selectedVehicle.variation,
-        assignedAgent: selectedAgent,
+        assignedAgent: agentRecord?.accountName || agentRecord?.username || selectedAgent,
+        assignedAgentId: agentRecord?._id || '',
+        managerId,
         status: 'Pending',
         allocatedBy: 'Admin',
         date: new Date()
@@ -146,13 +150,17 @@ export default function VehicleAssignmentScreen({ navigation }) {
     }
 
     try {
+      const agentRecord = agents.find(a => a._id === selectedAgent || a.username === selectedAgent || a.accountName === selectedAgent);
+      const managerId = agentRecord?.assignedTo || agentRecord?.managerId || '';
       const allocationPayload = {
         unitName: manualModel,
         unitId: manualVin,
         bodyColor: 'Manual Entry',
         variation: 'Manual Entry',
         assignedDriver: selectedDriver,
-        assignedAgent: selectedAgent,
+        assignedAgent: agentRecord?.accountName || agentRecord?.username || selectedAgent,
+        assignedAgentId: agentRecord?._id || '',
+        managerId,
         status: 'Pending',
         allocatedBy: 'Admin',
         date: new Date()

@@ -197,7 +197,7 @@ export default function TestDriveScreen() {
     );
   };
 
-  // Approve test drive (admin only)
+  // Approve/Decline test drive (admin only)
   const handleApproveTestDrive = async (id) => {
     try {
       const response = await fetch(buildApiUrl(`/updateTestDrive/${id}`), {
@@ -212,6 +212,23 @@ export default function TestDriveScreen() {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to approve test drive');
+    }
+  };
+
+  const handleDeclineTestDrive = async (id) => {
+    try {
+      const response = await fetch(buildApiUrl(`/updateTestDrive/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Declined' }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Updated', 'Test drive declined');
+        fetchTestDrives();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to decline test drive');
     }
   };
 
@@ -303,11 +320,12 @@ export default function TestDriveScreen() {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'scheduled': return '#007bff';
-      case 'in progress': return '#ffc107';
-      case 'completed': return '#28a745';
-      case 'cancelled': return '#dc3545';
-      default: return '#6c757d';
+      case 'scheduled': return '#e50914';
+      case 'in progress': return '#f59e0b';
+      case 'completed': return '#16a34a';
+      case 'cancelled':
+      case 'declined': return '#dc2626';
+      default: return '#6b7280';
     }
   };
 
@@ -346,35 +364,23 @@ export default function TestDriveScreen() {
       )}
 
       <View style={styles.actionButtons}>
-        {userRole === 'admin' && item.status === 'Scheduled' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.approveBtn]}
-            onPress={() => handleApproveTestDrive(item._id)}
-          >
-            <MaterialIcons name="check-circle" size={16} color="#28a745" />
-            <Text style={[styles.actionBtnText, { color: '#28a745' }]}>Approve</Text>
-          </TouchableOpacity>
-        )}
-        {(userRole === 'admin' || item.createdBy === currentUser?.name) && (
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => {
-              Alert.alert(
-                'Update Status',
-                'Choose new status:',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Scheduled', onPress: () => updateTestDriveStatus(item._id, 'Scheduled') },
-                  { text: 'In Progress', onPress: () => updateTestDriveStatus(item._id, 'In Progress') },
-                  { text: 'Completed', onPress: () => updateTestDriveStatus(item._id, 'Completed') },
-                  { text: 'Cancelled', onPress: () => updateTestDriveStatus(item._id, 'Cancelled') },
-                ]
-              );
-            }}
-          >
-            <MaterialIcons name="edit" size={16} color="#007AFF" />
-            <Text style={styles.actionBtnText}>Update</Text>
-          </TouchableOpacity>
+        {userRole?.toLowerCase() === 'admin' && item.status === 'Scheduled' && (
+          <>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.approveBtn]}
+              onPress={() => handleApproveTestDrive(item._id)}
+            >
+              <MaterialIcons name="check-circle" size={16} color="#28a745" />
+              <Text style={[styles.actionBtnText, { color: '#28a745' }]}>Approve</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.declineBtn]}
+              onPress={() => handleDeclineTestDrive(item._id)}
+            >
+              <MaterialIcons name="cancel" size={16} color="#dc3545" />
+              <Text style={[styles.actionBtnText, { color: '#dc3545' }]}>Decline</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -408,7 +414,7 @@ export default function TestDriveScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Test Drive Inventory</Text>
-          {userRole === 'admin' && (
+          {userRole?.toLowerCase() === 'admin' && (
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => setShowInventoryModal(true)}
@@ -441,7 +447,7 @@ export default function TestDriveScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Scheduled Test Drives</Text>
-          {userRole === 'sales agent' && (
+          {userRole?.toLowerCase() === 'sales agent' && (
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => setShowAddModal(true)}
@@ -453,15 +459,18 @@ export default function TestDriveScreen() {
         </View>
 
       <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={20} color="#666" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search test drives..."
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
+        <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search test drives..."
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+        />
+        {searchTerm.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchTerm('')}>
+            <MaterialIcons name="close" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -783,18 +792,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 4 },
-  searchContainer: { padding: 16, backgroundColor: '#f8f9fa' },
-  searchBox: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+    backgroundColor: '#fff',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    margin: 16,
   },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: '#333' },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 15, color: '#1f2937', paddingVertical: 6 },
   listContainer: { paddingVertical: 16 },
   testDriveCard: {
     backgroundColor: '#fff',
@@ -839,6 +854,10 @@ const styles = StyleSheet.create({
   approveBtn: {
     backgroundColor: '#e8f5e9',
     borderColor: '#28a745',
+  },
+  declineBtn: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#dc2626',
   },
   actionBtnText: { marginLeft: 4, fontSize: 14, fontWeight: '500', color: '#007AFF' },
   emptyContainer: {

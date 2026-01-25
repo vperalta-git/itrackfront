@@ -139,6 +139,8 @@ export default function LoginScreen() {
       const userEmail = user?.email || '';
       const userId = user?._id || user?.id || '';
       const userPhone = user?.phoneNumber || user?.phoneNo || '';
+      const managerId = user?.managerId || user?.assignedTo || '';
+      const managerName = user?.managerName || '';
       
       console.log('✅ Login successful for user:', userName);
       console.log('🔍 User role:', userRole);
@@ -161,7 +163,9 @@ export default function LoginScreen() {
         ['userEmail', userEmail],
         ['email', userEmail],
         ['userId', userId],
-        ['userPhone', userPhone]
+        ['userPhone', userPhone],
+        ['managerId', managerId || ''],
+        ['managerName', managerName || '']
       ]);
       console.log('💾 User data saved to storage:', { userName, userRole, userId });
 

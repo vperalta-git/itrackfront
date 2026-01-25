@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const DiagnosticMapScreen = () => {
   const [mapReady, setMapReady] = useState(false);
@@ -24,7 +25,7 @@ const DiagnosticMapScreen = () => {
 
   const checkLocationPermissions = async () => {
     try {
-      console.log('🔍 Checking location permissions...');
+      console.log('Checking location permissions...');
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationPermission(status);
       
@@ -32,14 +33,14 @@ const DiagnosticMapScreen = () => {
         getCurrentLocation();
       }
     } catch (error) {
-      console.error('❌ Permission error:', error);
+      console.error('Permission error:', error);
       setLocationPermission('error');
     }
   };
 
   const getCurrentLocation = async () => {
     try {
-      console.log('📍 Getting current location...');
+      console.log('Getting current location...');
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeout: 10000,
@@ -51,19 +52,19 @@ const DiagnosticMapScreen = () => {
       };
       
       setCurrentLocation(coords);
-      console.log('✅ Location obtained:', coords);
+      console.log('Location obtained:', coords);
     } catch (error) {
-      console.error('❌ Location error:', error);
+      console.error('Location error:', error);
     }
   };
 
   const handleMapReady = () => {
-    console.log('✅ Map is ready!');
+    console.log('Map is ready!');
     setMapReady(true);
   };
 
   const handleMapError = (error) => {
-    console.error('❌ Map error:', error);
+    console.error('Map error:', error);
     setMapError(error.message || 'Unknown map error');
   };
 
@@ -75,15 +76,28 @@ const DiagnosticMapScreen = () => {
   if (mapError) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.title}>🗺️ Map Diagnostic</Text>
-        <Text style={styles.errorTitle}>❌ Map Error</Text>
+        <View style={styles.titleRow}>
+          <MaterialIcons name="map" size={28} color="#e50914" />
+          <Text style={styles.title}>Map Diagnostic</Text>
+        </View>
+        <View style={styles.errorTitleRow}>
+          <MaterialIcons name="error" size={24} color="#dc3545" />
+          <Text style={styles.errorTitle}>Map Error</Text>
+        </View>
         <Text style={styles.errorText}>{mapError}</Text>
         <TouchableOpacity style={styles.button} onPress={retryMap}>
-          <Text style={styles.buttonText}>🔄 Retry</Text>
+          <MaterialIcons name="refresh" size={20} color="white" />
+          <Text style={styles.buttonText}>Retry</Text>
         </TouchableOpacity>
         <View style={styles.diagnosticInfo}>
-          <Text style={styles.infoText}>📱 Location Permission: {locationPermission}</Text>
-          <Text style={styles.infoText}>📍 Current Location: {currentLocation ? 'Available' : 'Not Available'}</Text>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="smartphone" size={16} color="#495057" />
+            <Text style={styles.infoText}>Location Permission: {locationPermission}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="location-on" size={16} color="#495057" />
+            <Text style={styles.infoText}>Current Location: {currentLocation ? 'Available' : 'Not Available'}</Text>
+          </View>
         </View>
       </View>
     );
@@ -92,10 +106,22 @@ const DiagnosticMapScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>🗺️ Map Diagnostic</Text>
-        <Text style={styles.status}>Map Ready: {mapReady ? '✅' : '⏳'}</Text>
-        <Text style={styles.status}>Permission: {locationPermission}</Text>
-        <Text style={styles.status}>Location: {currentLocation ? '✅' : '❌'}</Text>
+        <View style={styles.titleRow}>
+          <MaterialIcons name="map" size={28} color="#e50914" />
+          <Text style={styles.title}>Map Diagnostic</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <MaterialIcons name={mapReady ? "check-circle" : "hourglass-empty"} size={16} color={mapReady ? "#28a745" : "#ffc107"} />
+          <Text style={styles.status}>Map Ready: {mapReady ? 'Yes' : 'Loading'}</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <MaterialIcons name="security" size={16} color="#666" />
+          <Text style={styles.status}>Permission: {locationPermission}</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <MaterialIcons name={currentLocation ? "check-circle" : "cancel"} size={16} color={currentLocation ? "#28a745" : "#dc3545"} />
+          <Text style={styles.status}>Location: {currentLocation ? 'Available' : 'Not Available'}</Text>
+        </View>
       </View>
 
       {!mapReady && (
@@ -135,7 +161,8 @@ const DiagnosticMapScreen = () => {
       </MapView>
 
       <TouchableOpacity style={styles.refreshButton} onPress={getCurrentLocation}>
-        <Text style={styles.refreshButtonText}>📍 Refresh Location</Text>
+        <MaterialIcons name="my-location" size={20} color="white" />
+        <Text style={styles.refreshButtonText}>Refresh Location</Text>
       </TouchableOpacity>
     </View>
   );
@@ -152,17 +179,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#dee2e6',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
     color: '#e50914',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+    gap: 6,
   },
   status: {
     fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 2,
     color: '#666',
   },
   map: {
@@ -192,6 +229,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   refreshButtonText: {
     color: 'white',
@@ -205,11 +245,16 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
+  errorTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
   errorTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#dc3545',
-    marginBottom: 10,
   },
   errorText: {
     fontSize: 16,
@@ -218,6 +263,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#e50914',
     paddingHorizontal: 30,
     paddingVertical: 15,
@@ -237,9 +285,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#dee2e6',
   },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 2,
+  },
   infoText: {
     fontSize: 14,
-    marginVertical: 2,
     color: '#495057',
   },
 });

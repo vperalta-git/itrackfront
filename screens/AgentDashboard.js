@@ -177,21 +177,27 @@ export default function AgentDashboard() {
         }));
       }
 
-      // Filter allocations for this agent
+      // Filter allocations for this agent using IDs first, then names as fallback
       if (allocationsResponse?.success && allocationsResponse?.data) {
         const currentAgentName = await AsyncStorage.getItem("accountName");
-        const agentEmail = await AsyncStorage.getItem("userEmail");
+        const currentAgentId = await AsyncStorage.getItem("userId");
         const normalizedAgentName = (currentAgentName || '').toLowerCase().trim();
         
         const agentSpecificAllocations = allocationsResponse.data.filter(allocation => {
-          // Exact match checks
-          if (allocation.allocatedBy === currentAgentName || 
+          const idMatch = currentAgentId && (
+            allocation.assignedAgentId === currentAgentId ||
+            allocation.agentId === currentAgentId
+          );
+          if (idMatch) return true;
+
+          // Exact name match checks
+          if (allocation.assignedAgent === currentAgentName || 
               allocation.assignedTo === currentAgentName ||
               allocation.assignedDriver === currentAgentName) {
             return true;
           }
           
-          // Flexible matching for better compatibility
+          // Flexible matching for better compatibility with legacy records
           const checkFlexibleMatch = (fieldValue) => {
             if (!fieldValue) return false;
             const normalized = fieldValue.toLowerCase().trim();
@@ -201,7 +207,7 @@ export default function AgentDashboard() {
             return exactMatch || (containsMatch && normalizedAgentName.length > 3);
           };
           
-          return checkFlexibleMatch(allocation.allocatedBy) ||
+          return checkFlexibleMatch(allocation.assignedAgent) ||
                  checkFlexibleMatch(allocation.assignedTo) ||
                  checkFlexibleMatch(allocation.assignedDriver);
         });

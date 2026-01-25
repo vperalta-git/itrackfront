@@ -119,24 +119,25 @@ export default function ManagerDashboard() {
         }
       }
 
-      // Get current manager's name
+      // Get current manager's identity
       const currentManagerName = await AsyncStorage.getItem("accountName");
+      const currentManagerId = await AsyncStorage.getItem("userId");
       
       // Fetch users to get agents assigned to this manager
       const usersResponse = await safeFetchJSON('https://itrack-backend-1.onrender.com/admin/users');
       if (usersResponse?.success !== false && usersResponse) {
         const users = Array.isArray(usersResponse) ? usersResponse : usersResponse.data || [];
         
-        // Get manager ID first by finding current manager in the users list
+        // Get manager record by ID (preferred) or name (fallback)
         const currentManager = users.find(user => 
-          user.accountName === currentManagerName && 
-          (user.role === 'Manager' || user.role === 'manager')
+          user._id === currentManagerId ||
+          (user.accountName === currentManagerName && (user.role === 'Manager' || user.role === 'manager'))
         );
         
         if (currentManager) {
           // Filter agents assigned to this manager
           const assignedAgents = users.filter(user => 
-            (user.role.toLowerCase() === 'sales agent' || user.role.toLowerCase() === 'agent') && 
+            (user.role?.toLowerCase() === 'sales agent' || user.role?.toLowerCase() === 'agent') && 
             user.assignedTo === currentManager._id
           );
           setMyAgents(assignedAgents);
@@ -189,15 +190,22 @@ export default function ManagerDashboard() {
         }));
       }
 
-      // Filter allocations for this manager's agents
+      // Filter allocations for this manager's agents using IDs first, names as fallback
       if (allocationsResponse?.success && allocationsResponse?.data) {
+        const agentIds = myAgents.map(agent => agent._id);
         const agentNames = myAgents.map(agent => agent.accountName);
-        const managerSpecificAllocations = allocationsResponse.data.filter(allocation => 
-          agentNames.includes(allocation.allocatedBy) || 
-          agentNames.includes(allocation.assignedTo) ||
-          agentNames.includes(allocation.assignedDriver) ||
-          allocation.allocatedBy === currentManagerName // Also include manager's own allocations
-        );
+        const managerSpecificAllocations = allocationsResponse.data.filter(allocation => {
+          const idMatch = (allocation.managerId && allocation.managerId === currentManagerId) ||
+            (allocation.assignedAgentId && agentIds.includes(allocation.assignedAgentId));
+          if (idMatch) return true;
+
+          // Legacy name-based matching
+          return agentNames.includes(allocation.assignedAgent) ||
+                 agentNames.includes(allocation.assignedTo) ||
+                 agentNames.includes(allocation.assignedDriver) ||
+                 allocation.managerName === currentManagerName ||
+                 allocation.allocatedBy === currentManagerName;
+        });
         setManagerAllocations(managerSpecificAllocations);
         
         // Load vehicle locations for manager's vehicles
