@@ -14,6 +14,7 @@ import {
   Modal,
   Dimensions
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +22,7 @@ import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 import StocksOverview from '../components/StocksOverview';
 import UniformLoading from '../components/UniformLoading';
+import NotificationService from '../utils/notificationService';
 import { VEHICLE_MODELS, getUnitNames, getVariationsForUnit, getAllowedStatusTransitions, VEHICLE_STATUS_RULES } from '../constants/VehicleModels';
 
 export default function AdminDashboard() {
@@ -69,29 +71,42 @@ export default function AdminDashboard() {
 
   // Process selection state
   const [selectedProcesses, setSelectedProcesses] = useState([]);
-  
   // Dispatch assignment state
   const [selectedVehiclesForDispatch, setSelectedVehiclesForDispatch] = useState([]);
   const [selectedDispatchProcesses, setSelectedDispatchProcesses] = useState([]);
   const [showDispatchAssignmentModal, setShowDispatchAssignmentModal] = useState(false);
   const [showServicesModal, setShowServicesModal] = useState(false);
   const [selectedVehicleForServices, setSelectedVehicleForServices] = useState(null);
+
+  // Searchable dropdown state (stocks)
+  const [showAddUnitDropdown, setShowAddUnitDropdown] = useState(false);
+  const [unitSearchQuery, setUnitSearchQuery] = useState('');
+  const [showAddVariationDropdown, setShowAddVariationDropdown] = useState(false);
+  const [variationSearchQuery, setVariationSearchQuery] = useState('');
+  const [showAddStatusDropdown, setShowAddStatusDropdown] = useState(false);
+
+  const [showEditVariationDropdown, setShowEditVariationDropdown] = useState(false);
+  const [editVariationSearch, setEditVariationSearch] = useState('');
+  const [showEditStatusDropdown, setShowEditStatusDropdown] = useState(false);
+  const [showEditAgentDropdown, setShowEditAgentDropdown] = useState(false);
+  const [editAgentSearch, setEditAgentSearch] = useState('');
   
   // Release management state
   const [pendingReleases, setPendingReleases] = useState([]);
   const [releaseHistory, setReleaseHistory] = useState([]);
   const [showReleaseConfirmModal, setShowReleaseConfirmModal] = useState(false);
   const [selectedReleaseVehicle, setSelectedReleaseVehicle] = useState(null);
-  
+  const [unitCustomerMap, setUnitCustomerMap] = useState({});
+  const stockStatusOptions = ['In Stockyard', 'Available'];
 
   
   // Available processes
   const availableProcesses = [
-    { id: 'tinting', label: 'Tinting', icon: '🪟' },
-    { id: 'carwash', label: 'Car Wash', icon: '🚿' },
-    { id: 'ceramic_coating', label: 'Ceramic Coating', icon: '✨' },
-    { id: 'accessories', label: 'Accessories', icon: '🔧' },
-    { id: 'rust_proof', label: 'Rust Proof', icon: '🛡️' }
+    { id: 'tinting', label: 'Tinting', icon: 'brush' },
+    { id: 'carwash', label: 'Car Wash', icon: 'local-car-wash' },
+    { id: 'ceramic_coating', label: 'Ceramic Coating', icon: 'auto-awesome' },
+    { id: 'accessories', label: 'Accessories', icon: 'build' },
+    { id: 'rust_proof', label: 'Rust Proof', icon: 'shield' }
   ];
 
   useEffect(() => {
@@ -143,7 +158,19 @@ export default function AdminDashboard() {
         throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
       }
       
-      setAllocations(data.data || []);
+      const allocationList = data.data || [];
+      setAllocations(allocationList);
+      const map = {};
+      allocationList.forEach(alloc => {
+        const key = (alloc.unitId || '').toLowerCase();
+        if (!key) return;
+        map[key] = {
+          customerName: alloc.customerName || 'Customer',
+          customerEmail: alloc.customerEmail || '',
+          customerPhone: alloc.customerPhone || alloc.customerContact || ''
+        };
+      });
+      setUnitCustomerMap(map);
     } catch (err) {
       console.error('Fetch allocations error:', err);
       Alert.alert('Error', 'Failed to fetch driver allocations: ' + err.message);
@@ -270,6 +297,10 @@ export default function AdminDashboard() {
     setNewStock({ ...newStock, unitName: unitName, variation: "" }); // Reset variation when unit changes
     const variations = getVariationsForUnit(unitName);
     setAvailableVariations(variations);
+    setShowAddUnitDropdown(false);
+    setShowAddVariationDropdown(false);
+    setUnitSearchQuery('');
+    setVariationSearchQuery('');
   };
 
   const handleAddStock = async () => {
@@ -309,6 +340,11 @@ export default function AdminDashboard() {
       setSelectedUnitName("");
       setAvailableVariations([]);
       setShowAddStockModal(false);
+      setShowAddUnitDropdown(false);
+      setShowAddVariationDropdown(false);
+      setShowAddStatusDropdown(false);
+      setUnitSearchQuery('');
+      setVariationSearchQuery('');
       await fetchInventory(); // Refresh inventory data
     } catch (error) {
       console.error("Add stock error:", error);
@@ -341,6 +377,11 @@ export default function AdminDashboard() {
               await fetchInventory(); // Refresh inventory data
             } catch (error) {
               console.error('Delete stock error:', error);
+              setShowEditVariationDropdown(false);
+              setShowEditStatusDropdown(false);
+              setShowEditAgentDropdown(false);
+              setEditVariationSearch('');
+              setEditAgentSearch('');
               Alert.alert('Error', error.message);
             }
           },
@@ -361,6 +402,11 @@ export default function AdminDashboard() {
       currentStatus: item.status || "Available", // Track original status for validation
       assignedAgent: item.assignedAgent || ""
     });
+    setShowEditVariationDropdown(false);
+    setShowEditStatusDropdown(false);
+    setShowEditAgentDropdown(false);
+    setEditVariationSearch('');
+    setEditAgentSearch('');
     setShowEditStockModal(true);
   };
 
@@ -590,6 +636,17 @@ export default function AdminDashboard() {
                 throw new Error(result.message || 'Failed to confirm release');
               }
 
+              // Notify customer when available
+              const unitKey = (selectedReleaseVehicle.unitId || '').toLowerCase();
+              const customer = unitCustomerMap[unitKey];
+              if (customer?.customerEmail) {
+                NotificationService.sendStatusNotification(
+                  { name: customer.customerName || 'Customer', email: customer.customerEmail },
+                  { unitName: selectedReleaseVehicle.unitName, unitId: selectedReleaseVehicle.unitId },
+                  'Ready for Release'
+                ).catch(err => console.error('❌ Notification error:', err));
+              }
+
               Alert.alert(
                 'Success', 
                 `Vehicle ${selectedReleaseVehicle.unitName} has been released to customer!`
@@ -817,9 +874,12 @@ export default function AdminDashboard() {
                   setShowReleaseConfirmModal(true);
                 }}
               >
-                <Text style={styles.releaseConfirmButtonText}>
-                  🚗 Confirm Release to Customer
-                </Text>
+                <View style={styles.releaseButtonContent}>
+                  <MaterialIcons name="directions-car" size={18} color="#fff" />
+                  <Text style={styles.releaseConfirmButtonText}>
+                    Mark as Ready for Release
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           ))}
@@ -1280,26 +1340,26 @@ export default function AdminDashboard() {
         if (!selectedReleaseVehicle) return;
 
         // Create release record
-        const releaseData = {
-          vehicleId: selectedReleaseVehicle._id,
-          unitName: selectedReleaseVehicle.unitName,
-          unitId: selectedReleaseVehicle.unitId,
-          bodyColor: selectedReleaseVehicle.bodyColor,
-          variation: selectedReleaseVehicle.variation,
-          processes: selectedReleaseVehicle.processes,
-          releasedBy: 'admin',
-          releasedAt: new Date().toISOString(),
-          status: 'Released to Customer'
-        };
+                const releaseData = {
+                  vehicleId: selectedReleaseVehicle._id,
+                  unitName: selectedReleaseVehicle.unitName,
+                  unitId: selectedReleaseVehicle.unitId,
+                  bodyColor: selectedReleaseVehicle.bodyColor,
+                  variation: selectedReleaseVehicle.variation,
+                  processes: selectedReleaseVehicle.processes,
+                  releasedBy: 'admin',
+                  releasedAt: new Date().toISOString(),
+                  status: 'Released to Customer'
+                };
 
         // Send to release history endpoint
-        const response = await fetch(buildApiUrl('/api/release/confirm'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(releaseData),
-        });
+                const response = await fetch(buildApiUrl('/api/release/confirm'), {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(releaseData),
+                });
 
         const result = await response.json();
 
@@ -1307,15 +1367,16 @@ export default function AdminDashboard() {
           throw new Error(result.error || 'Failed to confirm release');
         }
 
-        Alert.alert(
-          'Success', 
-          `Vehicle ${selectedReleaseVehicle.unitName} has been released to customer!`
-        );
+                Alert.alert(
+                  'Success', 
+                  `Vehicle ${selectedReleaseVehicle.unitName} marked ready for release and customer notified.`
+                );
         
         // Reset and refresh
-        setShowReleaseConfirmModal(false);
-        setSelectedReleaseVehicle(null);
-        fetchPendingReleases();
+                setShowReleaseConfirmModal(false);
+                setSelectedReleaseVehicle(null);
+                fetchPendingReleases();
+                fetchReleaseHistory();
         
       } catch (error) {
         console.error('Error confirming release:', error);
@@ -1434,7 +1495,7 @@ export default function AdminDashboard() {
           
           {availableVehicles.length === 0 ? (
             <View style={styles.cleanEmptyState}>
-              <Text style={[styles.cleanEmptyIcon, { color: theme.textSecondary }]}>🚗</Text>
+              <MaterialIcons name="directions-car" size={48} color={theme.textSecondary} />
               <Text style={[styles.cleanEmptyText, { color: theme.textSecondary }]}>No available vehicles</Text>
             </View>
           ) : (
@@ -1628,9 +1689,12 @@ export default function AdminDashboard() {
                   }
                 }}
               >
-                <Text style={styles.dispatchVehicleButtonText}>
-                  🚚 Dispatch {selectedVehicleForServices?.unitName}
-                </Text>
+                <View style={styles.dispatchButtonContent}>
+                  <MaterialIcons name="local-shipping" size={18} color="#fff" />
+                  <Text style={styles.dispatchVehicleButtonText}>
+                    Dispatch {selectedVehicleForServices?.unitName}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           )}
@@ -1646,16 +1710,69 @@ export default function AdminDashboard() {
             <Text style={styles.modalTitle}>Add New Stock</Text>
 
             {/* Unit Name Dropdown */}
-            <Picker
-              selectedValue={selectedUnitName}
-              onValueChange={handleUnitNameChange}
-              style={styles.picker}
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+              onPress={() => setShowAddUnitDropdown(!showAddUnitDropdown)}
+              activeOpacity={0.85}
             >
-              <Picker.Item label="Select Unit Name" value="" />
-              {getUnitNames().map((unitName) => (
-                <Picker.Item key={unitName} label={unitName} value={unitName} />
-              ))}
-            </Picker>
+              <View style={styles.selectedItemContainer}>
+                {selectedUnitName ? (
+                  <Text style={styles.selectedText}>{selectedUnitName}</Text>
+                ) : (
+                  <Text style={styles.placeholderText}>Select Unit Name</Text>
+                )}
+              </View>
+              <MaterialIcons name={showAddUnitDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showAddUnitDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <View style={styles.searchContainer}>
+                  <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.text }]}
+                    placeholder="Search unit names..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={unitSearchQuery}
+                    onChangeText={setUnitSearchQuery}
+                  />
+                  {unitSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setUnitSearchQuery('')}>
+                      <MaterialIcons name="close" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {getUnitNames()
+                    .filter(name => name.toLowerCase().includes(unitSearchQuery.toLowerCase()))
+                    .map(name => (
+                      <TouchableOpacity
+                        key={name}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          handleUnitNameChange(name);
+                          setShowAddUnitDropdown(false);
+                        }}
+                      >
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={[styles.agentName, { color: theme.text }]}>{name}</Text>
+                        </View>
+                        {selectedUnitName === name && (
+                          <MaterialIcons name="check-circle" size={22} color="#059669" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+
+                  {getUnitNames().filter(name => name.toLowerCase().includes(unitSearchQuery.toLowerCase())).length === 0 && (
+                    <View style={styles.noResultsContainer}>
+                      <MaterialIcons name="search-off" size={48} color="#ccc" />
+                      <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No units found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
             
             <TextInput
               style={styles.input}
@@ -1665,31 +1782,114 @@ export default function AdminDashboard() {
             />
             
             {/* Variation Dropdown - only enabled when unit name is selected */}
-            <Picker
-              selectedValue={newStock.variation}
-              onValueChange={(value) => setNewStock({ ...newStock, variation: value })}
-              style={[styles.picker, !selectedUnitName && styles.disabledPicker]}
-              enabled={!!selectedUnitName}
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground, opacity: selectedUnitName ? 1 : 0.6 }]}
+              onPress={() => selectedUnitName && setShowAddVariationDropdown(!showAddVariationDropdown)}
+              activeOpacity={0.85}
+              disabled={!selectedUnitName}
             >
-              <Picker.Item 
-                label={selectedUnitName ? "Select Variation" : "First select Unit Name"} 
-                value="" 
-              />
-              {availableVariations.map((variation) => (
-                <Picker.Item key={variation} label={variation} value={variation} />
-              ))}
-            </Picker>
+              <View style={styles.selectedItemContainer}>
+                {newStock.variation ? (
+                  <Text style={styles.selectedText}>{newStock.variation}</Text>
+                ) : (
+                  <Text style={styles.placeholderText}>{selectedUnitName ? 'Select Variation' : 'First select Unit Name'}</Text>
+                )}
+              </View>
+              <MaterialIcons name={showAddVariationDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showAddVariationDropdown && selectedUnitName && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <View style={styles.searchContainer}>
+                  <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.text }]}
+                    placeholder="Search variations..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={variationSearchQuery}
+                    onChangeText={setVariationSearchQuery}
+                  />
+                  {variationSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setVariationSearchQuery('')}>
+                      <MaterialIcons name="close" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {availableVariations
+                    .filter(variation => variation.toLowerCase().includes(variationSearchQuery.toLowerCase()))
+                    .map(variation => (
+                      <TouchableOpacity
+                        key={variation}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setNewStock({ ...newStock, variation });
+                          setShowAddVariationDropdown(false);
+                        }}
+                      >
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={[styles.agentName, { color: theme.text }]}>{variation}</Text>
+                        </View>
+                        {newStock.variation === variation && (
+                          <MaterialIcons name="check-circle" size={22} color="#059669" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+
+                  {availableVariations.filter(variation => variation.toLowerCase().includes(variationSearchQuery.toLowerCase())).length === 0 && (
+                    <View style={styles.noResultsContainer}>
+                      <MaterialIcons name="search-off" size={48} color="#ccc" />
+                      <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No variations found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Status Dropdown - Only 'In Stockyard' or 'Available' allowed for new vehicles */}
             <Text style={styles.label}>Initial Status</Text>
-            <Picker
-              selectedValue={newStock.status}
-              onValueChange={(value) => setNewStock({ ...newStock, status: value })}
-              style={styles.picker}
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+              onPress={() => setShowAddStatusDropdown(!showAddStatusDropdown)}
+              activeOpacity={0.85}
             >
-              <Picker.Item label="In Stockyard (Default - at warehouse)" value="In Stockyard" />
-              <Picker.Item label="Available (Already at Isuzu Pasig)" value="Available" />
-            </Picker>
+              <View style={styles.selectedItemContainer}>
+                {newStock.status ? (
+                  <Text style={styles.selectedText}>{newStock.status}</Text>
+                ) : (
+                  <Text style={styles.placeholderText}>Select Status</Text>
+                )}
+              </View>
+              <MaterialIcons name={showAddStatusDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showAddStatusDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {stockStatusOptions.map(status => (
+                    <TouchableOpacity
+                      key={status}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setNewStock({ ...newStock, status });
+                        setShowAddStatusDropdown(false);
+                      }}
+                    >
+                      <View style={styles.dropdownItemInfo}>
+                        <Text style={[styles.agentName, { color: theme.text }]}>{status}</Text>
+                        <Text style={[styles.agentRole, { color: theme.textSecondary }]}>
+                          {status === 'In Stockyard' ? 'Default - at warehouse' : 'Already at Isuzu Pasig'}
+                        </Text>
+                      </View>
+                      {newStock.status === status && (
+                        <MaterialIcons name="check-circle" size={22} color="#059669" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleAddStock}>
@@ -1730,17 +1930,70 @@ export default function AdminDashboard() {
               value={editStock.bodyColor}
               onChangeText={(text) => setEditStock({ ...editStock, bodyColor: text })}
             />
-            <Picker
-              selectedValue={editStock.variation}
-              onValueChange={(value) => setEditStock({ ...editStock, variation: value })}
-              style={styles.picker}
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+              onPress={() => setShowEditVariationDropdown(!showEditVariationDropdown)}
+              activeOpacity={0.85}
             >
-              <Picker.Item label="Select Variation" value="" />
-              <Picker.Item label="4x2 LSA" value="4x2 LSA" />
-              <Picker.Item label="4x4" value="4x4" />
-              <Picker.Item label="LS-E" value="LS-E" />
-              <Picker.Item label="LS" value="LS" />
-            </Picker>
+              <View style={styles.selectedItemContainer}>
+                {editStock.variation ? (
+                  <Text style={styles.selectedText}>{editStock.variation}</Text>
+                ) : (
+                  <Text style={styles.placeholderText}>Select Variation</Text>
+                )}
+              </View>
+              <MaterialIcons name={showEditVariationDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showEditVariationDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <View style={styles.searchContainer}>
+                  <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.text }]}
+                    placeholder="Search variations..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={editVariationSearch}
+                    onChangeText={setEditVariationSearch}
+                  />
+                  {editVariationSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setEditVariationSearch('')}>
+                      <MaterialIcons name="close" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {getVariationsForUnit(editStock.unitName || selectedStock?.unitName || '')
+                    .filter(v => v.toLowerCase().includes(editVariationSearch.toLowerCase()))
+                    .map(v => (
+                      <TouchableOpacity
+                        key={v}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setEditStock({ ...editStock, variation: v });
+                          setShowEditVariationDropdown(false);
+                        }}
+                      >
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={[styles.agentName, { color: theme.text }]}>{v}</Text>
+                        </View>
+                        {editStock.variation === v && (
+                          <MaterialIcons name="check-circle" size={22} color="#059669" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+
+                  {getVariationsForUnit(editStock.unitName || selectedStock?.unitName || '')
+                    .filter(v => v.toLowerCase().includes(editVariationSearch.toLowerCase())).length === 0 && (
+                    <View style={styles.noResultsContainer}>
+                      <MaterialIcons name="search-off" size={48} color="#ccc" />
+                      <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No variations found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
 
             <TextInput
               style={styles.input}
@@ -1752,22 +2005,56 @@ export default function AdminDashboard() {
 
             {/* Status Picker - Shows only allowed transitions based on current status */}
             <Text style={styles.label}>Vehicle Status</Text>
-            <Picker
-              selectedValue={editStock.status}
-              onValueChange={(value) => setEditStock({ ...editStock, status: value })}
-              style={styles.picker}
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+              onPress={() => setShowEditStatusDropdown(!showEditStatusDropdown)}
+              activeOpacity={0.85}
             >
-              {selectedStock && getAllowedStatusOptions(
-                editStock.currentStatus,
-                !!selectedStock.assignedDriver,
-                selectedStock.driverAccepted === true,
-                !!(selectedStock.location?.latitude && selectedStock.location?.longitude)
-              ).map((status) => {
-                const isCurrent = status === editStock.currentStatus;
-                const label = isCurrent ? `${status} (Current)` : status;
-                return <Picker.Item key={status} label={label} value={status} />;
-              })}
-            </Picker>
+              <View style={styles.selectedItemContainer}>
+                {editStock.status ? (
+                  <Text style={styles.selectedText}>{editStock.status}</Text>
+                ) : (
+                  <Text style={styles.placeholderText}>Select Status</Text>
+                )}
+              </View>
+              <MaterialIcons name={showEditStatusDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showEditStatusDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {selectedStock && getAllowedStatusOptions(
+                    editStock.currentStatus,
+                    !!selectedStock.assignedDriver,
+                    selectedStock.driverAccepted === true,
+                    !!(selectedStock.location?.latitude && selectedStock.location?.longitude)
+                  ).map(status => {
+                    const isCurrent = status === editStock.currentStatus;
+                    const label = isCurrent ? `${status} (Current)` : status;
+                    return (
+                      <TouchableOpacity
+                        key={status}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setEditStock({ ...editStock, status });
+                          setShowEditStatusDropdown(false);
+                        }}
+                      >
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={[styles.agentName, { color: theme.text }]}>{label}</Text>
+                          <Text style={[styles.agentRole, { color: theme.textSecondary }]}>
+                            {status === 'Released' ? 'Set via release flow only' : 'Allowed transition'}
+                          </Text>
+                        </View>
+                        {editStock.status === status && (
+                          <MaterialIcons name="check-circle" size={22} color="#059669" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
             {editStock.currentStatus && VEHICLE_STATUS_RULES[editStock.currentStatus] && (
               <Text style={styles.statusHintText}>
                 Requirements for transitions: {VEHICLE_STATUS_RULES[editStock.currentStatus].requirements}
@@ -1777,16 +2064,91 @@ export default function AdminDashboard() {
             {/* Assign to Agent Section */}
             <View style={styles.assignAgentSection}>
               <Text style={styles.label}>Assign to Agent</Text>
-              <Picker
-                selectedValue={editStock.assignedAgent || ''}
-                onValueChange={(value) => setEditStock({ ...editStock, assignedAgent: value })}
-                style={styles.picker}
+              <TouchableOpacity
+                style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+                onPress={() => setShowEditAgentDropdown(!showEditAgentDropdown)}
+                activeOpacity={0.85}
               >
-                <Picker.Item label="No Agent Assigned" value="" />
-                {agents.map(a => (
-                  <Picker.Item key={a._id} label={a.accountName || a.username} value={a.username} />
-                ))}
-              </Picker>
+                <View style={styles.selectedItemContainer}>
+                  {editStock.assignedAgent ? (
+                    <Text style={styles.selectedText}>{editStock.assignedAgent}</Text>
+                  ) : (
+                    <Text style={styles.placeholderText}>No Agent Assigned</Text>
+                  )}
+                </View>
+                <MaterialIcons name={showEditAgentDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+              </TouchableOpacity>
+
+              {showEditAgentDropdown && (
+                <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                  <View style={styles.searchContainer}>
+                    <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                    <TextInput
+                      style={[styles.searchInput, { color: theme.text }]}
+                      placeholder="Search agents..."
+                      placeholderTextColor={theme.textSecondary}
+                      value={editAgentSearch}
+                      onChangeText={setEditAgentSearch}
+                    />
+                    {editAgentSearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setEditAgentSearch('')}>
+                        <MaterialIcons name="close" size={20} color="#999" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setEditStock({ ...editStock, assignedAgent: '' });
+                        setShowEditAgentDropdown(false);
+                        setEditAgentSearch('');
+                      }}
+                    >
+                      <View style={styles.dropdownItemInfo}>
+                        <Text style={[styles.agentName, { color: theme.text }]}>No Agent Assigned</Text>
+                      </View>
+                      {!editStock.assignedAgent && (
+                        <MaterialIcons name="check-circle" size={22} color="#059669" />
+                      )}
+                    </TouchableOpacity>
+
+                    {agents
+                      .filter(a => (a.accountName || a.username || '').toLowerCase().includes(editAgentSearch.toLowerCase()))
+                      .map(a => {
+                        const label = a.accountName || a.username;
+                        const isSelected = editStock.assignedAgent === a.username || editStock.assignedAgent === label;
+                        return (
+                          <TouchableOpacity
+                            key={a._id}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setEditStock({ ...editStock, assignedAgent: label });
+                              setShowEditAgentDropdown(false);
+                              setEditAgentSearch('');
+                            }}
+                          >
+                            <View style={styles.dropdownItemInfo}>
+                              <Text style={[styles.agentName, { color: theme.text }]}>{label}</Text>
+                              <Text style={[styles.agentRole, { color: theme.textSecondary }]}>{a.email || a.username || ''}</Text>
+                            </View>
+                            {isSelected && (
+                              <MaterialIcons name="check-circle" size={22} color="#059669" />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                    {agents.filter(a => (a.accountName || a.username || '').toLowerCase().includes(editAgentSearch.toLowerCase())).length === 0 && (
+                      <View style={styles.noResultsContainer}>
+                        <MaterialIcons name="search-off" size={48} color="#ccc" />
+                        <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No agents found</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
               {selectedStock?.assignedAgent && (
                 <Text style={styles.statusHintText}>
                   Currently assigned to: {selectedStock.assignedAgent}
@@ -1817,7 +2179,7 @@ export default function AdminDashboard() {
       <Modal visible={showReleaseConfirmModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Vehicle Release</Text>
+            <Text style={styles.modalTitle}>Mark as Ready for Release</Text>
             
             {selectedReleaseVehicle && (
               <View style={styles.releaseConfirmContent}>
@@ -1844,7 +2206,7 @@ export default function AdminDashboard() {
 
                 <View style={styles.releaseWarningBox}>
                   <Text style={styles.releaseWarningText}>
-                    ⚠️ This action will mark the vehicle as released to customer and cannot be undone.
+                    ⚠️ This action will trigger customer notification and move the vehicle to history.
                   </Text>
                 </View>
               </View>
@@ -3444,6 +3806,12 @@ const createStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
   },
 
+  dispatchButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
   dispatchVehicleButtonText: {
     color: '#fff',
     fontSize: 16,
@@ -3611,6 +3979,12 @@ const createStyles = (theme) => StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+  },
+
+  releaseButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
   releaseConfirmButtonText: {

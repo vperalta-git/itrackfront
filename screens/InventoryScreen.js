@@ -37,6 +37,7 @@ export default function InventoryScreen() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -44,6 +45,21 @@ export default function InventoryScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [editingVehicle, setEditingVehicle] = useState(null);
+
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAgent = normalizedRole === 'sales agent' || normalizedRole === 'manager';
+
+  useEffect(() => {
+    const loadRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userRole');
+        if (role) setUserRole(role);
+      } catch (err) {
+        console.error('Error loading user role:', err);
+      }
+    };
+    loadRole();
+  }, []);
 
   // Fetch vehicles from inventory
   const fetchVehicles = useCallback(async () => {
@@ -338,23 +354,27 @@ export default function InventoryScreen() {
       </View>
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.editBtn]}
-          onPress={() => {
-            setEditingVehicle(item);
-            setShowEditModal(true);
-          }}
-        >
-          <MaterialIcons name="edit" size={16} color="#007AFF" />
-          <Text style={styles.actionBtnText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.deleteBtn]}
-          onPress={() => handleDeleteVehicle(item)}
-        >
-          <MaterialIcons name="delete" size={16} color="#DC2626" />
-          <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
-        </TouchableOpacity>
+        {!isAgent && (
+          <>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.editBtn]}
+              onPress={() => {
+                setEditingVehicle(item);
+                setShowEditModal(true);
+              }}
+            >
+              <MaterialIcons name="edit" size={16} color="#007AFF" />
+              <Text style={styles.actionBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.deleteBtn]}
+              onPress={() => handleDeleteVehicle(item)}
+            >
+              <MaterialIcons name="delete" size={16} color="#DC2626" />
+              <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -386,13 +406,15 @@ export default function InventoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Vehicle Stocks</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <MaterialIcons name="add" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Add Vehicle</Text>
-        </TouchableOpacity>
+        {!isAgent && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <MaterialIcons name="add" size={24} color="#fff" />
+            <Text style={styles.addButtonText}>Add Vehicle</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search and Filter */}

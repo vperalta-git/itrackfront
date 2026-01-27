@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   Modal,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
@@ -402,7 +403,7 @@ export default function LoginScreen() {
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
                 <>
-                  <Text style={styles.googleIcon}>🔐</Text>
+                  <MaterialIcons name="lock" size={20} color="#ffffff" />
                   <Text style={styles.googleSignInText}>Sign in with Google</Text>
                 </>
               )}

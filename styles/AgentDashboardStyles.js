@@ -131,6 +131,31 @@ export default StyleSheet.create({
     padding: 20,
   },
 
+  dashboardTitleRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  dashboardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#111827",
+  },
+
+  overviewCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: 8,
+  },
+
   // Welcome Section
   welcomeSection: {
     backgroundColor: "#FFFFFF", // White
@@ -202,6 +227,51 @@ export default StyleSheet.create({
     alignItems: "center",
     width: "100%",
     marginBottom: 8,
+  },
+  
+  // Simple dashboard cards (admin-style)
+  simpleStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginVertical: 16,
+  },
+  
+  simpleStatCard: {
+    width: "48%",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  
+  simpleStatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  
+  simpleStatValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#ffffff",
+  },
+  
+  simpleStatTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  
+  simpleStatSubtitle: {
+    fontSize: 12,
+    color: "#fef2f2",
   },
 
   statCardIcon: {

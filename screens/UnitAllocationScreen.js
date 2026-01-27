@@ -28,11 +28,16 @@ export default function UnitAllocationScreen() {
     unitId: "",
     bodyColor: "",
     variation: "",
-    assignedTo: "" 
+    assignedTo: "",
+    customerName: "",
+    customerEmail: "",
+    customerPhone: ""
   });
   const [editAllocation, setEditAllocation] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [unitSearchQuery, setUnitSearchQuery] = useState('');
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [showAgentDropdown, setShowAgentDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +55,7 @@ export default function UnitAllocationScreen() {
   // Apply search and filter whenever allocations, search, or sort changes
   useEffect(() => {
     applyFilters();
-  }, [allocations, searchQuery, sortBy, selectedTeam]);
+  }, [allocations, searchQuery, sortBy, selectedTeam, agents, managers]);
 
   // GET all allocations
   const fetchAllocations = () => {
@@ -71,14 +76,20 @@ export default function UnitAllocationScreen() {
   const fetchAgents = () => {
     axios.get("https://itrack-backend-1.onrender.com/api/getUsers")
       .then(res => {
-        console.log('📊 All users:', res.data.map(u => ({ name: u.name, role: u.role })));
+        console.log('📊 All users:', res.data.map(u => ({ name: u.name || u.accountName, role: u.role })));
         const agentList = res.data.filter(u => {
-          if (!u.name) return false; // Skip users with no name
+          const displayName = u.accountName || u.name || u.username || '';
+          if (!displayName) return false; // Skip users with no name
           const role = u.role?.toLowerCase() || '';
           return role === "sales agent" || role === "sales" || role === "agent" || role === "salesagent";
-        });
+        }).map(u => ({
+          ...u,
+          displayName: u.accountName || u.name || u.username || '',
+          managerId: u.assignedTo || u.managerId,
+          managerName: u.manager || ''
+        }));
         setAgents(agentList);
-        console.log(`📊 Loaded ${agentList.length} sales agents:`, agentList.map(a => ({ name: a.name, manager: a.manager })));
+        console.log(`📊 Loaded ${agentList.length} sales agents:`, agentList.map(a => ({ name: a.displayName, managerId: a.managerId, manager: a.managerName })));
         if (agentList.length === 0) {
           console.warn('⚠️ No sales agents found. Check user roles in database.');
         }
@@ -94,16 +105,55 @@ export default function UnitAllocationScreen() {
     axios.get("https://itrack-backend-1.onrender.com/api/getUsers")
       .then(res => {
         const managerList = res.data.filter(u => {
-          if (!u.name) return false;
+          const displayName = u.accountName || u.name || u.username || '';
+          if (!displayName) return false;
           const role = u.role?.toLowerCase() || '';
           return role === "manager";
-        });
+        }).map(u => ({
+          ...u,
+          displayName: u.accountName || u.name || u.username || '',
+          id: u._id || u.id
+        }));
         setManagers(managerList);
-        console.log(`👔 Loaded ${managerList.length} managers:`, managerList.map(m => m.name));
+        console.log(`👔 Loaded ${managerList.length} managers:`, managerList.map(m => m.displayName));
       })
       .catch(err => {
         console.error('Fetch managers error:', err.response?.data || err.message);
       });
+  };
+
+  const resolveManagerName = (agent) => {
+    if (!agent) return '';
+    const managerId = agent.managerId;
+    const managerNameField = (agent.managerName || '').trim();
+    const byId = managers.find(m => m.id === managerId || m._id === managerId);
+    if (byId) return byId.displayName || byId.accountName || byId.name || byId.username || '';
+    const byName = managers.find(m => {
+      const candidate = (m.displayName || m.accountName || m.name || '').trim().toLowerCase();
+      return managerNameField && candidate === managerNameField.toLowerCase();
+    });
+    if (byName) return byName.displayName || byName.accountName || byName.name || byName.username || '';
+    return managerNameField || '';
+  };
+
+  const resolveAgentForAllocation = (alloc) => {
+    const assigned = (alloc.assignedTo || '').trim().toLowerCase();
+    return agents.find(a => {
+      const name = (a.displayName || a.name || '').trim().toLowerCase();
+      return name === assigned;
+    });
+  };
+
+  const getAgentAvatar = (agent) => {
+    if (!agent) return '';
+    return (
+      agent.profilePicture ||
+      agent.photoUrl ||
+      agent.avatar ||
+      agent.imageUrl ||
+      agent.picture ||
+      ''
+    );
   };
 
   // Apply search and sort filters
@@ -123,8 +173,11 @@ export default function UnitAllocationScreen() {
 
     // Apply team filter
     if (selectedTeam !== 'all') {
-      const agentsInTeam = agents.filter(a => a.manager === selectedTeam).map(a => a.name);
-      filtered = filtered.filter(alloc => agentsInTeam.includes(alloc.assignedTo));
+      filtered = filtered.filter(alloc => {
+        const agent = resolveAgentForAllocation(alloc);
+        const managerName = resolveManagerName(agent);
+        return managerName && managerName.toLowerCase() === selectedTeam.toLowerCase();
+      });
     }
 
     // Apply sort
@@ -132,10 +185,8 @@ export default function UnitAllocationScreen() {
       filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     } else if (sortBy === 'team') {
       filtered.sort((a, b) => {
-        const agentA = agents.find(agent => agent.name === a.assignedTo);
-        const agentB = agents.find(agent => agent.name === b.assignedTo);
-        const managerA = agentA?.manager || '';
-        const managerB = agentB?.manager || '';
+        const managerA = resolveManagerName(resolveAgentForAllocation(a)) || '';
+        const managerB = resolveManagerName(resolveAgentForAllocation(b)) || '';
         return managerA.localeCompare(managerB);
       });
     }
@@ -168,7 +219,11 @@ export default function UnitAllocationScreen() {
   // CREATE allocation
   const handleCreateAllocation = () => {
     if (!newAllocation.unitId || !newAllocation.assignedTo) {
-      Alert.alert("Error", "All fields are required!");
+      Alert.alert("Error", "Unit and Assigned To are required");
+      return;
+    }
+    if (!newAllocation.customerName || (!newAllocation.customerEmail && !newAllocation.customerPhone)) {
+      Alert.alert("Error", "Enter customer name and at least an email or phone number");
       return;
     }
 
@@ -181,7 +236,10 @@ export default function UnitAllocationScreen() {
           unitId: "",
           bodyColor: "",
           variation: "",
-          assignedTo: ""
+          assignedTo: "",
+          customerName: "",
+          customerEmail: "",
+          customerPhone: ""
         });
         setIsModalOpen(false);
         setCurrentPage(1);
@@ -195,6 +253,10 @@ export default function UnitAllocationScreen() {
 
   // UPDATE allocation
   const handleUpdateAllocation = (id) => {
+    if (!editAllocation?.customerName || (!editAllocation?.customerEmail && !editAllocation?.customerPhone)) {
+      Alert.alert("Error", "Enter customer name and at least an email or phone number");
+      return;
+    }
     axios.put(`https://itrack-backend-1.onrender.com/api/updateUnitAllocation/${id}`, editAllocation)
       .then(() => {
         fetchAllocations();
@@ -242,43 +304,81 @@ export default function UnitAllocationScreen() {
   const totalPages = Math.ceil(filteredAllocations.length / itemsPerPage);
 
   // Get unique manager names from agents
-  const managerTeams = [...new Set(agents.map(a => a.manager).filter(Boolean))];
+  const managerTeams = [...new Set(agents.map(a => resolveManagerName(a)).filter(Boolean))];
 
   const renderAllocationCard = ({ item }) => {
-    const agent = agents.find(a => a.name === item.assignedTo);
-    const managerName = agent?.manager || 'No Team';
+    const agent = resolveAgentForAllocation(item);
+    const managerName = resolveManagerName(agent) || 'No Team Group';
+    const badgeLabel = managerName || 'No Team Group';
+    const avatarInitials = (item.assignedTo || '').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+    const avatarUri = getAgentAvatar(agent);
     
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
+          <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>{item.unitName}</Text>
-          {managerName && (
-            <View style={styles.teamBadge}>
-              <Text style={styles.teamBadgeText}>{managerName} Group</Text>
-            </View>
-          )}
+          <View style={styles.teamBadge}>
+            <Text style={styles.teamBadgeText}>{badgeLabel}</Text>
+          </View>
         </View>
 
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>🏷️ Conduction #:</Text>
+          <View style={styles.infoLabelRow}>
+            <MaterialIcons name="label" size={16} color="#9ca3af" style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Conduction #:</Text>
+          </View>
           <Text style={styles.infoValue}>{item.unitId}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>🎨 Color:</Text>
+          <View style={styles.infoLabelRow}>
+            <MaterialIcons name="palette" size={16} color="#9ca3af" style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Color:</Text>
+          </View>
           <Text style={styles.infoValue}>{item.bodyColor}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>⚙️ Variation:</Text>
+          <View style={styles.infoLabelRow}>
+            <MaterialIcons name="build" size={16} color="#9ca3af" style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Variation:</Text>
+          </View>
           <Text style={styles.infoValue}>{item.variation}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>👤 Assigned To:</Text>
-          <Text style={styles.infoValue}>{item.assignedTo}</Text>
+          <View style={styles.infoLabelRow}>
+            <MaterialIcons name="person" size={16} color="#9ca3af" style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Assigned To:</Text>
+          </View>
+          <View style={styles.agentRow}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{avatarInitials || '?'}</Text>
+              </View>
+            )}
+            <View>
+              <Text style={styles.infoValue}>{item.assignedTo}</Text>
+            </View>
+          </View>
         </View>
+
+        {(item.customerName || item.customerEmail || item.customerPhone) && (
+          <View style={styles.infoRow}>
+            <View style={styles.infoLabelRow}>
+              <MaterialIcons name="people" size={16} color="#9ca3af" style={styles.infoIcon} />
+              <Text style={styles.infoLabel}>Customer:</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoValue}>{item.customerName || 'N/A'}</Text>
+              {item.customerEmail ? <Text style={styles.subValue}>{item.customerEmail}</Text> : null}
+              {item.customerPhone ? <Text style={styles.subValue}>{item.customerPhone}</Text> : null}
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.cardActions}>
@@ -286,14 +386,20 @@ export default function UnitAllocationScreen() {
           style={[styles.actionButton, styles.editButton]}
           onPress={() => setEditAllocation(item)}
         >
-          <Text style={styles.actionButtonText}>✏️ Edit</Text>
+          <View style={styles.actionButtonContent}>
+            <MaterialIcons name="edit" size={16} color="#1d4ed8" style={styles.actionIcon} />
+            <Text style={styles.actionButtonText}>Edit</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => handleDeleteAllocation(item._id)}
         >
-          <Text style={styles.actionButtonText}>🗑️ Delete</Text>
+          <View style={styles.actionButtonContent}>
+            <MaterialIcons name="delete" size={16} color="#dc2626" style={styles.actionIcon} />
+            <Text style={styles.actionButtonText}>Delete</Text>
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -324,54 +430,36 @@ export default function UnitAllocationScreen() {
       <View style={styles.filterContainer}>
         <View style={styles.filterRow}>
           <Text style={styles.filterLabel}>Sort By:</Text>
-          <View style={styles.sortButtons}>
-            <TouchableOpacity
-              style={[styles.sortButton, sortBy === 'recent' && styles.sortButtonActive]}
-              onPress={() => setSortBy('recent')}
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={sortBy}
+              onValueChange={(value) => setSortBy(value)}
+              mode="dropdown"
+              style={styles.picker}
             >
-              <MaterialIcons name="schedule" size={16} color={sortBy === 'recent' ? '#fff' : '#666'} />
-              <Text style={[styles.sortButtonText, sortBy === 'recent' && styles.sortButtonTextActive]}>
-                Recent
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.sortButton, sortBy === 'team' && styles.sortButtonActive]}
-              onPress={() => setSortBy('team')}
-            >
-              <MaterialIcons name="groups" size={16} color={sortBy === 'team' ? '#fff' : '#666'} />
-              <Text style={[styles.sortButtonText, sortBy === 'team' && styles.sortButtonTextActive]}>
-                Team
-              </Text>
-            </TouchableOpacity>
+              <Picker.Item label="Recent" value="recent" />
+              <Picker.Item label="Manager" value="team" />
+            </Picker>
           </View>
         </View>
 
         {/* Team Filter */}
         {managerTeams.length > 0 && (
           <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Filter Team:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamFilterScroll}>
-              <TouchableOpacity
-                style={[styles.teamFilterButton, selectedTeam === 'all' && styles.teamFilterButtonActive]}
-                onPress={() => setSelectedTeam('all')}
+            <Text style={styles.filterLabel}>Manager:</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedTeam}
+                onValueChange={(value) => setSelectedTeam(value)}
+                mode="dropdown"
+                style={styles.picker}
               >
-                <Text style={[styles.teamFilterButtonText, selectedTeam === 'all' && styles.teamFilterButtonTextActive]}>
-                  All Teams
-                </Text>
-              </TouchableOpacity>
-              {managerTeams.map((manager, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.teamFilterButton, selectedTeam === manager && styles.teamFilterButtonActive]}
-                  onPress={() => setSelectedTeam(manager)}
-                >
-                  <Text style={[styles.teamFilterButtonText, selectedTeam === manager && styles.teamFilterButtonTextActive]}>
-                    {manager} Group
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                <Picker.Item label="All Teams" value="all" />
+                {managerTeams.map((manager, index) => (
+                  <Picker.Item key={index} label={`${manager} Group`} value={manager} />
+                ))}
+              </Picker>
+            </View>
           </View>
         )}
       </View>
@@ -480,11 +568,13 @@ export default function UnitAllocationScreen() {
                 onPress={() => {
                   setIsModalOpen(false);
                   setEditAllocation(null);
+                  setShowUnitDropdown(false);
+                  setUnitSearchQuery('');
                   setAgentSearchQuery('');
                   setShowAgentDropdown(false);
                 }}
               >
-                <Text style={styles.closeButton}>✕</Text>
+                <MaterialIcons name="close" size={26} color="#9ca3af" />
               </TouchableOpacity>
             </View>
 
@@ -493,42 +583,103 @@ export default function UnitAllocationScreen() {
               <Text style={styles.inputLabel}>
                 Unit <Text style={styles.required}>*</Text>
               </Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={isModalOpen ? newAllocation.unitId : editAllocation?.unitId}
-                  onValueChange={(value) => {
-                    const selectedUnit = availableUnits.find(u => u.unitId === value);
-                    if (selectedUnit) {
-                      if (isModalOpen) {
-                        setNewAllocation({
-                          ...newAllocation,
-                          unitName: selectedUnit.unitName,
-                          unitId: selectedUnit.unitId,
-                          bodyColor: selectedUnit.bodyColor,
-                          variation: selectedUnit.variation,
-                        });
-                      } else {
-                        setEditAllocation({
-                          ...editAllocation,
-                          unitName: selectedUnit.unitName,
-                          unitId: selectedUnit.unitId,
-                          bodyColor: selectedUnit.bodyColor,
-                          variation: selectedUnit.variation,
-                        });
-                      }
-                    }
-                  }}
-                  style={styles.picker}
+              <View>
+                <TouchableOpacity
+                  style={styles.searchableDropdown}
+                  onPress={() => setShowUnitDropdown(!showUnitDropdown)}
+                  activeOpacity={0.8}
                 >
-                  <Picker.Item label="Select Unit" value="" />
-                  {availableUnits.map(unit => (
-                    <Picker.Item
-                      key={unit._id}
-                      label={`${unit.unitName} - ${unit.unitId} (${unit.bodyColor})`}
-                      value={unit.unitId}
-                    />
-                  ))}
-                </Picker>
+                  <View style={styles.selectedAgentContainer}>
+                    {(() => {
+                      const selectedId = isModalOpen ? newAllocation.unitId : editAllocation?.unitId;
+                      if (!selectedId) return <Text style={styles.placeholderText}>Select Unit</Text>;
+                      const unit = availableUnits.find(u => u.unitId === selectedId);
+                      if (!unit) return <Text style={styles.placeholderText}>Select Unit</Text>;
+                      const label = `${unit.unitName} - ${unit.unitId}${unit.bodyColor ? ` (${unit.bodyColor})` : ''}`;
+                      return <Text style={styles.selectedAgentText}>{label}</Text>;
+                    })()}
+                  </View>
+                  <MaterialIcons name={showUnitDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#666" />
+                </TouchableOpacity>
+
+                {showUnitDropdown && (
+                  <View style={styles.dropdownContainer}>
+                    <View style={styles.searchContainer}>
+                      <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search units..."
+                        value={unitSearchQuery}
+                        onChangeText={setUnitSearchQuery}
+                      />
+                      {unitSearchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setUnitSearchQuery('')}>
+                          <MaterialIcons name="close" size={20} color="#999" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <ScrollView style={styles.agentList} nestedScrollEnabled>
+                      {availableUnits
+                        .filter(unit => {
+                          const query = unitSearchQuery.toLowerCase();
+                          return [unit.unitName, unit.unitId, unit.bodyColor, unit.variation]
+                            .some(field => (field || '').toLowerCase().includes(query));
+                        })
+                        .map(unit => {
+                          const label = `${unit.unitName} - ${unit.unitId}${unit.bodyColor ? ` (${unit.bodyColor})` : ''}`;
+                          const selectedId = isModalOpen ? newAllocation.unitId : editAllocation?.unitId;
+                          const isSelected = selectedId === unit.unitId;
+                          return (
+                            <TouchableOpacity
+                              key={unit._id}
+                              style={styles.agentItem}
+                              onPress={() => {
+                                if (isModalOpen) {
+                                  setNewAllocation({
+                                    ...newAllocation,
+                                    unitName: unit.unitName,
+                                    unitId: unit.unitId,
+                                    bodyColor: unit.bodyColor,
+                                    variation: unit.variation,
+                                  });
+                                } else {
+                                  setEditAllocation({
+                                    ...editAllocation,
+                                    unitName: unit.unitName,
+                                    unitId: unit.unitId,
+                                    bodyColor: unit.bodyColor,
+                                    variation: unit.variation,
+                                  });
+                                }
+                                setShowUnitDropdown(false);
+                                setUnitSearchQuery('');
+                              }}
+                            >
+                              <View style={styles.unitInfo}>
+                                <Text style={styles.agentName}>{label}</Text>
+                                <Text style={styles.agentRole}>{unit.variation || unit.bodyColor || '—'}</Text>
+                              </View>
+                              {isSelected && (
+                                <MaterialIcons name="check-circle" size={24} color="#059669" />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+
+                      {availableUnits.filter(unit => {
+                        const query = unitSearchQuery.toLowerCase();
+                        return [unit.unitName, unit.unitId, unit.bodyColor, unit.variation]
+                          .some(field => (field || '').toLowerCase().includes(query));
+                      }).length === 0 && (
+                        <View style={styles.noResultsContainer}>
+                          <MaterialIcons name="search-off" size={48} color="#ccc" />
+                          <Text style={styles.noResultsText}>No units found</Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
 
               {/* Assign To - Searchable with Profile Pictures */}
@@ -548,25 +699,27 @@ export default function UnitAllocationScreen() {
                 >
                   <View style={styles.selectedAgentContainer}>
                     {(isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo) ? (
-                      <>
-                        {(() => {
-                          const selectedAgent = agents.find(a => a.name === (isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo));
-                          return selectedAgent ? (
-                            <>
-                              {selectedAgent.picture ? (
-                                <Image source={{ uri: selectedAgent.picture }} style={styles.smallProfilePic} />
-                              ) : (
-                                <View style={styles.smallProfilePlaceholder}>
-                                  <MaterialIcons name="person" size={16} color="#999" />
-                                </View>
-                              )}
-                              <Text style={styles.selectedAgentText}>{selectedAgent.name}</Text>
-                            </>
-                          ) : (
-                            <Text style={styles.placeholderText}>Select Sales Agent</Text>
-                          );
-                        })()}
-                      </>
+                      (() => {
+                        const selectedAgent = agents.find(a => {
+                          const displayName = a.displayName || a.name || a.username || '';
+                          return displayName === (isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo);
+                        });
+                        if (!selectedAgent) return <Text style={styles.placeholderText}>Select Sales Agent</Text>;
+                        const displayName = selectedAgent.displayName || selectedAgent.name || selectedAgent.username || '';
+                        const avatarUri = getAgentAvatar(selectedAgent);
+                        return (
+                          <>
+                            {avatarUri ? (
+                              <Image source={{ uri: avatarUri }} style={styles.smallProfilePic} />
+                            ) : (
+                              <View style={styles.smallProfilePlaceholder}>
+                                <MaterialIcons name="person" size={16} color="#999" />
+                              </View>
+                            )}
+                            <Text style={styles.selectedAgentText}>{displayName}</Text>
+                          </>
+                        );
+                      })()
                     ) : (
                       <Text style={styles.placeholderText}>Select Sales Agent</Text>
                     )}
@@ -593,42 +746,49 @@ export default function UnitAllocationScreen() {
 
                     <ScrollView style={styles.agentList} nestedScrollEnabled>
                       {agents
-                        .filter(agent => 
-                          agent.name && agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
-                        )
-                        .map(agent => (
+                        .filter(agent => {
+                          const displayName = (agent.displayName || agent.name || agent.username || '').toLowerCase();
+                          return displayName.includes(agentSearchQuery.toLowerCase());
+                        })
+                        .map(agent => {
+                          const displayName = agent.displayName || agent.name || agent.username || '';
+                          const avatarUri = getAgentAvatar(agent);
+                          return (
                           <TouchableOpacity
                             key={agent._id}
                             style={styles.agentItem}
                             onPress={() => {
                               if (isModalOpen) {
-                                setNewAllocation({ ...newAllocation, assignedTo: agent.name });
+                                setNewAllocation({ ...newAllocation, assignedTo: displayName });
                               } else {
-                                setEditAllocation({ ...editAllocation, assignedTo: agent.name });
+                                setEditAllocation({ ...editAllocation, assignedTo: displayName });
                               }
                               setShowAgentDropdown(false);
                               setAgentSearchQuery('');
                             }}
                           >
-                            {agent.picture ? (
-                              <Image source={{ uri: agent.picture }} style={styles.agentProfilePic} />
+                            {avatarUri ? (
+                              <Image source={{ uri: avatarUri }} style={styles.agentProfilePic} />
                             ) : (
                               <View style={styles.agentProfilePlaceholder}>
                                 <MaterialIcons name="person" size={24} color="#999" />
                               </View>
                             )}
                             <View style={styles.agentInfo}>
-                              <Text style={styles.agentName}>{agent.name}</Text>
+                              <Text style={styles.agentName}>{displayName}</Text>
                               <Text style={styles.agentRole}>Sales Agent</Text>
                             </View>
-                            {(isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo) === agent.name && (
+                            {(isModalOpen ? newAllocation.assignedTo : editAllocation?.assignedTo) === displayName && (
                               <MaterialIcons name="check-circle" size={24} color="#059669" />
                             )}
                           </TouchableOpacity>
-                        ))}
-                      {agents.filter(agent => 
-                        agent.name && agent.name.toLowerCase().includes(agentSearchQuery.toLowerCase())
-                      ).length === 0 && (
+                        );
+                        })
+                      }
+                      {agents.filter(agent => {
+                        const displayName = (agent.displayName || agent.name || agent.username || '').toLowerCase();
+                        return displayName.includes(agentSearchQuery.toLowerCase());
+                      }).length === 0 && (
                         <View style={styles.noResultsContainer}>
                           <MaterialIcons name="search-off" size={48} color="#ccc" />
                           <Text style={styles.noResultsText}>No agents found</Text>
@@ -662,6 +822,8 @@ export default function UnitAllocationScreen() {
                 onPress={() => {
                   setIsModalOpen(false);
                   setEditAllocation(null);
+                  setShowUnitDropdown(false);
+                  setUnitSearchQuery('');
                   setAgentSearchQuery('');
                   setShowAgentDropdown(false);
                 }}
@@ -731,56 +893,16 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
-  sortButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
+  pickerWrapper: {
     borderWidth: 1,
     borderColor: '#e5e7eb',
-  },
-  sortButtonActive: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
-  },
-  sortButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sortButtonTextActive: {
-    color: '#fff',
-  },
-  teamFilterScroll: {
-    flexDirection: 'row',
-  },
-  teamFilterButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
     borderRadius: 10,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+    backgroundColor: '#fff',
   },
-  teamFilterButtonActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-  },
-  teamFilterButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-  },
-  teamFilterButtonTextActive: {
-    color: '#fff',
+  picker: {
+    height: 48,
+    width: '100%',
   },
   actionBar: {
     flexDirection: 'row',
@@ -898,6 +1020,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  infoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 150,
+  },
+  infoIcon: {
+    marginRight: 6,
+  },
   infoLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -909,6 +1039,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1f2937',
     flex: 1,
+  agentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  avatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fde68a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    marginRight: 8,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400e',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+  },
   },
   cardActions: {
     flexDirection: 'row',
@@ -923,12 +1083,21 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#e5e7eb',
   },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   editButton: {
     backgroundColor: '#eff6ff',
   },
   deleteButton: {
     backgroundColor: '#fef2f2',
     borderRightWidth: 0,
+  },
+  actionIcon: {
+    marginRight: 4,
   },
   actionButtonText: {
     fontSize: 14,
@@ -1029,7 +1198,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: {
-    height: 50,
+    height: 48,
+    width: '100%',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1172,6 +1342,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   agentInfo: {
+    flex: 1,
+  },
+  unitInfo: {
     flex: 1,
   },
   agentName: {

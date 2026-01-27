@@ -67,6 +67,25 @@ export default function ManagerDashboard() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [search, setSearch] = useState("");
 
+  // Normalize service lists from various payload shapes
+  const extractServices = (item) => {
+    let services = item?.requestedProcesses || item?.processes || item?.requestedServices || item?.service || item?.services || item?.serviceList || [];
+
+    if (typeof services === 'string') {
+      services = services.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    if (!Array.isArray(services)) return [];
+
+    return services.map((s) => {
+      if (typeof s === 'string') return s;
+      if (typeof s === 'object' && s !== null) {
+        return s.label || s.name || s.id || '';
+      }
+      return '';
+    }).filter(Boolean);
+  };
+
   useEffect(() => {
     const load = async () => {
       const stored = await AsyncStorage.getItem("accountName");
@@ -206,11 +225,16 @@ export default function ManagerDashboard() {
                  allocation.managerName === currentManagerName ||
                  allocation.allocatedBy === currentManagerName;
         });
-        setManagerAllocations(managerSpecificAllocations);
+        const inTransitOnly = managerSpecificAllocations.filter((allocation) => {
+          const status = (allocation.status || '').trim().toLowerCase();
+          return ['in transit', 'in-transit', 'intransit'].includes(status);
+        });
+
+        setManagerAllocations(inTransitOnly);
         
         // Load vehicle locations for manager's vehicles
-        if (managerSpecificAllocations.length > 0) {
-          await loadManagerVehicleLocations(managerSpecificAllocations);
+        if (inTransitOnly.length > 0) {
+          await loadManagerVehicleLocations(inTransitOnly);
         }
       }
 
@@ -847,19 +871,20 @@ export default function ManagerDashboard() {
               ) : (
                 filterBySearch(vehicles, ["unitId", "unitName", "assignedDriver", "assignedAgent"])
                   .filter(vehicle => {
-                    // Support both 'processes' (from /api/dispatch/assignments) and 'requestedProcesses' (legacy)
+                    const services = extractServices(vehicle);
                     const processes = vehicle.processes || vehicle.requestedProcesses;
                     const assignedToMyTeam = myAgents.some(agent => 
                       agent.accountName === vehicle.assignedAgent || 
                       agent.accountName === vehicle.allocatedBy
                     );
-                    return processes && processes.length > 0 && assignedToMyTeam;
+                    return assignedToMyTeam && ((processes && processes.length > 0) || services.length > 0);
                   })
                   .map((vehicle, index) => {
+                    const services = extractServices(vehicle);
                     const completedProcesses = Object.keys(vehicle.processStatus || {}).filter(
                       key => vehicle.processStatus[key] === true
                     ).length;
-                    const totalProcesses = vehicle.processes?.length || vehicle.requestedProcesses?.length || 0;
+                    const totalProcesses = vehicle.processes?.length || vehicle.requestedProcesses?.length || services.length || 0;
                     const completionPercentage = totalProcesses > 0 ? 
                       Math.round((completedProcesses / totalProcesses) * 100) : 0;
                     
@@ -900,6 +925,24 @@ export default function ManagerDashboard() {
                             {vehicle.assignedDriver || 'Not Assigned'}
                           </Text>
                         </View>
+
+                          {/* Services Summary */}
+                          <View style={styles.driverSection}>
+                            <Text style={styles.infoLabel}>Requested Services:</Text>
+                            <Text style={styles.infoValue}>{totalProcesses}</Text>
+                          </View>
+
+                          {/* Services Chips */}
+                          <View style={styles.servicesWrap}>
+                            {services.map((service, idx) => (
+                              <View key={idx} style={styles.serviceTag}>
+                                <Text style={styles.serviceTagText}>{service}</Text>
+                              </View>
+                            ))}
+                            {services.length === 0 && (
+                              <Text style={styles.emptyStateText}>No services listed</Text>
+                            )}
+                          </View>
 
                         {/* Progress Bar */}
                         <View style={styles.progressSection}>
@@ -1001,12 +1044,13 @@ export default function ManagerDashboard() {
               {/* Empty State */}
               {!loading && filterBySearch(vehicles, ["unitId", "unitName", "assignedDriver", "assignedAgent"])
                 .filter(vehicle => {
+                  const services = extractServices(vehicle);
                   const processes = vehicle.processes || vehicle.requestedProcesses;
                   const assignedToMyTeam = myAgents.some(agent => 
                     agent.accountName === vehicle.assignedAgent || 
                     agent.accountName === vehicle.allocatedBy
                   );
-                  return processes && processes.length > 0 && assignedToMyTeam;
+                  return assignedToMyTeam && ((processes && processes.length > 0) || services.length > 0);
                 }).length === 0 && (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyStateTitle}>No team vehicles in preparation</Text>
@@ -1024,9 +1068,9 @@ export default function ManagerDashboard() {
           <View style={styles.tabContent}>
             {/* Header */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Team Vehicle Tracking</Text>
+              <Text style={styles.sectionTitle}>Team Vehicle Tracker</Text>
               <Text style={styles.sectionSubtitle}>
-                Track all vehicles allocated to your team members
+                Live view of your team’s in-transit vehicles
               </Text>
             </View>
 
@@ -1039,7 +1083,7 @@ export default function ManagerDashboard() {
 
             {/* Vehicle List */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Team Vehicles</Text>
+              <Text style={styles.sectionTitle}>Team Vehicles (In Transit)</Text>
               
               {managerAllocations.length > 0 ? (
                 managerAllocations.map((allocation, index) => (
@@ -1114,9 +1158,9 @@ export default function ManagerDashboard() {
                 ))
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>No team vehicles</Text>
+                  <Text style={styles.emptyStateTitle}>No in-transit team vehicles</Text>
                   <Text style={styles.emptyStateText}>
-                    When vehicles are assigned to your team members, they will appear here for tracking.
+                    When your team has vehicles in transit, they will appear here for tracking.
                   </Text>
                 </View>
               )}

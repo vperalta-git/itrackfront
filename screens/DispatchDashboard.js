@@ -14,10 +14,32 @@ export default function DispatchDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [unitCustomerMap, setUnitCustomerMap] = useState({});
 
   useEffect(() => {
     loadRequests();
+    loadUnitCustomers();
   }, []);
+
+  const loadUnitCustomers = async () => {
+    try {
+      const res = await fetch(buildApiUrl('/api/getUnitAllocation'));
+      const data = await res.json();
+      const allocations = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      const map = {};
+      allocations.forEach(alloc => {
+        const key = (alloc.unitId || '').toLowerCase();
+        if (!key) return;
+        map[key] = {
+          customerName: alloc.customerName || 'Customer',
+          customerEmail: alloc.customerEmail || '',
+        };
+      });
+      setUnitCustomerMap(map);
+    } catch (error) {
+      console.error('❌ Failed to load unit customer map:', error);
+    }
+  };
 
   const loadRequests = async () => {
     if (!refreshing) setLoading(true);

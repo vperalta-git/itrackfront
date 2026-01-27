@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Modal, StyleSheet, Alert, ActivityIndicator, Platform, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { buildApiUrl } from '../constants/api';
@@ -38,19 +40,64 @@ const DriverAllocation = () => {
   const [loading, setLoading] = useState(false);
   const [selectedVin, setSelectedVin] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
+  const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
+  const [vehicleSearchQuery, setVehicleSearchQuery] = useState('');
+  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+  const [driverSearchQuery, setDriverSearchQuery] = useState('');
   const [pickupPoint, setPickupPoint] = useState('');
   const [dropoffPoint, setDropoffPoint] = useState('');
   const [isViewShipmentOpen, setIsViewShipmentOpen] = useState(false);
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [isRouteSelectionOpen, setIsRouteSelectionOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [userId, setUserId] = useState('');
+  const [teamAgents, setTeamAgents] = useState([]); // manager's agents
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAgent = normalizedRole === 'sales agent' || normalizedRole === 'manager';
+  const isManager = normalizedRole === 'manager';
 
   useEffect(() => {
-    fetchAllocations();
+    const loadUserContext = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userRole');
+        const name = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName') || await AsyncStorage.getItem('username') || '';
+        const id = await AsyncStorage.getItem('userId') || '';
+        if (role) setUserRole(role);
+        if (name) setAgentName(name);
+        if (id) setUserId(id);
+      } catch (err) {
+        console.error('Error loading user context for allocations:', err);
+      }
+    };
+
+    loadUserContext();
     fetchDrivers();
     fetchInventory();
     fetchAgents();
   }, []);
+
+  useEffect(() => {
+    const loadTeamAgents = async () => {
+      if (!isManager || !userId) return;
+      try {
+        const res = await axios.get(buildApiUrl('/getUsers'));
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const assigned = res.data.data.filter(u => (u.role || '').toLowerCase() === 'sales agent' && u.assignedTo === userId);
+          setTeamAgents(assigned.map(u => (u.accountName || '').trim().toLowerCase()).filter(Boolean));
+        }
+      } catch (err) {
+        console.error('Error loading team agents for manager:', err);
+        setTeamAgents([]);
+      }
+    };
+    loadTeamAgents();
+  }, [isManager, userId]);
+
+  useEffect(() => {
+    fetchAllocations();
+  }, [userRole, agentName]);
 
   const fetchAllocations = () => {
     setLoading(true);
@@ -58,7 +105,27 @@ const DriverAllocation = () => {
       .then((res) => {
         console.log('Allocations response:', res.data);
         if (res.data.success && Array.isArray(res.data.data)) {
-          setAllocations(res.data.data);
+          const base = res.data.data;
+          const normalizedAgent = (agentName || '').trim().toLowerCase();
+
+          if (isAgent) {
+            const filtered = base.filter((item) => {
+              const assigned = (item.assignedAgent || '').trim().toLowerCase();
+              const status = (item.status || '').trim().toLowerCase();
+              const isInTransit = ['in transit', 'in-transit', 'intransit'].includes(status);
+              const matchesAgent = assigned && (
+                assigned === normalizedAgent ||
+                assigned.includes(normalizedAgent) ||
+                normalizedAgent.includes(assigned) ||
+                (isManager && teamAgents.includes(assigned))
+              );
+              return matchesAgent && isInTransit;
+            });
+            setAllocations(filtered);
+          } else {
+            const active = base.filter(item => (item.status || '').trim().toLowerCase() !== 'completed');
+            setAllocations(active);
+          }
         } else {
           setAllocations([]);
         }
@@ -324,22 +391,34 @@ const DriverAllocation = () => {
         <View style={styles.cardBody}>
           <View style={styles.cardRow}>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>🏷️ Conduction No.</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="label" size={14} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.fieldLabel}>Conduction No.</Text>
+              </View>
               <Text style={styles.fieldValue}>{item.unitId || 'N/A'}</Text>
             </View>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>🎨 Body Color</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="palette" size={14} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.fieldLabel}>Body Color</Text>
+              </View>
               <Text style={styles.fieldValue}>{item.bodyColor || 'N/A'}</Text>
             </View>
           </View>
 
           <View style={styles.cardRow}>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>⚙️ Variation</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="settings" size={14} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.fieldLabel}>Variation</Text>
+              </View>
               <Text style={styles.fieldValue}>{item.variation || 'N/A'}</Text>
             </View>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>👤 Driver</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="person" size={14} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.fieldLabel}>Driver</Text>
+              </View>
               <Text style={[styles.fieldValue, !item.assignedDriver && styles.unassignedText]}>
                 {item.assignedDriver || 'Unassigned'}
               </Text>
@@ -349,7 +428,10 @@ const DriverAllocation = () => {
           {/* Route Information */}
           {(item.pickupPoint || item.dropoffPoint) && (
             <View style={styles.routeInfo}>
-              <Text style={styles.routeLabel}>📍 Route</Text>
+              <View style={styles.routeLabelRow}>
+                <MaterialIcons name="location-on" size={16} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.routeLabel}>Route</Text>
+              </View>
               <View style={styles.routeDetails}>
                 {item.pickupPoint && (
                   <Text style={styles.routePoint}>From: {item.pickupPoint}</Text>
@@ -367,7 +449,10 @@ const DriverAllocation = () => {
           {/* Customer Information */}
           {(item.customerName || item.customerEmail) && (
             <View style={styles.customerInfo}>
-              <Text style={styles.customerLabel}>👥 Customer</Text>
+              <View style={styles.customerLabelRow}>
+                <MaterialIcons name="people" size={16} color="#666" style={{ marginRight: 4 }} />
+                <Text style={styles.customerLabel}>Customer</Text>
+              </View>
               <View style={styles.customerDetails}>
                 {item.customerName && (
                   <Text style={styles.customerName}>{item.customerName}</Text>
@@ -389,26 +474,33 @@ const DriverAllocation = () => {
               handleRowPress(item);
             }}
           >
-            <Text style={styles.cardActionText}>📋 View Details</Text>
+            <MaterialIcons name="visibility" size={16} color="#2196F3" />
+            <Text style={styles.cardActionText}>View Details</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.cardActionBtn, styles.editActionBtn]} 
-            onPress={(e) => {
-              e.stopPropagation();
-              setEditAllocation(item);
-            }}
-          >
-            <Text style={[styles.cardActionText, styles.editActionText]}>✏️ Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
-            onPress={(e) => {
-              e.stopPropagation();
-              handleDelete(item._id);
-            }}
-          >
-            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
-          </TouchableOpacity>
+          {!isAgent && (
+            <>
+              <TouchableOpacity 
+                style={[styles.cardActionBtn, styles.editActionBtn]} 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setEditAllocation(item);
+                }}
+              >
+                <MaterialIcons name="edit" size={16} color="#ff9800" />
+                <Text style={[styles.cardActionText, styles.editActionText]}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.cardActionBtn, styles.deleteActionBtn]} 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item._id);
+                }}
+              >
+                <MaterialIcons name="delete" size={16} color="#dc3545" />
+                <Text style={[styles.cardActionText, styles.deleteActionText]}>Delete</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -435,12 +527,14 @@ const DriverAllocation = () => {
           </TouchableOpacity>
         </View>
         
-        <TouchableOpacity 
-          style={styles.createBtn} 
-          onPress={() => setIsCreateModalOpen(true)}
-        >
-          <Text style={styles.createBtnText}>+ Allocate New Driver</Text>
-        </TouchableOpacity>
+        {!isAgent && (
+          <TouchableOpacity 
+            style={styles.createBtn} 
+            onPress={() => setIsCreateModalOpen(true)}
+          >
+            <Text style={styles.createBtnText}>+ Allocate New Driver</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -525,6 +619,10 @@ const DriverAllocation = () => {
                   setIsCreateModalOpen(false);
                   setSelectedVin('');
                   setSelectedDriver('');
+                  setShowVehicleDropdown(false);
+                  setVehicleSearchQuery('');
+                  setShowDriverDropdown(false);
+                  setDriverSearchQuery('');
                   setPickupPoint('');
                   setDropoffPoint('');
                   setSelectedRoute(null);
@@ -544,51 +642,171 @@ const DriverAllocation = () => {
               <View style={styles.modalForm}>
                   {/* Stock Selection Form */}
                   <View style={styles.formGroup}>
-                    <Text style={styles.inputLabel}>Select Vehicle from Stock</Text>
-                    <Picker
-                      selectedValue={selectedVin}
-                      style={styles.picker}
-                      onValueChange={val => setSelectedVin(val)}
+                    <TouchableOpacity
+                      style={styles.searchableDropdown}
+                      onPress={() => setShowVehicleDropdown(!showVehicleDropdown)}
+                      activeOpacity={0.85}
                     >
-                      <Picker.Item label="Choose Vehicle..." value="" />
-                      {inventory.filter(item => {
-                        const status = item.status || 'In Stockyard';
-                        // Only show vehicles that are not already allocated
-                        return (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
-                      }).map(v => (
-                        <Picker.Item 
-                          key={v._id} 
-                          label={`${v.unitName} - ${v.variation} (${v.bodyColor}) - ${v.status || 'In Stockyard'}`} 
-                          value={v.unitId || v._id} 
-                        />
-                      ))}
-                    </Picker>
+                      <View style={styles.selectedItemContainer}>
+                        {(() => {
+                          if (!selectedVin) return <Text style={styles.placeholderText}>Choose Vehicle...</Text>;
+                          const unit = inventory.find(v => (v.unitId || v._id) === selectedVin);
+                          if (!unit) return <Text style={styles.placeholderText}>Choose Vehicle...</Text>;
+                          const label = `${unit.unitName} - ${unit.variation || ''}${unit.bodyColor ? ` (${unit.bodyColor})` : ''}`.trim();
+                          return <Text style={styles.selectedAgentText}>{label}</Text>;
+                        })()}
+                      </View>
+                      <MaterialIcons name={showVehicleDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#666" />
+                    </TouchableOpacity>
+
+                    {showVehicleDropdown && (
+                      <View style={styles.dropdownContainer}>
+                        <View style={styles.searchContainer}>
+                          <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                          <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search vehicles..."
+                            value={vehicleSearchQuery}
+                            onChangeText={setVehicleSearchQuery}
+                          />
+                          {vehicleSearchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setVehicleSearchQuery('')}>
+                              <MaterialIcons name="close" size={20} color="#999" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                          {inventory
+                            .filter(item => {
+                              const status = item.status || 'In Stockyard';
+                              const available = (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                              if (!available) return false;
+                              const q = vehicleSearchQuery.toLowerCase();
+                              return [item.unitName, item.unitId, item.bodyColor, item.variation]
+                                .some(f => (f || '').toLowerCase().includes(q));
+                            })
+                            .map(item => {
+                              const label = `${item.unitName} - ${item.variation || ''}${item.bodyColor ? ` (${item.bodyColor})` : ''}`.trim();
+                              const isSelected = selectedVin === (item.unitId || item._id);
+                              return (
+                                <TouchableOpacity
+                                  key={item._id}
+                                  style={styles.dropdownItem}
+                                  onPress={() => {
+                                    setSelectedVin(item.unitId || item._id);
+                                    setShowVehicleDropdown(false);
+                                    setVehicleSearchQuery('');
+                                  }}
+                                >
+                                  <View style={styles.dropdownItemInfo}>
+                                    <Text style={styles.agentName}>{label}</Text>
+                                    <Text style={styles.agentRole}>{item.status || 'In Stockyard'}</Text>
+                                  </View>
+                                  {isSelected && <MaterialIcons name="check-circle" size={22} color="#059669" />}
+                                </TouchableOpacity>
+                              );
+                            })}
+
+                          {inventory.filter(item => {
+                            const status = item.status || 'In Stockyard';
+                            const available = (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                            if (!available) return false;
+                            const q = vehicleSearchQuery.toLowerCase();
+                            return [item.unitName, item.unitId, item.bodyColor, item.variation]
+                              .some(f => (f || '').toLowerCase().includes(q));
+                          }).length === 0 && (
+                            <View style={styles.noResultsContainer}>
+                              <MaterialIcons name="search-off" size={48} color="#ccc" />
+                              <Text style={styles.noResultsText}>No vehicles found</Text>
+                            </View>
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
                   </View>
 
               {/* Driver Selection */}
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Assign Driver</Text>
-                <Picker
-                  selectedValue={selectedDriver}
-                  style={styles.picker}
-                  onValueChange={val => setSelectedDriver(val)}
+                <TouchableOpacity
+                  style={styles.searchableDropdown}
+                  onPress={() => setShowDriverDropdown(!showDriverDropdown)}
+                  activeOpacity={0.85}
                 >
-                  <Picker.Item label="Select Driver..." value="" />
-                  {drivers
-                    .filter(d => d.accountName || d.username)
-                    .map(d => (
-                      <Picker.Item 
-                        key={d._id} 
-                        label={d.accountName || d.username || 'Unknown Driver'} 
-                        value={d.username || d.email || d._id} 
+                  <View style={styles.selectedItemContainer}>
+                    {(() => {
+                      if (!selectedDriver) return <Text style={styles.placeholderText}>Select Driver...</Text>;
+                      const driver = drivers.find(d => (d.username || d.email || d._id) === selectedDriver);
+                      const label = driver ? (driver.accountName || driver.username || 'Unknown Driver') : 'Select Driver...';
+                      return <Text style={styles.selectedAgentText}>{label}</Text>;
+                    })()}
+                  </View>
+                  <MaterialIcons name={showDriverDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#666" />
+                </TouchableOpacity>
+
+                {showDriverDropdown && (
+                  <View style={styles.dropdownContainer}>
+                    <View style={styles.searchContainer}>
+                      <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search drivers..."
+                        value={driverSearchQuery}
+                        onChangeText={setDriverSearchQuery}
                       />
-                    ))}
-                </Picker>
+                      {driverSearchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setDriverSearchQuery('')}>
+                          <MaterialIcons name="close" size={20} color="#999" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                      {drivers
+                        .filter(d => (d.accountName || d.username)
+                          && (d.accountName || d.username).toLowerCase().includes(driverSearchQuery.toLowerCase()))
+                        .map(d => {
+                          const label = d.accountName || d.username || 'Unknown Driver';
+                          const value = d.username || d.email || d._id;
+                          const isSelected = selectedDriver === value;
+                          return (
+                            <TouchableOpacity
+                              key={d._id}
+                              style={styles.dropdownItem}
+                              onPress={() => {
+                                setSelectedDriver(value);
+                                setShowDriverDropdown(false);
+                                setDriverSearchQuery('');
+                              }}
+                            >
+                              <View style={styles.dropdownItemInfo}>
+                                <Text style={styles.agentName}>{label}</Text>
+                                <Text style={styles.agentRole}>{d.email || d.username || ''}</Text>
+                              </View>
+                              {isSelected && <MaterialIcons name="check-circle" size={22} color="#059669" />}
+                            </TouchableOpacity>
+                          );
+                        })}
+
+                      {drivers.filter(d => (d.accountName || d.username)
+                        && (d.accountName || d.username).toLowerCase().includes(driverSearchQuery.toLowerCase())).length === 0 && (
+                        <View style={styles.noResultsContainer}>
+                          <MaterialIcons name="search-off" size={48} color="#ccc" />
+                          <Text style={styles.noResultsText}>No drivers found</Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
 
               {/* Enhanced Route Selection */}
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>📍 Route Planning</Text>
+                <View style={styles.sectionTitleRow}>
+                  <MaterialIcons name="alt-route" size={18} color="#1f2937" style={{ marginRight: 8 }} />
+                  <Text style={styles.sectionTitle}>Route Planning</Text>
+                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -597,7 +815,10 @@ const DriverAllocation = () => {
                 {selectedRoute ? (
                   <View style={styles.selectedRouteContainer}>
                     <View style={styles.routeInfoHeader}>
-                      <Text style={styles.routeInfoTitle}>📊 Selected Route</Text>
+                      <View style={styles.routeInfoTitleRow}>
+                        <MaterialIcons name="map" size={18} color="#1f2937" style={{ marginRight: 8 }} />
+                        <Text style={styles.routeInfoTitle}>Selected Route</Text>
+                      </View>
                       <TouchableOpacity 
                         style={styles.changeRouteButton}
                         onPress={openRouteSelector}
@@ -608,26 +829,30 @@ const DriverAllocation = () => {
                     
                     <View style={styles.routeDetails}>
                       <View style={styles.routePoint}>
-                        <Text style={styles.routePointLabel}>📍 Pickup:</Text>
+                        <MaterialIcons name="place" size={18} color="#ef4444" style={styles.routePointIcon} />
+                        <Text style={styles.routePointLabel}>Pickup:</Text>
                         <Text style={styles.routePointText}>{selectedRoute.pickup.name}</Text>
                       </View>
                       
                       <View style={styles.routeArrow}>
-                        <Text style={styles.routeArrowText}>↓</Text>
+                        <MaterialIcons name="arrow-downward" size={18} color="#22c55e" style={styles.routeArrowIcon} />
                       </View>
                       
                       <View style={styles.routePoint}>
-                        <Text style={styles.routePointLabel}>🎯 Drop-off:</Text>
+                        <MaterialIcons name="flag" size={18} color="#16a34a" style={styles.routePointIcon} />
+                        <Text style={styles.routePointLabel}>Drop-off:</Text>
                         <Text style={styles.routePointText}>{selectedRoute.dropoff.name}</Text>
                       </View>
                       
                       <View style={styles.routeMetrics}>
-                        <Text style={styles.routeMetric}>
-                          📏 Distance: {selectedRoute.distance} km
-                        </Text>
-                        <Text style={styles.routeMetric}>
-                          ⏱️ Est. Time: {selectedRoute.estimatedTime} mins
-                        </Text>
+                        <View style={styles.routeMetricItem}>
+                          <MaterialIcons name="straighten" size={16} color="#22c55e" style={{ marginRight: 6 }} />
+                          <Text style={styles.routeMetric}>Distance: {selectedRoute.distance} km</Text>
+                        </View>
+                        <View style={styles.routeMetricItem}>
+                          <MaterialIcons name="schedule" size={16} color="#2563eb" style={{ marginRight: 6 }} />
+                          <Text style={styles.routeMetric}>Est. Time: {selectedRoute.estimatedTime} mins</Text>
+                        </View>
                       </View>
                     </View>
                   </View>
@@ -636,14 +861,16 @@ const DriverAllocation = () => {
                     style={styles.selectRouteButton}
                     onPress={openRouteSelector}
                   >
-                    <Text style={styles.selectRouteIcon}>🗺️</Text>
+                    <View style={styles.selectRouteIconWrap}>
+                      <MaterialIcons name="map" size={28} color="#2563eb" />
+                    </View>
                     <View style={styles.selectRouteContent}>
                       <Text style={styles.selectRouteTitle}>Plan Delivery Route</Text>
                       <Text style={styles.selectRouteDescription}>
                         Use interactive map to select pickup and drop-off locations
                       </Text>
                     </View>
-                    <Text style={styles.selectRouteArrow}>›</Text>
+                    <MaterialIcons name="chevron-right" size={24} color="#9ca3af" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -658,6 +885,10 @@ const DriverAllocation = () => {
                 setIsCreateModalOpen(false);
                 setSelectedVin('');
                 setSelectedDriver('');
+                setShowVehicleDropdown(false);
+                setVehicleSearchQuery('');
+                setShowDriverDropdown(false);
+                setDriverSearchQuery('');
                 setPickupPoint('');
                 setDropoffPoint('');
                 setSelectedRoute(null);
@@ -778,7 +1009,11 @@ const DriverAllocation = () => {
       <ViewShipment
         isOpen={isViewShipmentOpen}
         onClose={() => setIsViewShipmentOpen(false)}
-        data={{...selectedRowData, onRefresh: fetchAllocations}}
+        data={{
+          ...selectedRowData,
+          onRefresh: fetchAllocations,
+          onClear: (id) => setAllocations(prev => prev.filter(item => item._id !== id))
+        }}
       />
 
       {/* Route Selection Modal */}
@@ -829,47 +1064,51 @@ const createStyles = (theme) => StyleSheet.create({
   },
   searchInput: { 
     flex: 1, 
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f8fafc',
     borderWidth: 1, 
-    borderColor: '#e2e8f0', 
+    borderColor: '#cbd5e1', 
     borderRadius: 10, 
-    padding: 14, 
+    padding: 12, 
     marginRight: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: '#334155'
   },
   searchBtn: { 
     backgroundColor: '#dc2626', 
     paddingHorizontal: 20,
-    paddingVertical: 14, 
+    paddingVertical: 12, 
     borderRadius: 10,
     shadowColor: '#dc2626',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 2
   },
   searchBtnText: { 
     color: '#fff', 
     fontWeight: '600',
-    fontSize: 16
+    fontSize: 14
   },
   createBtn: { 
-    backgroundColor: '#059669', 
-    paddingHorizontal: 20,
-    paddingVertical: 14, 
+    backgroundColor: '#dc2626', 
+    paddingHorizontal: 24,
+    paddingVertical: 12, 
     borderRadius: 10,
-    marginTop: 8,
-    shadowColor: '#059669',
+    marginTop: 12,
+    shadowColor: '#dc2626',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 2
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
   },
   createBtnText: { 
     color: '#fff', 
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center'
   },
 
@@ -883,26 +1122,26 @@ const createStyles = (theme) => StyleSheet.create({
   },
   allocationCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowRadius: 10,
+    elevation: 2,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 20,
-    paddingBottom: 16,
-    backgroundColor: '#f8fafc',
+    padding: 18,
+    paddingBottom: 14,
+    backgroundColor: '#f9fafb',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#e5e7eb',
   },
   cardHeaderLeft: {
     flex: 1,
@@ -919,18 +1158,18 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
+    minWidth: 75,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   cardBody: {
     padding: 20,
@@ -962,20 +1201,20 @@ const createStyles = (theme) => StyleSheet.create({
     fontStyle: 'italic',
   },
   routeInfo: {
-    backgroundColor: '#f0fdf4',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#22c55e',
+    borderLeftWidth: 3,
+    borderLeftColor: '#6b7280',
   },
   routeLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: '#374151',
     marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   routeDetails: {
     gap: 4,
@@ -992,19 +1231,19 @@ const createStyles = (theme) => StyleSheet.create({
     fontStyle: 'italic',
   },
   customerInfo: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
+    backgroundColor: '#fef2f2',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#dc2626',
   },
   customerLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#d97706',
+    color: '#7f1d1d',
     marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   customerDetails: {
     gap: 2,
@@ -1026,29 +1265,47 @@ const createStyles = (theme) => StyleSheet.create({
   },
   cardActionBtn: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRightWidth: 1,
     borderRightColor: '#e5e7eb',
   },
   cardActionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#374151',
   },
   editActionBtn: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#f3f4f6',
   },
   editActionText: {
-    color: '#2563eb',
+    color: '#374151',
   },
   deleteActionBtn: {
     backgroundColor: '#fef2f2',
     borderRightWidth: 0,
   },
   deleteActionText: {
-    color: '#dc2626',
+    color: '#991b1b',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  routeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  customerLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 
   // Pagination
@@ -1072,19 +1329,23 @@ const createStyles = (theme) => StyleSheet.create({
     gap: 8
   },
   paginationBtn: { 
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8, 
     borderRadius: 8, 
     backgroundColor: '#f1f5f9',
-    minWidth: 40,
-    alignItems: 'center'
+    minWidth: 36,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
   },
   paginationBtnText: { 
     color: '#64748b', 
-    fontWeight: '600'
+    fontWeight: '600',
+    fontSize: 14
   },
   activePage: { 
-    backgroundColor: '#dc2626' 
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626'
   },
   activePageText: {
     color: '#fff'
@@ -1181,6 +1442,10 @@ const createStyles = (theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -1255,6 +1520,10 @@ const createStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  routeInfoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   routeInfoTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -1282,6 +1551,9 @@ const createStyles = (theme) => StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
   },
+  routePointIcon: {
+    marginRight: 8,
+  },
   routePointLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -1298,18 +1570,93 @@ const createStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
   },
-  routeArrowText: {
-    fontSize: 18,
-    color: '#22c55e',
-    fontWeight: 'bold',
+  routeArrowIcon: {
+    marginVertical: 2,
   },
   routeMetrics: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 8,
     paddingTop: 12,
+  // Dropdowns (vehicle/driver)
+  searchableDropdown: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  selectedItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    marginTop: 6,
+    maxHeight: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 4,
+  },
+  dropdownList: {
+    maxHeight: 260,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    gap: 12,
+  },
+  dropdownItemInfo: {
+    flex: 1,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  noResultsText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '500',
+  },
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+  },
+  routeMetricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   routeMetric: {
     fontSize: 12,
@@ -1327,8 +1674,13 @@ const createStyles = (theme) => StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
-  selectRouteIcon: {
-    fontSize: 32,
+  selectRouteIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
   },
   selectRouteContent: {
@@ -1344,11 +1696,6 @@ const createStyles = (theme) => StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     lineHeight: 20,
-  },
-  selectRouteArrow: {
-    fontSize: 24,
-    color: '#9ca3af',
-    fontWeight: 'bold',
   },
   orDivider: {
     textAlign: 'center',

@@ -22,7 +22,6 @@ import AdminDashboard from '../screens/AdminDashboard';
 import AgentDashboard from '../screens/AgentDashboard';
 import DriverDashboard from '../screens/DriverDashboard';
 import DriverAllocation from '../screens/DriverAllocation';
-import VehicleProgressScreen from '../screens/VehicleProgressScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import VehicleListView from './VehicleListView';
@@ -34,7 +33,6 @@ import ServiceRequestScreen from '../screens/ServiceRequestScreen';
 import TestDriveScreen from '../screens/TestDriveScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ReportsScreen from '../screens/ReportsScreen';
-import ReleaseScreen from '../screens/ReleaseScreen';
 import VehicleAssignmentScreen from '../screens/VehicleAssignmentScreen';
 import UnitAllocationScreen from '../screens/UnitAllocationScreen';
 
@@ -43,11 +41,9 @@ const dashboardIcon = require('../assets/icons/dashboard.png');
 const reportsIcon = require('../assets/icons/reports.png');
 const stocksIcon = require('../assets/icons/stocks.png');
 const requestIcon = require('../assets/icons/request.png');
-const shipmentsIcon = require('../assets/icons/shipments.png');
 const usersIcon = require('../assets/icons/users.png');
 const signOutIcon = require('../assets/icons/signout.png');
 const driverIcon = require('../assets/icons/driverallocation.png');
-const releaseIcon = require('../assets/icons/release.png');
 const testDriveIcon = require('../assets/icons/testdrive.png');
 const agentAllocationIcon = require('../assets/icons/users.png');
 const itrackLogo = require('../assets/icons/itrackwhite.png');
@@ -155,10 +151,9 @@ function CustomDrawerContent(props) {
   const menuItems = [
     { name: "Dashboard", icon: dashboardIcon, screen: "Dashboard", roles: ['all'] },
     { name: "Vehicle Stocks", icon: stocksIcon, screen: "Inventory", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
-    { name: "Vehicle Preperation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
-    { name: "Agent Allocation", icon: agentAllocationIcon, screen: "AgentAllocation", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
+    { name: "Vehicle Preparation", icon: requestIcon, screen: "ServiceRequest", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
+    { name: "Agent Allocation", icon: agentAllocationIcon, screen: "AgentAllocation", roles: ['Admin', 'Manager', 'Supervisor'] },
     { name: "Driver Allocation", icon: driverIcon, screen: "DriverAllocation", roles: ['Admin', 'Manager', 'Dispatch'] },
-    { name: "Release", icon: releaseIcon, screen: "Release", roles: ['Admin', 'Manager', 'Dispatch'] },
     { name: "Test Drive", icon: testDriveIcon, screen: "TestDrive", roles: ['Admin', 'Manager', 'Sales Agent', 'Supervisor'] },
     { name: "User Management", icon: usersIcon, screen: "UserManagement", roles: ['Admin'] },
     { name: "Reports", icon: reportsIcon, screen: "Reports", roles: ['all'] }
@@ -167,35 +162,33 @@ function CustomDrawerContent(props) {
   // Filter menu based on role (matching web logic)
   const getFilteredMenu = () => {
     if (!userRole) return menuItems;
-    
-    // Filter for Sales Agent, Manager, and Supervisor (matching web)
-    if (['Sales Agent', 'Manager', 'Supervisor'].includes(userRole)) {
+
+    const normalizedRole = userRole === 'Manager' ? 'Sales Agent' : userRole;
+
+    // Sales Agent (and Manager treated the same) get the agent menu only
+    if (normalizedRole === 'Sales Agent') {
+      return menuItems.filter(item => item.roles.includes('all') || item.roles.includes('Sales Agent'));
+    }
+
+    // Supervisor keeps existing limited view
+    if (normalizedRole === 'Supervisor') {
       return menuItems.filter(item => 
         item.roles.includes('all') || 
-        item.roles.includes(userRole) ||
-        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preperation', 'Agent Allocation', 'Test Drive'].includes(item.name)
+        item.roles.includes('Supervisor') ||
+        ['Dashboard', 'Reports', 'Vehicle Stocks', 'Vehicle Preparation', 'Test Drive'].includes(item.name)
       );
     }
-    
+
     // Admin gets all items
-    if (userRole === 'Admin') {
+    if (normalizedRole === 'Admin') {
       return menuItems;
     }
-    
-    // Driver gets limited access
-    if (userRole === 'Driver') {
-      return menuItems.filter(item => 
-        ['Dashboard'].includes(item.name)
-      );
+
+    // Driver and Dispatch stay minimal
+    if (normalizedRole === 'Driver' || normalizedRole === 'Dispatch') {
+      return menuItems.filter(item => ['Dashboard'].includes(item.name));
     }
-    
-    // Dispatch gets dispatch-related items
-    if (userRole === 'Dispatch') {
-      return menuItems.filter(item => 
-        ['Dashboard'].includes(item.name)
-      );
-    }
-    
+
     return menuItems;
   };
 
@@ -250,10 +243,11 @@ function CustomDrawerContent(props) {
               ]}
               onPress={() => {
                 if (item.screen === 'Dashboard') {
-                  // Navigate to appropriate dashboard based on role
-                  if (userRole === 'Driver') {
+                  // Navigate to appropriate dashboard based on role (Manager uses Agent dashboard)
+                  const normalizedRole = userRole === 'Manager' ? 'Sales Agent' : userRole;
+                  if (normalizedRole === 'Driver') {
                     props.navigation.navigate('DriverDashboard');
-                  } else if (userRole === 'Sales Agent') {
+                  } else if (normalizedRole === 'Sales Agent') {
                     props.navigation.navigate('AgentDashboard');
                   } else {
                     props.navigation.navigate('AdminDashboard');
@@ -355,7 +349,7 @@ export default function UnifiedDrawer() {
       <Drawer.Screen
         name="ServiceRequest"
         component={ServiceRequestScreen}
-        options={{ title: 'Vehicle Preperation' }}
+        options={{ title: 'Vehicle Preparation' }}
       />
       <Drawer.Screen
         name="AgentAllocation"
@@ -366,11 +360,6 @@ export default function UnifiedDrawer() {
         name="DriverAllocation"
         component={DriverAllocation}
         options={{ title: 'Driver Allocation' }}
-      />
-      <Drawer.Screen
-        name="Release"
-        component={ReleaseScreen}
-        options={{ title: 'Release' }}
       />
       <Drawer.Screen
         name="TestDrive"
@@ -389,16 +378,13 @@ export default function UnifiedDrawer() {
       />
 
       {/* Additional Feature Screens */}
-      <Drawer.Screen
-        name="VehicleProgress"
-        component={VehicleProgressScreen}
-        options={{ title: 'Vehicle Progress' }}
-      />
-      <Drawer.Screen
-        name="History"
-        component={HistoryScreen}
-        options={{ title: 'Audit Trail' }}
-      />
+      {userRole !== 'Sales Agent' && (
+        <Drawer.Screen
+          name="History"
+          component={HistoryScreen}
+          options={{ title: 'Audit Trail' }}
+        />
+      )}
       <Drawer.Screen
         name="Profile"
         component={ProfileScreen}

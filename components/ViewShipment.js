@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Linking
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { buildApiUrl } from '../constants/api';
@@ -472,11 +473,11 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
     }
 
     const currentStatus = data.status?.toLowerCase();
-    
-    if (currentStatus !== 'delivered') {
+    const canClear = currentStatus === 'delivered' || currentStatus === 'completed';
+    if (!canClear) {
       Alert.alert(
         'Cannot Clear Delivery',
-        `This delivery cannot be cleared because its status is "${data.status}".\n\nOnly deliveries with status "Delivered" can be cleared.`,
+        `This delivery cannot be cleared because its status is "${data.status}".\n\nOnly deliveries marked Delivered or Completed can be cleared.`,
         [{ text: 'OK' }]
       );
       return;
@@ -521,6 +522,9 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                     text: 'OK',
                     onPress: () => {
                       onClose();
+                      if (data.onClear) {
+                        data.onClear(data._id);
+                      }
                       // Trigger refresh if callback exists
                       if (data.onRefresh) {
                         data.onRefresh();
@@ -548,32 +552,32 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
       case 'pending':
         return { 
           color: '#f59e0b', 
-          text: '⏳ Awaiting Driver Acceptance', 
-          icon: '⏳' 
+          text: 'Awaiting Driver Acceptance', 
+          icon: 'hourglass-empty' 
         };
       case 'monitoring':
         return { 
           color: '#3b82f6', 
-          text: '🔵 Monitoring Vehicle Location', 
-          icon: '👁️' 
+          text: 'Monitoring Vehicle Location', 
+          icon: 'visibility' 
         };
       case 'active':
         return { 
           color: '#059669', 
-          text: '🟢 Vehicle Location Available', 
-          icon: '📍' 
+          text: 'Vehicle Location Available', 
+          icon: 'location-on' 
         };
       case 'inactive':
         return { 
           color: '#6b7280', 
-          text: '⚪ Location Not Available', 
-          icon: '📍' 
+          text: 'Location Not Available', 
+          icon: 'location-off' 
         };
       default:
         return { 
           color: '#6b7280', 
-          text: '⚪ Loading Vehicle Data', 
-          icon: '📍' 
+          text: 'Loading Vehicle Data', 
+          icon: 'location-searching' 
         };
     }
   };
@@ -694,7 +698,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                         {isLoadingLocation ? (
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
-                          <Text style={styles.refreshButtonText}>🔄</Text>
+                          <MaterialIcons name="refresh" size={20} color="#ffffff" />
                         )}
                       </TouchableOpacity>
                     </View>
@@ -702,27 +706,37 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
                   {/* Tracking Status Bar */}
                   <View style={[styles.trackingStatusBar, { backgroundColor: getTrackingStatusInfo().color + '20' }]}>
-                    <Text style={[styles.trackingStatusText, { color: getTrackingStatusInfo().color }]}>
-                      {getTrackingStatusInfo().icon} {getTrackingStatusInfo().text}
-                      {lastLocationUpdate && (
-                        ` • Updated: ${lastLocationUpdate.toLocaleTimeString()}`
-                      )}
-                    </Text>
-                    {isLoadingRoute && (
-                      <Text style={[styles.trackingStatusText, { color: '#007AFF', marginTop: 4 }]}>
-                        🗺️ Loading route...
+                    <View style={styles.trackingStatusRow}>
+                      <MaterialIcons name={getTrackingStatusInfo().icon} size={18} color={getTrackingStatusInfo().color} />
+                      <Text style={[styles.trackingStatusText, { color: getTrackingStatusInfo().color }]}>
+                        {getTrackingStatusInfo().text}
+                        {lastLocationUpdate && (
+                          ` • Updated: ${lastLocationUpdate.toLocaleTimeString()}`
+                        )}
                       </Text>
+                    </View>
+                    {isLoadingRoute && (
+                      <View style={[styles.trackingStatusRow, { marginTop: 4 }]}>
+                        <MaterialIcons name="map" size={16} color="#007AFF" />
+                        <Text style={[styles.trackingStatusText, { color: '#007AFF' }]}>
+                          Loading route...
+                        </Text>
+                      </View>
                     )}
                     {!isLoadingRoute && routeCoordinates.length > 0 && (
-                      <Text style={[styles.trackingStatusText, { color: '#059669', marginTop: 4 }]}>
-                        ✓ Route displayed ({routeCoordinates.length} points)
-                      </Text>
+                      <View style={[styles.trackingStatusRow, { marginTop: 4 }]}>
+                        <MaterialIcons name="check-circle" size={16} color="#059669" />
+                        <Text style={[styles.trackingStatusText, { color: '#059669' }]}>
+                          Route displayed ({routeCoordinates.length} points)
+                        </Text>
+                      </View>
                     )}
                   </View>
 
                   {locationError && (
                     <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>⚠️ {locationError}</Text>
+                      <MaterialIcons name="warning" size={20} color="#ef4444" />
+                      <Text style={styles.errorText}>{locationError}</Text>
                       <TouchableOpacity style={styles.retryButton} onPress={initializeLocationTracking}>
                         <Text style={styles.retryButtonText}>Retry</Text>
                       </TouchableOpacity>
@@ -732,7 +746,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                   {/* Pending Status Message */}
                   {data?.status?.toLowerCase() === 'pending' ? (
                     <View style={styles.pendingContainer}>
-                      <Text style={styles.pendingIcon}>⏳</Text>
+                      <MaterialIcons name="hourglass-empty" size={64} color="#92400e" style={{ marginBottom: 16 }} />
                       <Text style={styles.pendingTitle}>Awaiting Driver Acceptance</Text>
                       <Text style={styles.pendingMessage}>
                         {data.assignedDriver || 'Driver'} has not started delivery yet.
@@ -746,7 +760,10 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                       {/* Fallback Map Information */}
                       {(locationError || trackingStatus === 'denied') && (currentLocation || data?.location) && (
                         <View style={styles.mapFallback}>
-                          <Text style={styles.fallbackTitle}>📍 Location Information</Text>
+                          <View style={styles.fallbackTitleRow}>
+                            <MaterialIcons name="location-on" size={20} color="#1f2937" />
+                            <Text style={styles.fallbackTitle}>Location Information</Text>
+                          </View>
                           <Text style={styles.fallbackText}>
                             Lat: {(currentLocation?.latitude || data?.location?.latitude || 0).toFixed(6)}
                           </Text>
@@ -844,7 +861,10 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                         {/* Enhanced Location Status */}
                         <View style={styles.locationStatusContainer}>
                           <View style={styles.locationStatus}>
-                            <Text style={styles.locationStatusTitle}>📍 Current Position</Text>
+                            <View style={styles.locationStatusHeader}>
+                              <MaterialIcons name="my-location" size={16} color="#ffffff" />
+                              <Text style={styles.locationStatusTitle}>Current Position</Text>
+                            </View>
                             <Text style={styles.locationStatusText}>
                               {currentLocation 
                                 ? `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`
@@ -873,13 +893,16 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                 {/* Route Information */}
                 {(data.pickupPoint || data.dropoffPoint) && (
                   <View style={styles.infoSection}>
-                    <Text style={styles.sectionTitle}>📍 Designated Route</Text>
+                    <View style={styles.sectionTitleRow}>
+                      <MaterialIcons name="map" size={20} color="#1f2937" />
+                      <Text style={styles.sectionTitle}>Designated Route</Text>
+                    </View>
                     
                     <View style={styles.routeContainer}>
                       {data.pickupPoint && (
                         <View style={styles.routePoint}>
                           <View style={styles.routePointHeader}>
-                            <Text style={styles.routePointIcon}>📍</Text>
+                            <MaterialIcons name="location-on" size={18} color="#059669" style={{ marginRight: 8 }} />
                             <Text style={styles.routePointTitle}>Pickup Location</Text>
                           </View>
                           <Text style={styles.routePointAddress}>{data.pickupPoint}</Text>
@@ -893,7 +916,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
                       {data.pickupPoint && data.dropoffPoint && (
                         <View style={styles.routeArrow}>
-                          <Text style={styles.routeArrowText}>↓</Text>
+                          <MaterialIcons name="arrow-downward" size={24} color="#059669" />
                           {data.routeDistance && (
                             <Text style={styles.routeDistance}>~{data.routeDistance} km</Text>
                           )}
@@ -903,7 +926,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                       {data.dropoffPoint && (
                         <View style={styles.routePoint}>
                           <View style={styles.routePointHeader}>
-                            <Text style={styles.routePointIcon}>🎯</Text>
+                            <MaterialIcons name="flag" size={18} color="#dc2626" style={{ marginRight: 8 }} />
                             <Text style={styles.routePointTitle}>Drop-off Location</Text>
                           </View>
                           <Text style={styles.routePointAddress}>{data.dropoffPoint}</Text>
@@ -917,27 +940,36 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
 
                       {data.estimatedTime && (
                         <View style={styles.routeMetrics}>
-                          <Text style={styles.routeMetricText}>
-                            ⏱️ Estimated Time: {data.estimatedTime} minutes
-                          </Text>
+                          <View style={styles.routeMetricRow}>
+                            <MaterialIcons name="schedule" size={16} color="#059669" />
+                            <Text style={styles.routeMetricText}>
+                              Estimated Time: {data.estimatedTime} minutes
+                            </Text>
+                          </View>
                         </View>
                       )}
 
                       {/* Elapsed Time - Only show during In Transit */}
                       {data?.status?.toLowerCase() === 'in transit' && data?.routeInfo?.routeStarted && (
                         <View style={[styles.routeMetrics, { backgroundColor: '#dbeafe', marginTop: 8 }]}>
-                          <Text style={[styles.routeMetricText, { color: '#1e40af' }]}>
-                            🚚 Elapsed Time: {formatElapsedTime(elapsedTime)}
-                          </Text>
+                          <View style={styles.routeMetricRow}>
+                            <MaterialIcons name="local-shipping" size={16} color="#1e40af" />
+                            <Text style={[styles.routeMetricText, { color: '#1e40af' }]}>
+                              Elapsed Time: {formatElapsedTime(elapsedTime)}
+                            </Text>
+                          </View>
                         </View>
                       )}
 
                       {/* Actual Delivery Time - Only show when completed */}
                       {data?.status?.toLowerCase() === 'delivered' && data?.routeInfo?.actualDuration && (
                         <View style={[styles.routeMetrics, { backgroundColor: '#d1fae5', marginTop: 8 }]}>
-                          <Text style={[styles.routeMetricText, { color: '#065f46' }]}>
-                            ✅ Actual Delivery Time: {formatActualDuration(data.routeInfo.actualDuration)}
-                          </Text>
+                          <View style={styles.routeMetricRow}>
+                            <MaterialIcons name="check-circle" size={16} color="#065f46" />
+                            <Text style={[styles.routeMetricText, { color: '#065f46' }]}>
+                              Actual Delivery Time: {formatActualDuration(data.routeInfo.actualDuration)}
+                            </Text>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -994,7 +1026,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.deliveredButtonIcon}>✓</Text>
+                    <MaterialIcons name="check-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
                     <Text style={styles.deliveredButtonText}>Complete Delivery</Text>
                   </>
                 )}
@@ -1010,7 +1042,7 @@ const ViewShipment = ({ isOpen, onClose, data }) => {
                 onPress={clearDelivery}
                 activeOpacity={0.8}
               >
-                <Text style={styles.deliveredButtonIcon}>✓</Text>
+                <MaterialIcons name="check-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={styles.deliveredButtonText}>Vehicle Delivered - Clear from List</Text>
               </TouchableOpacity>
             </View>
@@ -1063,7 +1095,7 @@ const getStatusTextStyle = (status) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1084,25 +1116,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#dc2626',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1f2937',
+    color: '#ffffff',
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 24,
-    color: '#6b7280',
+    color: '#ffffff',
     fontWeight: 'bold',
   },
   contentContainer: {
@@ -1116,20 +1149,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1f2937',
-    marginBottom: 12,
   },
   infoGrid: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f3f4f6',
   },
   infoLabel: {
     fontSize: 14,
@@ -1178,22 +1212,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  refreshButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  trackingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   trackingStatusBar: {
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#059669',
   },
   trackingStatusText: {
     fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: '#fef2f2',
@@ -1203,6 +1235,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   errorText: {
     color: '#ef4444',
@@ -1226,10 +1259,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 4,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   map: {
     width: '100%',
@@ -1246,11 +1281,16 @@ const styles = StyleSheet.create({
     padding: 16,
     backdropFilter: 'blur(10px)',
   },
+  locationStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   locationStatusTitle: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 4,
   },
   locationStatusText: {
     color: '#ffffff',
@@ -1271,13 +1311,21 @@ const styles = StyleSheet.create({
   },
   
   // Route Information Styles
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   routeContainer: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   routePoint: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f9fafb',
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
@@ -1288,10 +1336,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  routePointIcon: {
-    fontSize: 16,
-    marginRight: 8,
   },
   routePointTitle: {
     fontSize: 14,
@@ -1312,11 +1356,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  routeArrowText: {
-    fontSize: 24,
-    color: '#059669',
-    fontWeight: 'bold',
-  },
   routeDistance: {
     fontSize: 12,
     color: '#6b7280',
@@ -1328,6 +1367,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginTop: 8,
+  },
+  routeMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
   },
   routeMetricText: {
     fontSize: 14,
@@ -1354,13 +1399,9 @@ const styles = StyleSheet.create({
     margin: 16,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fbbf24',
+    borderColor: '#f59e0b',
     minHeight: 300,
     justifyContent: 'center',
-  },
-  pendingIcon: {
-    fontSize: 64,
-    marginBottom: 16,
   },
   pendingTitle: {
     fontSize: 18,
@@ -1393,14 +1434,19 @@ const styles = StyleSheet.create({
     margin: 16,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: '#d1d5db',
     borderStyle: 'dashed',
+  },
+  fallbackTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
   },
   fallbackTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1f2937',
-    marginBottom: 12,
   },
   fallbackText: {
     fontSize: 14,
@@ -1440,12 +1486,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
-  },
-  deliveredButtonIcon: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginRight: 8,
   },
   deliveredButtonText: {
     color: '#fff',

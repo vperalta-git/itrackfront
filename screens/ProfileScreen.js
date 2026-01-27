@@ -296,10 +296,11 @@ export default function ProfileScreen() {
         return;
       }
       
-      if (newPassword.length < 6) {
-        Alert.alert('Error', 'New password must be at least 6 characters');
-        return;
-      }
+      // Password requirements validation commented out for now
+      // if (newPassword.length < 6) {
+      //   Alert.alert('Error', 'New password must be at least 6 characters');
+      //   return;
+      // }
 
       const response = await fetch(buildApiUrl('/change-password'), {
         method: 'POST',
@@ -749,13 +750,13 @@ export default function ProfileScreen() {
               </View>
             </View>
             
-            {/* Password Requirements Info */}
-            <View style={styles.passwordRequirements}>
+            {/* Password Requirements Info - Commented out for now */}
+            {/* <View style={styles.passwordRequirements}>
               <Text style={[styles.requirementsTitle, { color: themeColors.textSecondary }]}>
                 <Ionicons name="information-circle-outline" size={16} color={themeColors.textSecondary} /> Password Requirements:
               </Text>
               <Text style={[styles.requirementText, { color: themeColors.textSecondary }]}>• At least 6 characters long</Text>
-            </View>
+            </View> */}
             
             {/* Action Buttons */}
             <View style={styles.passwordModalButtons}>
@@ -1354,9 +1355,9 @@ const styles = StyleSheet.create({
   },
   passwordModalButtons: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingBottom: 24,
-    gap: 12,
   },
   passwordCancelButton: {
     flex: 1,
@@ -1364,6 +1365,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 2,
+    marginRight: 6,
   },
   passwordCancelButtonText: {
     fontSize: 16,
@@ -1382,7 +1384,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
-    gap: 8,
+    marginLeft: 6,
   },
   passwordChangeButtonText: {
     color: '#fff',

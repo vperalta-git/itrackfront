@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Share,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,44 +18,130 @@ import UniformLoading from '../components/UniformLoading';
 
 const { width } = Dimensions.get('window');
 
+// Helper function to get date range based on period
+const getDateRange = (period) => {
+  const endDate = new Date();
+  const startDate = new Date();
+
+  switch (period) {
+    case 'week':
+      startDate.setDate(endDate.getDate() - 7);
+      break;
+    case 'month':
+      startDate.setMonth(endDate.getMonth() - 1);
+      break;
+    case 'quarter':
+      startDate.setMonth(endDate.getMonth() - 3);
+      break;
+    case 'year':
+      startDate.setFullYear(endDate.getFullYear() - 1);
+      break;
+    case 'all-time':
+      startDate.setFullYear(2000);
+      break;
+    default:
+      startDate.setMonth(endDate.getMonth() - 1);
+  }
+
+  return {
+    startDate: startDate.toISOString().split('T')[0],
+    endDate: endDate.toISOString().split('T')[0]
+  };
+};
+
+// Helper function to get activity icon based on type
+const getActivityIcon = (type) => {
+  const iconMap = {
+    allocation: 'assignment',
+    vehicle: 'directions-car',
+    driver: 'person',
+    status: 'info',
+    allocation_update: 'autorenew',
+    status_change: 'check-circle',
+    default: 'info'
+  };
+  return iconMap[type] || iconMap.default;
+};
+
 export default function ReportsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('reports'); // 'reports' or 'audit'
+  const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'audit' | 'history'
+  const [userRole, setUserRole] = useState(null);
   const [stats, setStats] = useState({
-    totalStocks: 0,
-    totalAllocations: 0,
-    totalUsers: 0,
-    finishedVehiclePreps: 0,
-    completedAllocations: 0,
-    activeDrivers: 0,
-    inProcessAllocations: 0,
-    inTransitAllocations: 0,
-    availableStocks: 0
+    totalVehicleStocksAdded: 0,
+    totalReleasedVehicles: 0,
+    processesCompleted: 0,
+    testDrivesScheduled: 0,
+    accountsMade: 0,
+    totalVehiclesInStock: 0,
+    allocatedUnits: 0,
+    unallocatedUnits: 0,
   });
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [recentActivities, setRecentActivities] = useState([]);
   const [auditTrail, setAuditTrail] = useState([]);
+  const [releaseHistory, setReleaseHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
 
-  // Fetch dashboard statistics
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isSalesAgent = normalizedRole === 'sales agent';
+  const isManager = normalizedRole === 'manager';
+
+  // Fetch dashboard statistics with safe JSON parsing
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/dashboard/stats'));
-      const data = await response.json();
+      const dateRange = getDateRange(selectedPeriod);
+      const params = new URLSearchParams({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
       
-      // Backend returns stats directly, not wrapped in success/stats
+      console.log(`📅 Fetching stats for period: ${selectedPeriod}`);
+      console.log(`📅 Date range: ${dateRange.startDate} to ${dateRange.endDate}`);
+      
+      const response = await fetch(buildApiUrl(`/dashboard/stats?${params}`));
+      const text = await response.text();
+
+      if (!text) {
+        console.warn('Stats response empty');
+        setStats(prev => ({ ...prev }));
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Stats JSON parse error:', parseError);
+        console.error('Stats raw response:', text);
+        Alert.alert('Error', 'Invalid stats response format');
+        return;
+      }
+      
       if (data && typeof data === 'object') {
+        const totalStocks = data.totalStocks || 0;
+        const totalAllocations = data.totalAllocations || 0;
+        const completedAllocations = data.completedAllocations || 0;
+        const finishedPreps = data.finishedVehiclePreps || 0;
+        const availableStocks = data.availableStocks || 0;
+        const totalUsers = data.totalUsers || 0;
+        const testDrives = data.testDrivesScheduled || data.testDrives || 0;
+
+        const unallocatedUnits = Math.max(totalStocks - totalAllocations, 0);
+
         setStats({
-          totalStocks: data.totalStocks || 0,
-          totalAllocations: data.totalAllocations || 0,
-          totalUsers: data.totalUsers || 0,
-          finishedVehiclePreps: data.finishedVehiclePreps || 0,
-          completedAllocations: data.completedAllocations || 0,
-          activeDrivers: data.activeDrivers || 0,
-          inProcessAllocations: data.inProcessAllocations || 0,
-          inTransitAllocations: data.inTransitAllocations || 0,
-          availableStocks: data.availableStocks || 0
+          totalVehicleStocksAdded: totalStocks,
+          totalReleasedVehicles: completedAllocations,
+          processesCompleted: finishedPreps,
+          testDrivesScheduled: testDrives,
+          accountsMade: totalUsers,
+          totalVehiclesInStock: availableStocks,
+          allocatedUnits: totalAllocations,
+          unallocatedUnits,
         });
       } else {
         console.warn('Unexpected stats format:', data);
@@ -66,14 +153,15 @@ export default function ReportsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedPeriod]);
 
-  // Fetch recent activities
+  // Fetch recent activities (kept but no UI usage now; may be used later)
   const fetchRecentActivities = useCallback(async () => {
     try {
       const response = await fetch(buildApiUrl('/getRecentActivities'));
-      const data = await response.json();
-      
+      const text = await response.text();
+      if (!text) return;
+      const data = JSON.parse(text);
       if (data.success) {
         setRecentActivities(data.data || []);
       }
@@ -82,54 +170,195 @@ export default function ReportsScreen() {
     }
   }, []);
 
-  // Fetch audit trail (use history endpoint)
+  // Fetch audit trail from /api/audit-trail endpoint (same as web version)
   const fetchAuditTrail = useCallback(async () => {
     try {
-      const response = await fetch(buildApiUrl('/getHistory'));
-      const data = await response.json();
+      console.log('📡 Fetching audit trail data...');
       
-      if (data.success) {
-        setAuditTrail(data.data || []);
+      const endpoint = '/api/audit-trail';
+      const response = await fetch(buildApiUrl(endpoint));
+      const text = await response.text();
+
+      if (!text) {
+        console.warn('Audit trail empty response');
+        setAuditTrail([]);
+        return;
+      }
+
+      // If server returned HTML (e.g., 404 page), skip
+      if (text.trim().startsWith('<')) {
+        console.warn('Audit trail non-JSON response (HTML returned)');
+        setAuditTrail([]);
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Audit trail JSON parse error:', parseError);
+        console.error('Audit trail raw response:', text.substring(0, 200));
+        setAuditTrail([]);
+        return;
+      }
+
+      // The web version returns an array directly
+      if (Array.isArray(data)) {
+        console.log(`✅ Audit trail loaded: ${data.length} total activities`);
+        
+        // Filter by date range
+        const dateRange = getDateRange(selectedPeriod);
+        const filteredData = data.filter(log => {
+          const logDate = new Date(log.timestamp);
+          const start = new Date(dateRange.startDate);
+          const end = new Date(dateRange.endDate);
+          return logDate >= start && logDate <= end;
+        });
+        
+        console.log(`📊 Filtered audit trail: ${filteredData.length} activities in selected period`);
+        setAuditTrail(filteredData);
       } else {
-        console.warn('No audit trail data:', data.message);
+        console.warn('Audit trail response is not an array:', typeof data);
         setAuditTrail([]);
       }
     } catch (error) {
-      console.error('Error fetching audit trail:', error);
+      console.error('❌ Error fetching audit trail:', error);
       setAuditTrail([]);
+    }
+  }, [selectedPeriod]);
+
+  // Fetch release history (all releases) for history tab
+  const fetchReleaseHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch(buildApiUrl('/getRequest'));
+      const text = await response.text();
+
+      if (!text) {
+        setReleaseHistory([]);
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Release history JSON parse error:', parseError);
+        console.error('Release history raw response:', text.substring(0, 200));
+        setReleaseHistory([]);
+        return;
+      }
+
+      const releases = (data.data || []).filter(entry => {
+        const status = (entry.status || '').toLowerCase();
+        return entry.releasedToCustomer === true || status === 'released to customer' || status === 'released';
+      });
+
+      const mapped = releases.map(entry => ({
+        id: entry._id || `${entry.unitId || 'unit'}-${entry.releasedAt || entry.updatedAt || Date.now()}`,
+        unitName: entry.unitName || 'Unknown Unit',
+        unitId: entry.unitId || 'N/A',
+        bodyColor: entry.bodyColor || 'N/A',
+        variation: entry.variation || entry.serviceType || '',
+        releasedAt: entry.releasedAt || entry.updatedAt || entry.date || null,
+        agent: entry.assignedAgent || entry.assignedTo || entry.agentName || '',
+        driver: entry.assignedDriver || entry.driver || '',
+        processes: Array.isArray(entry.completedServices) ? entry.completedServices : (Array.isArray(entry.service) ? entry.service : []),
+        customerName: entry.customerName || '',
+        customerEmail: entry.customerEmail || '',
+        customerPhone: entry.customerPhone || entry.customerContact || '',
+      })).sort((a, b) => {
+        const aDate = a.releasedAt ? new Date(a.releasedAt).getTime() : 0;
+        const bDate = b.releasedAt ? new Date(b.releasedAt).getTime() : 0;
+        return bDate - aDate;
+      });
+
+      setReleaseHistory(mapped);
+    } catch (error) {
+      console.error('❌ Error fetching release history:', error);
+      setReleaseHistory([]);
+    } finally {
+      setHistoryLoading(false);
+      setHistoryRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     fetchStats();
-    fetchRecentActivities();
     fetchAuditTrail();
-  }, [fetchStats, fetchRecentActivities, fetchAuditTrail]);
+  }, [fetchStats, fetchAuditTrail, selectedPeriod]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchReleaseHistory();
+    }
+  }, [activeTab, fetchReleaseHistory]);
+
+  useEffect(() => {
+    const loadRole = async () => {
+      const role = await AsyncStorage.getItem('userRole');
+      setUserRole(role);
+      const lower = (role || '').toLowerCase();
+      if ((lower === 'sales agent' || lower === 'manager') && activeTab === 'audit') {
+        setActiveTab('reports');
+      }
+    };
+    loadRole();
+  }, [activeTab]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchStats();
-    fetchRecentActivities();
     fetchAuditTrail();
   };
 
-  // Generate report
+  const onRefreshHistory = () => {
+    setHistoryRefreshing(true);
+    fetchReleaseHistory();
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return 'Not recorded';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not recorded';
+    return date.toLocaleString();
+  };
+
+  // Generate report with date filtering
   const generateReport = async (reportType) => {
+    const reportNames = {
+      'allocation': 'Vehicle Allocation',
+      'driver-performance': 'Driver Performance',
+      'inventory': 'Vehicle Inventory',
+      'service-requests': 'Service Request',
+      'test-drives': 'Test Drive',
+      'user-activity': 'User Activity',
+      'summary': 'Summary Image'
+    };
+
+    if (reportType === 'summary') {
+      await generateSummaryImage();
+      return;
+    }
+    
     Alert.alert(
       'Generate Report',
-      `Generate ${reportType} report for the selected period?`,
+      `Generate ${reportNames[reportType] || reportType} report for the selected period?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Generate', 
           onPress: async () => {
             try {
+              const dateRange = getDateRange(selectedPeriod);
               const response = await fetch(buildApiUrl('/generateReport'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   reportType,
                   period: selectedPeriod,
+                  startDate: dateRange.startDate,
+                  endDate: dateRange.endDate,
                   generatedBy: await AsyncStorage.getItem('accountName') || 'System'
                 }),
               });
@@ -137,17 +366,70 @@ export default function ReportsScreen() {
               const data = await response.json();
               
               if (data.success) {
-                Alert.alert('Success', 'Report generated successfully');
+                Alert.alert('Success', `${reportNames[reportType] || reportType} report generated successfully`);
               } else {
                 Alert.alert('Error', data.message || 'Failed to generate report');
               }
             } catch (error) {
+              console.error('Error generating report:', error);
               Alert.alert('Error', 'Failed to generate report');
             }
           }
         },
       ]
     );
+  };
+
+  // Period options for dropdown
+  const periodOptions = [
+    { label: 'This Week', value: 'week' },
+    { label: 'This Month', value: 'month' },
+    { label: 'This Quarter', value: 'quarter' },
+    { label: 'This Year', value: 'year' },
+    { label: 'All-Time', value: 'all-time' },
+  ];
+
+  // Generate summary and share or copy
+  const generateSummaryImage = async () => {
+    try {
+      const periodLabel = periodOptions.find(p => p.value === selectedPeriod)?.label || 'This Month';
+      const currentDate = new Date().toLocaleDateString();
+      
+      // Create a formatted text summary
+      const summary = `
+I-TRACK SUMMARY REPORT
+Period: ${periodLabel}
+Generated: ${currentDate}
+
+═══════════════════════════════
+
+OVERVIEW STATISTICS
+
+Total Vehicle Stocks Added: ${stats.totalVehicleStocksAdded}
+Total Released Vehicles: ${stats.totalReleasedVehicles}
+Processes Completed: ${stats.processesCompleted}
+Test Drives Scheduled: ${stats.testDrivesScheduled}
+Accounts Made: ${stats.accountsMade}
+Total Vehicles in Stock: ${stats.totalVehiclesInStock}
+Allocated Units: ${stats.allocatedUnits}
+Unallocated Units: ${stats.unallocatedUnits}
+
+═══════════════════════════════
+
+Report generated by I-Track System
+      `.trim();
+
+      // Share the summary
+      await Share.share({
+        message: summary,
+        title: 'I-Track Summary Report',
+      });
+    } catch (error) {
+      if (error.message !== 'Share cancelled.') {
+        console.error('Error generating summary:', error);
+        Alert.alert('Error', 'Failed to generate summary');
+      }
+    }
   };
 
   // Statistics Card Component
@@ -198,31 +480,65 @@ export default function ReportsScreen() {
     </TouchableOpacity>
   );
 
-  // Period Filter Component
+  // Period Filter Component - custom dropdown without external dependency
   const PeriodFilter = () => (
     <View style={styles.periodFilter}>
       <Text style={styles.periodLabel}>Period:</Text>
-      <View style={styles.periodButtons}>
-        {['week', 'month', 'quarter', 'year'].map(period => (
-          <TouchableOpacity
-            key={period}
-            style={[
-              styles.periodBtn,
-              selectedPeriod === period && styles.periodBtnActive
-            ]}
-            onPress={() => setSelectedPeriod(period)}
-          >
-            <Text style={[
-              styles.periodBtnText,
-              selectedPeriod === period && styles.periodBtnTextActive
-            ]}>
-              {period.charAt(0).toUpperCase() + period.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.dropdownWrapper}>
+        <TouchableOpacity
+          style={styles.pickerContainer}
+          onPress={() => {
+            console.log('Dropdown clicked, current state:', showPeriodDropdown);
+            setShowPeriodDropdown(!showPeriodDropdown);
+          }}
+        >
+          <Text style={styles.pickerText}>
+            {periodOptions.find(p => p.value === selectedPeriod)?.label || 'This Month'}
+          </Text>
+          <MaterialIcons name={showPeriodDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color="#666" />
+        </TouchableOpacity>
+        {showPeriodDropdown && (
+          <View style={styles.dropdownList}>
+            {periodOptions.map(option => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.dropdownItem,
+                  selectedPeriod === option.value && styles.dropdownItemActive
+                ]}
+                onPress={() => {
+                  console.log('Selected period:', option.value);
+                  setSelectedPeriod(option.value);
+                  setShowPeriodDropdown(false);
+                }}
+              >
+                <Text style={[
+                  styles.dropdownItemText,
+                  selectedPeriod === option.value && styles.dropdownItemTextActive
+                ]}>
+                  {option.label}
+                </Text>
+                {selectedPeriod === option.value && (
+                  <MaterialIcons name="check" size={20} color="#e50914" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
+
+  const statItems = [
+    { title: 'Total Vehicle Stocks Added', value: stats.totalVehicleStocksAdded, icon: 'directions-car', color: '#007AFF' },
+    { title: 'Total Released Vehicles', value: stats.totalReleasedVehicles, icon: 'local-shipping', color: '#28a745' },
+    { title: 'Processes Completed', value: stats.processesCompleted, icon: 'build-circle', color: '#e50914' },
+    { title: 'Test Drives Scheduled', value: stats.testDrivesScheduled, icon: 'event-available', color: '#ffc107' },
+    { title: 'Accounts Made', value: stats.accountsMade, icon: 'people', color: '#6f42c1' },
+    { title: 'Total Vehicles in Stock', value: stats.totalVehiclesInStock, icon: 'garage', color: '#17a2b8' },
+    { title: 'Allocated Units', value: stats.allocatedUnits, icon: 'assignment', color: '#ff6b6b' },
+    { title: 'Unallocated Units', value: stats.unallocatedUnits, icon: 'pending-actions', color: '#795548' },
+  ];
 
   return (
     <View style={styles.container}>
@@ -241,17 +557,32 @@ export default function ReportsScreen() {
             Reports
           </Text>
         </TouchableOpacity>
+        {!isSalesAgent && (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'audit' && styles.activeTab]}
+            onPress={() => setActiveTab('audit')}
+          >
+            <MaterialIcons 
+              name="history" 
+              size={20} 
+              color={activeTab === 'audit' ? '#fff' : '#666'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'audit' && styles.activeTabText]}>
+              Audit Trail
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'audit' && styles.activeTab]}
-          onPress={() => setActiveTab('audit')}
+          style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+          onPress={() => setActiveTab('history')}
         >
           <MaterialIcons 
-            name="history" 
+            name="local-shipping" 
             size={20} 
-            color={activeTab === 'audit' ? '#fff' : '#666'} 
+            color={activeTab === 'history' ? '#fff' : '#666'} 
           />
-          <Text style={[styles.tabText, activeTab === 'audit' && styles.activeTabText]}>
-            Audit Trail
+          <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+            Release History
           </Text>
         </TouchableOpacity>
       </View>
@@ -265,14 +596,14 @@ export default function ReportsScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Reports & Analytics</Text>
-            <TouchableOpacity style={styles.exportButton}>
-              <MaterialIcons name="file-download" size={20} color="#fff" />
-              <Text style={styles.exportButtonText}>Export</Text>
+            <TouchableOpacity style={styles.exportButton} onPress={() => generateSummaryImage()}>
+              <MaterialIcons name="save" size={20} color="#fff" />
+              <Text style={styles.exportButtonText}>Save Report</Text>
             </TouchableOpacity>
           </View>
 
           {/* Period Filter */}
-          <View style={styles.section}>
+          <View style={[styles.section, styles.periodFilterSection]}>
             <PeriodFilter />
           </View>
 
@@ -284,236 +615,218 @@ export default function ReportsScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Overview Statistics</Text>
                 <View style={styles.statsGrid}>
-              <StatCard
-                title="Total Vehicles"
-                value={stats.totalStocks}
-                icon="directions-car"
-                color="#007AFF"
-              />
-              <StatCard
-                title="Available Vehicles"
-                value={stats.availableStocks}
-                icon="garage"
-                color="#28a745"
-              />
-              <StatCard
-                title="Total Allocations"
-                value={stats.totalAllocations}
-                icon="assignment"
-                color="#e50914"
-              />
-              <StatCard
-                title="Completed"
-                value={stats.completedAllocations}
-                icon="check-circle"
-                color="#17a2b8"
-              />
-              <StatCard
-                title="In Process"
-                value={stats.inProcessAllocations}
-                icon="autorenew"
-                color="#ffc107"
-              />
-              <StatCard
-                title="In Transit"
-                value={stats.inTransitAllocations}
-                icon="local-shipping"
-                color="#6f42c1"
-              />
-              <StatCard
-                title="Finished Preps"
-                value={stats.finishedVehiclePreps}
-                icon="build"
-                color="#795548"
-              />
-              <StatCard
-                title="Total Users"
-                value={stats.totalUsers}
-                icon="people"
-                color="#607d8b"
-              />
-            </View>
-          </View>
-
-          {/* Quick Reports */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Reports</Text>
-            <View style={styles.reportsGrid}>
-              <ReportButton
-                title="Vehicle Allocation Report"
-                description="Detailed allocation status and history"
-                icon="assignment"
-                reportType="allocation"
-                color="#e50914"
-              />
-              <ReportButton
-                title="Driver Performance Report"
-                description="Driver delivery metrics and efficiency"
-                icon="local-shipping"
-                reportType="driver-performance"
-                color="#28a745"
-              />
-              <ReportButton
-                title="Vehicle Inventory Report"
-                description="Current stock levels and status"
-                icon="inventory"
-                reportType="inventory"
-                color="#007AFF"
-              />
-              <ReportButton
-                title="Service Request Report"
-                description="Service completion rates and timeline"
-                icon="build"
-                reportType="service-requests"
-                color="#17a2b8"
-              />
-              <ReportButton
-                title="Test Drive Report"
-                description="Test drive bookings and conversion rates"
-                icon="directions-car"
-                reportType="test-drives"
-                color="#ffc107"
-              />
-              <ReportButton
-                title="User Activity Report"
-                description="User login and activity patterns"
-                icon="people"
-                reportType="user-activity"
-                color="#6f42c1"
-              />
-            </View>
-          </View>
-
-          {/* Recent Activities */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Activities</Text>
-            <View style={styles.activitiesContainer}>
-              {recentActivities.length > 0 ? (
-                recentActivities.slice(0, 10).map((activity, index) => (
-                  <View key={index} style={styles.activityItem}>
-                    <View style={styles.activityIcon}>
-                      <MaterialIcons 
-                        name={getActivityIcon(activity.type)} 
-                        size={16} 
-                        color="#666" 
-                      />
-                    </View>
-                    <View style={styles.activityDetails}>
-                      <Text style={styles.activityText}>{activity.description}</Text>
-                      <Text style={styles.activityTime}>
-                        {new Date(activity.timestamp).toLocaleString()}
-                      </Text>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.noActivities}>
-                  <MaterialIcons name="history" size={48} color="#ccc" />
-                  <Text style={styles.noActivitiesText}>No recent activities</Text>
+                  {statItems.map((item, idx) => (
+                    <StatCard
+                      key={`${item.title}-${idx}`}
+                      title={item.title}
+                      value={item.value}
+                      icon={item.icon}
+                      color={item.color}
+                    />
+                  ))}
                 </View>
-              )}
-            </View>
-          </View>
+              </View>
 
-          {/* Performance Metrics */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Key Performance Metrics</Text>
-            <View style={styles.metricsContainer}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricTitle}>Average Delivery Time</Text>
-                <Text style={styles.metricValue}>2.4 days</Text>
-                <Text style={styles.metricChange}>↓ 0.3 days from last month</Text>
+              {/* Summary Report */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Summary Report</Text>
+                <View style={styles.reportsGrid}>
+                  <ReportButton
+                    title="Generate Summary Report"
+                    description="Creates a text summary you can share or save"
+                    icon="description"
+                    reportType="summary"
+                    color="#007AFF"
+                  />
+                </View>
               </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricTitle}>Customer Satisfaction</Text>
-                <Text style={styles.metricValue}>4.7/5</Text>
-                <Text style={styles.metricChange}>↑ 0.2 from last month</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricTitle}>Fleet Utilization</Text>
-                <Text style={styles.metricValue}>87%</Text>
-                <Text style={styles.metricChange}>↑ 5% from last month</Text>
-              </View>
-            </View>
-          </View>
             </>
           )}
         </ScrollView>
       ) : (
-        // Audit Trail View
-        <ScrollView 
-          style={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          <View style={styles.header}>
-            <Text style={styles.title}>Audit Trail</Text>
-            <TouchableOpacity style={styles.exportButton}>
-              <MaterialIcons name="file-download" size={20} color="#fff" />
-              <Text style={styles.exportButtonText}>Export</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <UniformLoading message="Loading audit trail..." />
-          ) : (
-            <View style={styles.section}>
-              {auditTrail.length > 0 ? (
-                auditTrail.map((item, index) => (
-                  <View key={item._id || index} style={styles.auditItem}>
-                    <View style={styles.auditHeader}>
-                      <View style={styles.auditIcon}>
-                        <MaterialIcons 
-                          name={getAuditIcon(item.action)} 
-                          size={20} 
-                          color="#e50914" 
-                        />
-                      </View>
-                      <View style={styles.auditInfo}>
-                        <Text style={styles.auditAction}>{item.action}</Text>
-                        <Text style={styles.auditUser}>by {item.user || 'System'}</Text>
-                      </View>
-                      <Text style={styles.auditTime}>
-                        {new Date(item.timestamp).toLocaleString()}
-                      </Text>
-                    </View>
-                    {item.details && (
-                      <View style={styles.auditDetails}>
-                        <Text style={styles.auditDetailsText}>{item.details}</Text>
-                      </View>
-                    )}
-                    {item.changes && (
-                      <View style={styles.auditChanges}>
-                        <Text style={styles.auditChangesLabel}>Changes:</Text>
-                        <Text style={styles.auditChangesText}>{JSON.stringify(item.changes, null, 2)}</Text>
-                      </View>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyAudit}>
-                  <MaterialIcons name="history" size={64} color="#ccc" />
-                  <Text style={styles.emptyAuditText}>No audit records found</Text>
-                </View>
-              )}
+        activeTab === 'audit' && !isSalesAgent ? (
+          // Audit Trail View
+          <ScrollView 
+            style={styles.scrollContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>Audit Trail</Text>
+              <TouchableOpacity style={styles.exportButton}>
+                <MaterialIcons name="file-download" size={20} color="#fff" />
+                <Text style={styles.exportButtonText}>Export</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </ScrollView>
+
+            {loading ? (
+              <UniformLoading message="Loading audit trail..." />
+            ) : (
+              <View style={styles.section}>
+                {auditTrail.length > 0 ? (
+                  auditTrail.map((item, index) => {
+                    // Helper function to get changes from before/after
+                    const getChanges = (before, after) => {
+                      if (!before || !after) return [];
+                      return Object.keys(after).reduce((changes, key) => {
+                        if (before[key] !== after[key]) {
+                          changes.push({ 
+                            field: key, 
+                            before: before[key], 
+                            after: after[key] 
+                          });
+                        }
+                        return changes;
+                      }, []);
+                    };
+
+                    const changes = getChanges(item.details?.before, item.details?.after);
+                    
+                    // Format details text
+                    let detailsText = '';
+                    if (item.action?.toLowerCase() === 'update' && changes.length > 0) {
+                      if (changes.length === 1 && changes[0].field === 'picture') {
+                        detailsText = 'Profile picture changed';
+                      } else {
+                        detailsText = changes.map(c => 
+                          `${c.field}: ${c.before} → ${c.after}`
+                        ).join('\n');
+                      }
+                    } else if (item.details?.summary) {
+                      detailsText = item.details.summary;
+                    } else if (typeof item.details === 'string') {
+                      detailsText = item.details;
+                    }
+
+                    return (
+                      <View key={item._id || index} style={styles.auditItem}>
+                        <View style={styles.auditHeader}>
+                          <View style={styles.auditIcon}>
+                            <MaterialIcons 
+                              name={getAuditIcon(item.action)} 
+                              size={20} 
+                              color="#e50914" 
+                            />
+                          </View>
+                          <View style={styles.auditInfo}>
+                            <Text style={styles.auditAction}>
+                              {item.action} {item.resource}
+                            </Text>
+                            <Text style={styles.auditUser}>
+                              by {item.performedBy || 'System'}
+                            </Text>
+                          </View>
+                          <Text style={styles.auditTime}>
+                            {new Date(item.timestamp).toLocaleString()}
+                          </Text>
+                        </View>
+                        {detailsText && (
+                          <View style={styles.auditDetails}>
+                            <Text style={styles.auditDetailsText}>{detailsText}</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptyAudit}>
+                    <MaterialIcons name="history" size={64} color="#ccc" />
+                    <Text style={styles.emptyAuditText}>No audit records found</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+          // Release History View
+          <ScrollView
+            style={styles.scrollContent}
+            refreshControl={<RefreshControl refreshing={historyRefreshing} onRefresh={onRefreshHistory} />}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>Release History</Text>
+              <TouchableOpacity style={styles.exportButton} onPress={fetchReleaseHistory}>
+                <MaterialIcons name="refresh" size={20} color="#fff" />
+                <Text style={styles.exportButtonText}>Refresh</Text>
+              </TouchableOpacity>
+            </View>
+
+            {historyLoading ? (
+              <UniformLoading message="Loading release history..." />
+            ) : (
+              <View style={styles.section}>
+                {releaseHistory.length > 0 ? (
+                  releaseHistory.map(item => (
+                    <View key={item.id} style={styles.historyCard}>
+                      <View style={styles.historyHeader}>
+                        <View style={styles.historyTitleGroup}>
+                          <Text style={styles.historyTitle}>{item.unitName}</Text>
+                          <Text style={styles.historySubTitle}>Unit ID: {item.unitId}</Text>
+                          {!!item.variation && (
+                            <Text style={styles.historySubTitle}>Variation: {item.variation}</Text>
+                          )}
+                        </View>
+                        <View style={styles.historyBadge}>
+                          <Text style={styles.historyBadgeText}>{formatDateTime(item.releasedAt)}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.historyGrid}>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Body Color</Text>
+                          <Text style={styles.historyValue}>{item.bodyColor}</Text>
+                        </View>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Agent</Text>
+                          <Text style={styles.historyValue}>{item.agent || '—'}</Text>
+                        </View>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Driver</Text>
+                          <Text style={styles.historyValue}>{item.driver || '—'}</Text>
+                        </View>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Customer</Text>
+                          <Text style={styles.historyValue}>{item.customerName || '—'}</Text>
+                        </View>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Email</Text>
+                          <Text style={styles.historyValue}>{item.customerEmail || '—'}</Text>
+                        </View>
+                        <View style={styles.historyRow}>
+                          <Text style={styles.historyLabel}>Phone</Text>
+                          <Text style={styles.historyValue}>{item.customerPhone || '—'}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.historyProcessSection}>
+                        <Text style={styles.historyProcessTitle}>Completed Processes</Text>
+                        {item.processes && item.processes.length > 0 ? (
+                          <View style={styles.historyChips}>
+                            {item.processes.map(proc => (
+                              <View key={proc} style={styles.historyChip}>
+                                <Text style={styles.historyChipText}>{proc.replace(/_/g, ' ')}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.historyValue}>No processes recorded</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyAudit}>
+                    <MaterialIcons name="directions-car" size={64} color="#ccc" />
+                    <Text style={styles.emptyAuditText}>No release history found</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        )
       )}
     </View>
   );
 }
-
-// Helper function to get activity icons
-const getActivityIcon = (type) => {
-  switch (type) {
-    case 'allocation': return 'assignment';
-    case 'delivery': return 'local-shipping';
-    case 'user': return 'person';
-    case 'vehicle': return 'directions-car';
-    case 'service': return 'build';
-    default: return 'info';
-  }
-};
 
 // Helper function to get audit icons
 const getAuditIcon = (action) => {
@@ -599,6 +912,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    overflow: 'visible',
+  },
+  periodFilterSection: {
+    zIndex: 100,
+    elevation: 100,
   },
   sectionTitle: {
     fontSize: 18,
@@ -608,12 +926,82 @@ const styles = StyleSheet.create({
   },
   periodFilter: {
     marginBottom: 16,
+    zIndex: 1000,
+    elevation: 1000,
   },
   periodLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 12,
+  },
+  dropdownWrapper: {
+    position: 'relative',
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    overflow: 'visible',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  pickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    zIndex: 9999,
+    elevation: 9999,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    maxHeight: 250,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#f8f9fa',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dropdownItemTextActive: {
+    color: '#e50914',
+    fontWeight: '600',
+  },
+  captureContainer: {
+    backgroundColor: '#f8f9fa',
+  },
+  picker: {
+    height: 50,
+    color: '#333',
+    backgroundColor: '#f8f9fa',
   },
   periodButtons: {
     flexDirection: 'row',
@@ -875,5 +1263,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 12,
+  },
+  historyCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  historyTitleGroup: {
+    flex: 1,
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+  },
+  historySubTitle: {
+    fontSize: 13,
+    color: '#555',
+    marginTop: 2,
+  },
+  historyBadge: {
+    backgroundColor: '#e50914',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  historyBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  historyGrid: {
+    marginTop: 8,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  historyLabel: {
+    fontSize: 13,
+    color: '#666',
+    width: '40%',
+  },
+  historyValue: {
+    fontSize: 13,
+    color: '#111',
+    width: '60%',
+    textAlign: 'right',
+  },
+  historyProcessSection: {
+    marginTop: 12,
+  },
+  historyProcessTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 6,
+  },
+  historyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  historyChip: {
+    backgroundColor: '#fff',
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  historyChipText: {
+    fontSize: 12,
+    color: '#333',
   },
 });

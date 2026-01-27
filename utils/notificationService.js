@@ -69,35 +69,17 @@ export class NotificationService {
     return this.sendStatusNotification(customerData, vehicleData, statusUpdate);
   }
 
-  // Future SMS notification (when iTexMo becomes available)
+  // Future SMS notification (placeholder - currently using email only)
   static async sendSMSNotification(customerPhone, message) {
-    // This will be implemented when iTexMo API becomes available
-    console.log('📱 SMS notification (iTexMo integration pending):', { customerPhone, message });
-    
-    // Placeholder for future iTexMo integration
-    /* 
-    Future implementation example:
-    const smsData = {
-      1: customerPhone,           // recipient number
-      2: message,                 // message content  
-      3: process.env.ITEXMO_APICODE, // your API code
-      passwd: process.env.ITEXMO_PASSWORD // your password
-    };
-    
-    const response = await fetch('https://www.itexmo.com/php_api/api.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(smsData)
-    });
-    
-    const result = await response.text();
-    // Result: "0" = Success, "1" = Invalid Number, "2" = Number prefix not supported, etc.
-    */
+    // SMS functionality has been replaced with email notifications
+    // iTexMo integration is planned for future implementation
+    console.log('📱 SMS notification (using email instead):', { customerPhone, message });
     
     return {
       success: false,
-      message: 'SMS service not yet available - iTexMo integration pending',
+      message: 'SMS service not available - using email notifications instead',
       smsReady: false,
+      currentMethod: 'email',
       futureImplementation: 'iTexMo API integration planned'
     };
   }

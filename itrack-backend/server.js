@@ -248,12 +248,13 @@ async function sendPasswordResetEmail(userEmail, username, temporaryPassword) {
   }
 }
 
-// MongoDB URI configuration - Updated to connect to your itrackDB database
-const mongoURI = process.env.MONGODB_URI;
+// MongoDB URI configuration - lock to itrackDB/testinvs on Cluster0
+const mongoURI = process.env.MONGODB_URI
+  || 'mongodb+srv://itrack_user:itrack123@cluster0.py8s8pl.mongodb.net/itrackDB?retryWrites=true&w=majority&appName=Cluster0';
 
-// Connect to MongoDB with retry logic
-mongoose.connect(mongoURI)
-  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+// Connect to MongoDB with explicit dbName to ensure the test drive inventory uses itrackDB.testinvs
+mongoose.connect(mongoURI, { dbName: 'itrackDB' })
+  .then(() => console.log('✅ Connected to MongoDB Atlas (itrackDB @ Cluster0)'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // User Schema with Role Validation and Enhanced Password Management - SYNCED WITH WEB VERSION

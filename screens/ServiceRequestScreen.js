@@ -16,6 +16,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import NotificationService from '../utils/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -30,7 +31,15 @@ export default function ServiceRequestScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  
+  const [userRole, setUserRole] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [userId, setUserId] = useState('');
+  const [teamAgents, setTeamAgents] = useState([]); // manager's agents
+  const [agentUnits, setAgentUnits] = useState([]); // Units allocated to this agent
+  const [agentAllocationsLoaded, setAgentAllocationsLoaded] = useState(false);
+  const [unitCustomerMap, setUnitCustomerMap] = useState({}); // unitId -> customer details
+  const [customerForm, setCustomerForm] = useState({ name: '', email: '', phone: '' });
+  const [savingCustomer, setSavingCustomer] = useState(false);
   // New service request form state
   const [newRequest, setNewRequest] = useState({
     selectedVehicle: null,
@@ -42,6 +51,197 @@ export default function ServiceRequestScreen() {
   // Inventory vehicles state
   const [inventoryVehicles, setInventoryVehicles] = useState([]);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
+
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAgent = normalizedRole === 'sales agent' || normalizedRole === 'manager';
+  const isManager = normalizedRole === 'manager';
+
+  useEffect(() => {
+    const loadRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userRole');
+        const name = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName') || '';
+        const id = await AsyncStorage.getItem('userId') || '';
+        if (role) setUserRole(role);
+        if (name) setAgentName(name);
+        if (id) setUserId(id);
+      } catch (error) {
+        console.error('Error loading user role:', error);
+      }
+    };
+    loadRole();
+  }, []);
+
+  useEffect(() => {
+    const loadTeamAgents = async () => {
+      if (!isManager || !userId) return;
+      try {
+        const res = await fetch(buildApiUrl('/getUsers'));
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) {
+          const assigned = data.data.filter(u => (u.role || '').toLowerCase() === 'sales agent' && u.assignedTo === userId);
+          setTeamAgents(assigned.map(u => (u.accountName || '').trim().toLowerCase()).filter(Boolean));
+        }
+      } catch (err) {
+        console.error('Error loading team agents for manager:', err);
+        setTeamAgents([]);
+      }
+    };
+    loadTeamAgents();
+  }, [isManager, userId]);
+
+  // Load unit allocations for the logged-in agent
+  const fetchAgentAllocations = useCallback(async () => {
+    // Always load allocations to build customer map; filter to agent units when needed
+    const normalizedName = (agentName || '').trim().toLowerCase();
+    const normalizedId = (userId || '').trim().toLowerCase();
+    const normalizedTeamAgents = teamAgents.map(a => a.trim().toLowerCase());
+
+    const safeParse = (text) => {
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.error('❌ JSON parse error for allocations:', err);
+        return {};
+      }
+    };
+
+    try {
+      setAgentAllocationsLoaded(false);
+      const response = await fetch(buildApiUrl('/api/getUnitAllocation'));
+      const text = await response.text();
+      const data = text ? safeParse(text) : {};
+      const allocations = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+
+      // Build lookup for customer details
+      const customerMap = {};
+      allocations.forEach(alloc => {
+        const key = (alloc.unitId || '').toLowerCase();
+        if (!key) return;
+        customerMap[key] = {
+          id: alloc._id,
+          customerName: alloc.customerName || '',
+          customerEmail: alloc.customerEmail || '',
+          customerPhone: alloc.customerPhone || alloc.customerContact || ''
+        };
+      });
+      setUnitCustomerMap(customerMap);
+
+      if (!isAgent) {
+        setAgentUnits([]);
+        setAgentAllocationsLoaded(true);
+        return;
+      }
+
+      if (!normalizedName) {
+        setAgentUnits([]);
+        setAgentAllocationsLoaded(true);
+        return;
+      }
+
+      const assignedUnits = allocations.filter(alloc => {
+        const assignedTo = (alloc.assignedTo || '').trim().toLowerCase();
+        if (!assignedTo) return false;
+        // Strict match or contains to handle minor formatting differences
+        const matchesSelf = assignedTo === normalizedName || assignedTo.includes(normalizedName) || normalizedName.includes(assignedTo) || (normalizedId && assignedTo === normalizedId);
+        const matchesTeam = isManager && normalizedTeamAgents.some(agent => assignedTo === agent || assignedTo.includes(agent) || agent.includes(assignedTo));
+        return matchesSelf || matchesTeam;
+      }).map(alloc => ({
+        unitId: alloc.unitId,
+        unitName: alloc.unitName
+      }));
+
+      setAgentUnits(assignedUnits);
+    } catch (error) {
+      console.error('❌ Error fetching agent allocations:', error);
+      setAgentUnits([]);
+    } finally {
+      setAgentAllocationsLoaded(true);
+    }
+  }, [agentName, userId, isAgent, isManager, teamAgents]);
+
+  // When opening details, prefill customer form
+  useEffect(() => {
+    if (!selectedRequest) return;
+    const key = (selectedRequest.unitId || '').toLowerCase();
+    const details = unitCustomerMap[key] || {};
+    setCustomerForm({
+      name: details.customerName || '',
+      email: details.customerEmail || '',
+      phone: details.customerPhone || ''
+    });
+  }, [selectedRequest, unitCustomerMap]);
+
+  const handleSaveCustomerDetails = async () => {
+    if (!selectedRequest) return;
+    const key = (selectedRequest.unitId || '').toLowerCase();
+    const details = unitCustomerMap[key] || {};
+    const allocationId = details.id;
+
+    const payload = {
+      customerName: customerForm.name.trim(),
+      customerEmail: customerForm.email.trim(),
+      customerPhone: customerForm.phone.trim(),
+    };
+
+    // Helper to update by id
+    const updateById = async (idToUse) => {
+      const response = await fetch(buildApiUrl(`/updateAllocation/${idToUse}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Failed to update customer details');
+      }
+    };
+    const safeParse = (text) => {
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.error('❌ JSON parse error during fallback allocation lookup:', err);
+        return {};
+      }
+    };
+
+    setSavingCustomer(true);
+    try {
+      if (allocationId) {
+        await updateById(allocationId);
+      } else {
+        throw new Error('Allocation id missing, attempting lookup');
+      }
+    } catch (primaryError) {
+      console.warn('Primary allocation update failed, attempting lookup by unitId:', primaryError?.message);
+      try {
+        const allocRes = await fetch(buildApiUrl('/getAllocation'));
+        const allocText = await allocRes.text();
+        const allocData = safeParse(allocText || '{}');
+        const allocList = allocData.data || [];
+        const match = allocList.find((a) => (a.unitId || '').toLowerCase() === key);
+        if (!match || !match._id) {
+          throw new Error('Allocation not found for this unit');
+        }
+        await updateById(match._id);
+      } catch (fallbackError) {
+        console.error('❌ Error updating customer details:', fallbackError);
+        Alert.alert('Error', fallbackError.message || 'Failed to update customer details');
+        setSavingCustomer(false);
+        return;
+      }
+    }
+
+    try {
+      // Refresh allocation map so UI reflects new values
+      await fetchAgentAllocations();
+      Alert.alert('Saved', 'Customer details updated');
+    } catch (refreshError) {
+      console.warn('Customer saved but failed to refresh allocations:', refreshError);
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
 
   // Available services matching web version
   const availableServices = [
@@ -83,8 +283,9 @@ export default function ServiceRequestScreen() {
 
   useEffect(() => {
     fetchServiceRequests();
+    fetchAgentAllocations();
     fetchInventoryVehicles();
-  }, [fetchServiceRequests]);
+  }, [fetchServiceRequests, fetchAgentAllocations]);
 
   // Fetch inventory vehicles for selection
   const fetchInventoryVehicles = async () => {
@@ -123,6 +324,19 @@ export default function ServiceRequestScreen() {
   const getFilteredRequests = () => {
     let filtered = serviceRequests;
 
+    // Limit to units allocated to this agent
+    if (isAgent) {
+      if (!agentAllocationsLoaded) return [];
+      const allowedIds = new Set(agentUnits.map(u => (u.unitId || '').toLowerCase()));
+      const allowedNames = new Set(agentUnits.map(u => (u.unitName || '').toLowerCase()));
+
+      filtered = filtered.filter(request => {
+        const unitId = (request.unitId || '').toLowerCase();
+        const unitName = (request.unitName || '').toLowerCase();
+        return (unitId && allowedIds.has(unitId)) || (unitName && allowedNames.has(unitName));
+      });
+    }
+
     // Apply search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
@@ -154,6 +368,40 @@ export default function ServiceRequestScreen() {
     }
 
     return filtered;
+  };
+
+  // Notify customer via email
+  const handleNotifyCustomer = async (request) => {
+    if (!request) return;
+    const unitKey = (request.unitId || '').toLowerCase();
+    const customerDetails = unitCustomerMap[unitKey] || {};
+    const customerEmail = customerDetails.customerEmail;
+    const customerName = customerDetails.customerName || 'Customer';
+
+    if (!customerEmail) {
+      Alert.alert('Missing email', 'No customer email on file for this unit.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const notificationResult = await NotificationService.sendStatusNotification(
+        { name: customerName, email: customerEmail },
+        { unitName: request.unitName, unitId: request.unitId },
+        request.status || 'Vehicle Preparation'
+      );
+
+      if (notificationResult.success) {
+        Alert.alert('Sent', 'Customer notification sent via email.');
+      } else {
+        Alert.alert('Not sent', notificationResult.message || 'Failed to send notification.');
+      }
+    } catch (error) {
+      console.error('❌ Error sending notification:', error);
+      Alert.alert('Error', error.message || 'Failed to send notification');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Add new service request
@@ -417,6 +665,30 @@ export default function ServiceRequestScreen() {
     return '';
   };
 
+  // Normalize requested services from various payload shapes
+  const extractServices = (item) => {
+    let services = item?.requestedServices
+      || item?.services
+      || item?.service
+      || item?.requestedService
+      || item?.serviceList
+      || [];
+
+    if (typeof services === 'string') {
+      services = services.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    if (!Array.isArray(services)) return [];
+
+    return services.map((s) => {
+      if (typeof s === 'string') return s;
+      if (typeof s === 'object' && s !== null) {
+        return s.label || s.name || s.id || '';
+      }
+      return '';
+    }).filter(Boolean);
+  };
+
   // Get priority color
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -441,6 +713,7 @@ export default function ServiceRequestScreen() {
   // Render service request item
   const renderRequestItem = ({ item }) => {
     const statusStyle = getStatusStyle(item.status);
+    const services = extractServices(item);
     
     return (
       <TouchableOpacity
@@ -474,31 +747,46 @@ export default function ServiceRequestScreen() {
         <View style={styles.cardBody}>
           <View style={styles.cardRow}>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>🏷️ Unit ID</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="label" size={14} color="#666" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Unit ID</Text>
+              </View>
               <Text style={styles.fieldValue}>{item.unitId || 'N/A'}</Text>
             </View>
             <View style={styles.cardField}>
-              <Text style={styles.fieldLabel}>🔧 Total Services</Text>
-              <Text style={styles.fieldValue}>{(item.requestedServices || []).length}</Text>
+              <View style={styles.fieldLabelRow}>
+                <MaterialIcons name="build" size={14} color="#666" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Total Services</Text>
+              </View>
+              <Text style={styles.fieldValue}>{services.length}</Text>
             </View>
           </View>
 
           {/* Requested Services */}
           <View style={styles.servicesSection}>
-            <Text style={styles.servicesLabel}>📋 Requested Services:</Text>
+            <View style={styles.servicesLabelRow}>
+              <MaterialIcons name="assignment" size={16} color="#666" style={styles.fieldIcon} />
+              <Text style={styles.servicesLabel}>Requested Services:</Text>
+            </View>
             <View style={styles.servicesWrap}>
-              {(item.requestedServices || []).map((service, index) => (
+              {services.map((service, index) => (
                 <View key={index} style={styles.serviceTag}>
                   <Text style={styles.serviceTagText}>{formatServiceName(service)}</Text>
                 </View>
               ))}
+              {services.length === 0 && (
+                <Text style={styles.emptySubtext}>No services listed</Text>
+              )}
             </View>
           </View>
 
           {/* Notes if available */}
           {item.notes && (
             <View style={styles.notesSection}>
-              <Text style={styles.notesLabel}>📝 Notes</Text>
+              <View style={styles.notesLabelRow}>
+                <MaterialIcons name="note" size={16} color="#666" style={styles.fieldIcon} />
+                <Text style={styles.notesLabel}>Notes</Text>
+              </View>
               <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
             </View>
           )}
@@ -514,17 +802,21 @@ export default function ServiceRequestScreen() {
               setShowDetailsModal(true);
             }}
           >
-            <Text style={styles.cardActionText}>📋 View Details</Text>
+            <MaterialIcons name="visibility" size={16} color="#2196F3" />
+            <Text style={styles.cardActionText}>View Details</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.cardActionBtn, styles.deleteActionBtn]} 
-            onPress={(e) => {
-              e.stopPropagation();
-              handleDeleteRequest(item);
-            }}
-          >
-            <Text style={[styles.cardActionText, styles.deleteActionText]}>🗑️ Delete</Text>
-          </TouchableOpacity>
+          {!isAgent && (
+            <TouchableOpacity 
+              style={[styles.cardActionBtn, styles.deleteActionBtn]} 
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDeleteRequest(item);
+              }}
+            >
+              <MaterialIcons name="delete" size={16} color="#dc3545" />
+              <Text style={[styles.cardActionText, styles.deleteActionText]}>Delete</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -562,14 +854,16 @@ export default function ServiceRequestScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Vehicle Preperation</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <MaterialIcons name="add" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>New Request</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>Vehicle Preparation</Text>
+        {!isAgent && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <MaterialIcons name="add" size={24} color="#fff" />
+            <Text style={styles.addButtonText}>New Request</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search and Filter */}
@@ -623,6 +917,7 @@ export default function ServiceRequestScreen() {
       )}
 
       {/* Add Service Request Modal */}
+      {!isAgent && (
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -721,6 +1016,7 @@ export default function ServiceRequestScreen() {
           </View>
         </View>
       </Modal>
+      )}
 
       {/* Vehicle Selector Modal */}
       <Modal visible={showVehicleSelector} animationType="slide" presentationStyle="pageSheet">
@@ -850,14 +1146,14 @@ export default function ServiceRequestScreen() {
                 )}
 
                 {/* All Services (fallback if no completed/pending split) */}
-                {(!selectedRequest.completedServices && !selectedRequest.pendingServices && selectedRequest.service) && (
+                {(!selectedRequest.completedServices && !selectedRequest.pendingServices) && extractServices(selectedRequest).length > 0 && (
                   <View style={styles.detailsCard}>
                     <View style={styles.detailsCardHeader}>
                       <MaterialIcons name="build" size={22} color="#DC2626" />
                       <Text style={styles.detailsCardTitle}>Requested Services</Text>
                     </View>
                     <View style={styles.detailsServicesGrid}>
-                      {(selectedRequest.service || []).map((service, index) => (
+                      {extractServices(selectedRequest).map((service, index) => (
                         <View key={index} style={styles.allServiceChip}>
                           <MaterialIcons name="build" size={16} color="#DC2626" />
                           <Text style={styles.allServiceText}>{formatServiceName(service)}</Text>
@@ -909,6 +1205,71 @@ export default function ServiceRequestScreen() {
                       </View>
                     </>
                   )}
+                </View>
+
+                {/* Customer Details */}
+                <View style={styles.detailsCard}>
+                  <View style={styles.detailsCardHeader}>
+                    <MaterialIcons name="person" size={22} color="#16a34a" />
+                    <Text style={styles.detailsCardTitle}>Customer Details</Text>
+                  </View>
+
+                  <View style={styles.detailsInfoRowColumn}>
+                    <Text style={styles.detailsLabel}>Customer Name</Text>
+                    <TextInput
+                      style={styles.customerInput}
+                      placeholder="Enter customer name"
+                      value={customerForm.name}
+                      onChangeText={(text) => setCustomerForm(prev => ({ ...prev, name: text }))}
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+
+                  <View style={styles.detailsDivider} />
+
+                  <View style={styles.detailsInfoRowColumn}>
+                    <Text style={styles.detailsLabel}>Customer Email</Text>
+                    <TextInput
+                      style={styles.customerInput}
+                      placeholder="Enter customer email"
+                      value={customerForm.email}
+                      onChangeText={(text) => setCustomerForm(prev => ({ ...prev, email: text }))}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+
+                  <View style={styles.detailsDivider} />
+
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity
+                      style={[styles.contactBtn, styles.emailBtn]}
+                      onPress={() => handleNotifyCustomer(selectedRequest)}
+                    >
+                      <MaterialIcons name="email" size={18} color="#fff" />
+                      <Text style={styles.contactBtnText}>Email Update</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.contactBtn, styles.smsBtn]}
+                      onPress={() => Alert.alert('Coming soon', 'Feature under development')}
+                    >
+                      <MaterialIcons name="sms" size={18} color="#fff" />
+                      <Text style={styles.contactBtnText}>Mobile</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.saveCustomerBtn, savingCustomer && styles.saveCustomerBtnDisabled]}
+                    onPress={handleSaveCustomerDetails}
+                    disabled={savingCustomer}
+                  >
+                    <Text style={styles.saveCustomerText}>{savingCustomer ? 'Saving...' : 'Save Customer Details'}</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.contactHint}>
+                    Email is active now. Mobile notifications will be enabled in a future update.
+                  </Text>
                 </View>
               </ScrollView>
             )}
@@ -1129,17 +1490,17 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#e5e7eb',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1148,7 +1509,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e5e7eb',
   },
   cardHeaderLeft: {
     flex: 1,
@@ -1202,7 +1563,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e5e7eb',
   },
   servicesLabel: {
     fontSize: 14,
@@ -1234,7 +1595,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e5e7eb',
   },
   notesLabel: {
     fontSize: 12,
@@ -1253,26 +1614,29 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e5e7eb',
     gap: 8,
   },
   cardActionBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    alignItems: 'center',
+    backgroundColor: '#f9fafb',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#d1d5db',
   },
   editActionBtn: {
-    backgroundColor: '#fff3e0',
-    borderColor: '#ffb300',
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
   },
   deleteActionBtn: {
-    backgroundColor: '#ffebee',
-    borderColor: '#f44336',
+    backgroundColor: '#fee2e2',
+    borderColor: '#dc2626',
   },
   cardActionText: {
     fontSize: 13,
@@ -1280,10 +1644,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   editActionText: {
-    color: '#e65100',
+    color: '#d97706',
   },
   deleteActionText: {
-    color: '#c62828',
+    color: '#dc2626',
   },
   // Old styles kept for modals and other components
   requestHeader: {
@@ -1783,6 +2147,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
+  detailsInfoRowColumn: {
+    paddingVertical: 8,
+  },
   detailsDivider: {
     height: 1,
     backgroundColor: '#f1f3f5',
@@ -1793,6 +2160,17 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     fontWeight: '600',
     flex: 1,
+  },
+  customerInput: {
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#f8fafc',
   },
   detailsValue: {
     fontSize: 14,
@@ -1888,5 +2266,69 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  // Icon styles for labels
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  servicesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  notesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  fieldIcon: {
+    marginRight: 4,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 10,
+  },
+  contactBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  saveCustomerBtn: {
+    marginTop: 12,
+    backgroundColor: '#16a34a',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  saveCustomerBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveCustomerText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  emailBtn: {
+    backgroundColor: '#2563eb',
+  },
+  smsBtn: {
+    backgroundColor: '#9ca3af',
+  },
+  contactBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  contactHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
   },
 });

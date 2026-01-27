@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 
@@ -7,6 +8,48 @@ export default function VehicleProgressScreen() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [userId, setUserId] = useState('');
+  const [teamAgents, setTeamAgents] = useState([]); // agent names assigned to this manager
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAgent = normalizedRole === 'sales agent' || normalizedRole === 'manager';
+  const isManager = normalizedRole === 'manager';
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userRole');
+        const name = await AsyncStorage.getItem('accountName') || await AsyncStorage.getItem('userName') || '';
+        const id = await AsyncStorage.getItem('userId') || '';
+        if (role) setUserRole(role);
+        if (name) setAgentName(name);
+        if (id) setUserId(id);
+      } catch (err) {
+        console.error('❌ Failed to load user info:', err);
+      }
+    };
+    loadUser();
+  }, []);
+
+  // Load manager's assigned agents
+  useEffect(() => {
+    const loadTeamAgents = async () => {
+      if (!isManager || !userId) return;
+      try {
+        const res = await fetch(buildApiUrl('/getUsers'));
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : {};
+        const users = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const assigned = users.filter(u => (u.role || '').toLowerCase() === 'sales agent' && (u.assignedTo === userId));
+        setTeamAgents(assigned.map(u => (u.accountName || '').trim().toLowerCase()).filter(Boolean));
+      } catch (err) {
+        console.error('❌ Failed to load team agents:', err);
+        setTeamAgents([]);
+      }
+    };
+    loadTeamAgents();
+  }, [isManager, userId]);
 
   const fetchVehicles = async () => {
     try {
@@ -26,7 +69,61 @@ export default function VehicleProgressScreen() {
       const data = Array.isArray(responseData) ? responseData : 
                   (responseData.success && Array.isArray(responseData.data) ? responseData.data : []);
       
-      setVehicles(data);
+      const normalizedAgent = (agentName || '').trim().toLowerCase();
+
+      let filtered = isAgent
+        ? data.filter((item) => {
+            const assigned = (item.assignedAgent || '').trim().toLowerCase();
+            const status = (item.status || '').trim().toLowerCase();
+            const isInTransit = ['in transit', 'in-transit', 'intransit'].includes(status);
+            const matchesAgent = assigned && (
+              assigned === normalizedAgent ||
+              assigned.includes(normalizedAgent) ||
+              normalizedAgent.includes(assigned) ||
+              (isManager && teamAgents.includes(assigned))
+            );
+            return matchesAgent && isInTransit;
+          })
+        : data;
+
+      // Fallback for agents: use allocations if no dispatch assignments found
+      if (isAgent && filtered.length === 0) {
+        try {
+          console.log('🔄 No dispatch assignments found, falling back to allocations...');
+          const allocRes = await fetch(buildApiUrl('/getAllocation'));
+          const allocText = await allocRes.text();
+          const allocJson = allocText ? JSON.parse(allocText) : {};
+          const allocs = Array.isArray(allocJson?.data) ? allocJson.data : Array.isArray(allocJson) ? allocJson : [];
+
+          filtered = allocs
+            .filter((alloc) => {
+              const assigned = (alloc.assignedAgent || '').trim().toLowerCase();
+              const status = (alloc.status || '').trim().toLowerCase();
+              const isInTransit = ['in transit', 'in-transit', 'intransit'].includes(status);
+              const matchesAgent = assigned && (
+                assigned === normalizedAgent ||
+                assigned.includes(normalizedAgent) ||
+                normalizedAgent.includes(assigned) ||
+                (isManager && teamAgents.includes(assigned))
+              );
+              return matchesAgent && isInTransit;
+            })
+            .map((alloc) => ({
+              _id: alloc._id,
+              unitName: alloc.unitName || alloc.model,
+              unitId: alloc.unitId,
+              assignedDriver: alloc.assignedDriver || alloc.driver,
+              assignedAgent: alloc.assignedAgent,
+              status: alloc.status,
+              processStatus: alloc.processStatus || {},
+              requestedProcesses: alloc.requestedProcesses || alloc.service || alloc.requestedServices || [],
+            }));
+        } catch (fallbackErr) {
+          console.error('❌ Fallback allocation fetch failed:', fallbackErr);
+        }
+      }
+
+      setVehicles(filtered);
     } catch (err) {
       console.error('❌ Failed to fetch vehicles:', err);
       setVehicles([]);
@@ -38,7 +135,7 @@ export default function VehicleProgressScreen() {
 
   useEffect(() => {
     fetchVehicles();
-  }, []);
+  }, [userRole, agentName]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -122,6 +219,9 @@ export default function VehicleProgressScreen() {
         <Text style={styles.subtitle}>
           Agent: {item.assignedAgent || 'Not Assigned'}
         </Text>
+        <Text style={styles.subtitle}>
+          Status: {item.status || 'Not Available'}
+        </Text>
         
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
@@ -151,13 +251,17 @@ export default function VehicleProgressScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e50914']} />
       }
     >
-      <Text style={styles.header}>Vehicle Preparation Tracker</Text>
-      <Text style={styles.subheader}>Track vehicle preparation and dispatch assignments</Text>
+      <Text style={styles.header}>{isAgent ? 'Vehicle Tracker' : 'Vehicle Preparation Tracker'}</Text>
+      <Text style={styles.subheader}>
+        {isAgent ? 'Live view of your in-transit assigned units' : 'Track vehicle preparation and dispatch assignments'}
+      </Text>
       
       {vehicles.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No vehicles in preparation</Text>
-          <Text style={styles.emptySubtext}>Vehicles assigned for preparation will appear here</Text>
+          <Text style={styles.emptyText}>{isAgent ? 'No in-transit vehicles assigned to you' : 'No vehicles in preparation'}</Text>
+          <Text style={styles.emptySubtext}>
+            {isAgent ? 'When a vehicle for you is in transit, it will appear here.' : 'Vehicles assigned for preparation will appear here'}
+          </Text>
         </View>
       ) : (
         <FlatList

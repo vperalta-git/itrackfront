@@ -43,6 +43,7 @@ export default function TestDriveManagementScreen() {
     customerPhone: '',
     customerEmail: '',
     vehicleId: '',
+    unitId: '',
     unitName: '',
     variation: '',
     bodyColor: '',
@@ -244,7 +245,7 @@ export default function TestDriveManagementScreen() {
 
   // Add new test drive
   const handleAddTestDrive = async () => {
-    if (!newTestDrive.customerName || !newTestDrive.customerPhone || !newTestDrive.unitId) {
+    if (!newTestDrive.customerName || !newTestDrive.customerPhone || !newTestDrive.vehicleId) {
       Alert.alert('Error', 'Please fill in required fields');
       return;
     }
@@ -256,7 +257,9 @@ export default function TestDriveManagementScreen() {
         body: JSON.stringify({
           ...newTestDrive,
           createdBy: await AsyncStorage.getItem('accountName') || 'System',
-          status: 'Scheduled'
+          status: 'Scheduled',
+          scheduledDate: newTestDrive.scheduledDate || new Date().toISOString(),
+          scheduledTime: newTestDrive.scheduledTime || ''
         }),
       });
 
@@ -270,6 +273,7 @@ export default function TestDriveManagementScreen() {
           customerPhone: '',
           customerEmail: '',
           vehicleId: '',
+          unitId: '',
           unitName: '',
           variation: '',
           bodyColor: '',
@@ -319,8 +323,8 @@ export default function TestDriveManagementScreen() {
     <View style={styles.testDriveCard}>
       <View style={styles.cardHeader}>
         <View style={styles.customerInfo}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
-          <Text style={styles.customerPhone}>{item.customerPhone}</Text>
+          <Text style={styles.customerName}>{item.customerName || 'Customer'}</Text>
+          <Text style={styles.customerPhone}>{item.customerPhone || '—'}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status}</Text>
@@ -329,14 +333,13 @@ export default function TestDriveManagementScreen() {
       
       <View style={styles.vehicleInfo}>
         <Text style={styles.vehicleName}>
-          {item.unitName || 'N/A'}
+          {item.unitName || 'Unit not set'}
         </Text>
-        {item.variation && (
-          <Text style={styles.vehicleVariation}>{item.variation}</Text>
-        )}
-        {item.bodyColor && (
-          <Text style={styles.vehicleColor}>Color: {item.bodyColor}</Text>
-        )}
+        <Text style={styles.vehicleVariation}>{item.variation || 'Variation: —'}</Text>
+        <Text style={styles.vehicleColor}>Color: {item.bodyColor || '—'}</Text>
+        {item.unitId ? (
+          <Text style={styles.vehicleColor}>Conduction: {item.unitId}</Text>
+        ) : null}
       </View>
 
       {item.scheduledDate && (
@@ -656,6 +659,7 @@ export default function TestDriveManagementScreen() {
                     setNewTestDrive({
                       ...newTestDrive,
                       vehicleId: vehicle._id,
+                      unitId: vehicle.unitId || vehicle.conductionNumber || '',
                       unitName: vehicle.unitName,
                       variation: vehicle.variation || '',
                       bodyColor: vehicle.bodyColor || ''

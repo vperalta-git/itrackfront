@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import { buildApiUrl } from '../constants/api';
 import { useTheme } from '../context/ThemeContext';
 
@@ -25,6 +25,10 @@ export default function VehicleAssignmentScreen({ navigation }) {
   const [mode, setMode] = useState('stock'); // 'stock' or 'manual'
   const [selectedVin, setSelectedVin] = useState('');
   const [selectedAgent, setSelectedAgent] = useState('');
+  const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
+  const [vehicleSearchQuery, setVehicleSearchQuery] = useState('');
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
   const [manualModel, setManualModel] = useState('');
   const [manualVin, setManualVin] = useState('');
@@ -186,6 +190,10 @@ export default function VehicleAssignmentScreen({ navigation }) {
   const resetForm = () => {
     setSelectedVin('');
     setSelectedAgent('');
+    setShowVehicleDropdown(false);
+    setShowAgentDropdown(false);
+    setVehicleSearchQuery('');
+    setAgentSearchQuery('');
     setSelectedDriver('');
     setManualModel('');
     setManualVin('');
@@ -218,44 +226,163 @@ export default function VehicleAssignmentScreen({ navigation }) {
         {
           <View style={[styles.section, { backgroundColor: theme.card }]}>
             <Text style={[styles.fieldLabel, { color: theme.text }]}>Select Vehicle from Stock</Text>
-            <View style={[styles.pickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
-              <Picker
-                selectedValue={selectedVin}
-                onValueChange={val => setSelectedVin(val)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Choose Vehicle..." value="" />
-                {inventory.filter(item => {
-                  const status = item.status || 'In Stockyard';
-                  // Only show vehicles that are not already allocated
-                  return (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
-                }).map(v => (
-                  <Picker.Item 
-                    key={v._id} 
-                    label={`${v.unitName} - ${v.variation} (${v.bodyColor}) - ${v.status || 'In Stockyard'}`} 
-                    value={v.unitId || v._id} 
+            <TouchableOpacity
+              style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+              onPress={() => setShowVehicleDropdown(!showVehicleDropdown)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.selectedItemContainer}>
+                {(() => {
+                  if (!selectedVin) return <Text style={styles.placeholderText}>Choose Vehicle...</Text>;
+                  const unit = inventory.find(v => (v.unitId || v._id) === selectedVin);
+                  if (!unit) return <Text style={styles.placeholderText}>Choose Vehicle...</Text>;
+                  const label = `${unit.unitName} - ${unit.variation || ''}${unit.bodyColor ? ` (${unit.bodyColor})` : ''}`.trim();
+                  return <Text style={styles.selectedAgentText}>{label}</Text>;
+                })()}
+              </View>
+              <MaterialIcons name={showVehicleDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            {showVehicleDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}> 
+                <View style={styles.searchContainer}>
+                  <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.text }]}
+                    placeholder="Search vehicles..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={vehicleSearchQuery}
+                    onChangeText={setVehicleSearchQuery}
                   />
-                ))}
-              </Picker>
-            </View>
+                  {vehicleSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setVehicleSearchQuery('')}>
+                      <MaterialIcons name="close" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {inventory
+                    .filter(item => {
+                      const status = item.status || 'In Stockyard';
+                      const available = (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                      if (!available) return false;
+                      const q = vehicleSearchQuery.toLowerCase();
+                      return [item.unitName, item.unitId, item.bodyColor, item.variation]
+                        .some(f => (f || '').toLowerCase().includes(q));
+                    })
+                    .map(item => {
+                      const label = `${item.unitName} - ${item.variation || ''}${item.bodyColor ? ` (${item.bodyColor})` : ''}`.trim();
+                      const isSelected = selectedVin === (item.unitId || item._id);
+                      return (
+                        <TouchableOpacity
+                          key={item._id}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setSelectedVin(item.unitId || item._id);
+                            setShowVehicleDropdown(false);
+                            setVehicleSearchQuery('');
+                          }}
+                        >
+                          <View style={styles.dropdownItemInfo}>
+                            <Text style={[styles.agentName, { color: theme.text }]}>{label}</Text>
+                            <Text style={[styles.agentRole, { color: theme.textSecondary }]}>{item.status || 'In Stockyard'}</Text>
+                          </View>
+                          {isSelected && <MaterialIcons name="check-circle" size={22} color="#059669" />}
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {inventory.filter(item => {
+                    const status = item.status || 'In Stockyard';
+                    const available = (status === 'In Stockyard' || status === 'Available') && !item.assignedDriver;
+                    if (!available) return false;
+                    const q = vehicleSearchQuery.toLowerCase();
+                    return [item.unitName, item.unitId, item.bodyColor, item.variation]
+                      .some(f => (f || '').toLowerCase().includes(q));
+                  }).length === 0 && (
+                    <View style={styles.noResultsContainer}>
+                      <MaterialIcons name="search-off" size={48} color="#ccc" />
+                      <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No vehicles found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
           </View>
         }
 
         {/* Agent Selection - For Sales Agents Only */}
-        <View style={[styles.section, { backgroundColor: theme.card }]}>
+          <View style={[styles.section, { backgroundColor: theme.card }]}>
           <Text style={[styles.fieldLabel, { color: theme.text }]}>Assign to Agent</Text>
-          <View style={[styles.pickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
-            <Picker
-              selectedValue={selectedAgent}
-              onValueChange={val => setSelectedAgent(val)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Agent..." value="" />
-              {agents.map(a => (
-                <Picker.Item key={a._id} label={a.accountName || a.name || a.username} value={a.accountName || a.name || a.username} />
-              ))}
-            </Picker>
-          </View>
+          <TouchableOpacity
+            style={[styles.searchableDropdown, { borderColor: theme.border, backgroundColor: theme.inputBackground }]}
+            onPress={() => setShowAgentDropdown(!showAgentDropdown)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.selectedItemContainer}>
+              {(() => {
+                if (!selectedAgent) return <Text style={styles.placeholderText}>Select Agent...</Text>;
+                const agent = agents.find(a => (a.accountName || a.name || a.username) === selectedAgent);
+                const label = agent ? (agent.accountName || agent.name || agent.username) : 'Select Agent...';
+                return <Text style={styles.selectedAgentText}>{label}</Text>;
+              })()}
+            </View>
+            <MaterialIcons name={showAgentDropdown ? 'arrow-drop-up' : 'arrow-drop-down'} size={24} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          {showAgentDropdown && (
+            <View style={[styles.dropdownContainer, { borderColor: theme.border, backgroundColor: theme.card }]}>
+              <View style={styles.searchContainer}>
+                <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder="Search agents..."
+                  placeholderTextColor={theme.textSecondary}
+                  value={agentSearchQuery}
+                  onChangeText={setAgentSearchQuery}
+                />
+                {agentSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setAgentSearchQuery('')}>
+                    <MaterialIcons name="close" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                {agents
+                  .filter(a => (a.accountName || a.name || a.username || '').toLowerCase().includes(agentSearchQuery.toLowerCase()))
+                  .map(a => {
+                    const label = a.accountName || a.name || a.username;
+                    const isSelected = selectedAgent === label;
+                    return (
+                      <TouchableOpacity
+                        key={a._id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setSelectedAgent(label);
+                          setShowAgentDropdown(false);
+                          setAgentSearchQuery('');
+                        }}
+                      >
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={[styles.agentName, { color: theme.text }]}>{label}</Text>
+                          <Text style={[styles.agentRole, { color: theme.textSecondary }]}>{a.email || a.username || ''}</Text>
+                        </View>
+                        {isSelected && <MaterialIcons name="check-circle" size={22} color="#059669" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                {agents.filter(a => (a.accountName || a.name || a.username || '').toLowerCase().includes(agentSearchQuery.toLowerCase())).length === 0 && (
+                  <View style={styles.noResultsContainer}>
+                    <MaterialIcons name="search-off" size={48} color="#ccc" />
+                    <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>No agents found</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         {/* Create Assignment Button */}
@@ -357,13 +484,92 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
-  pickerContainer: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    overflow: 'hidden',
+  // Searchable dropdowns
+  searchableDropdown: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  picker: {
-    height: 50,
+  selectedItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  selectedAgentText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderRadius: 10,
+    marginTop: 6,
+    maxHeight: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 6,
+  },
+  dropdownList: {
+    maxHeight: 260,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    gap: 12,
+  },
+  dropdownItemInfo: {
+    flex: 1,
+  },
+  agentName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  agentRole: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  noResultsText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '500',
   },
   input: {
     borderWidth: 1.5,
