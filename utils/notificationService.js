@@ -21,7 +21,7 @@ export class NotificationService {
       
       const notificationData = {
         customerEmail: customerData.email,
-        customerPhone: customerData.phone, // Store for future SMS use
+        customerPhone: customerData.phone, // Used for SMS when available
         customerName: customerData.name,
         vehicleModel: vehicleData.unitName || vehicleData.model || vehicleData.unitId,
         vin: vehicleData.unitId || vehicleData.vin,
@@ -69,18 +69,14 @@ export class NotificationService {
     return this.sendStatusNotification(customerData, vehicleData, statusUpdate);
   }
 
-  // Future SMS notification (placeholder - currently using email only)
+  // Direct SMS notifications are handled server-side via sendStatusNotification
   static async sendSMSNotification(customerPhone, message) {
-    // SMS functionality has been replaced with email notifications
-    // iTexMo integration is planned for future implementation
-    console.log('📱 SMS notification (using email instead):', { customerPhone, message });
-    
+    console.warn('📱 Direct SMS sending is handled by the backend. Use sendStatusNotification instead.', { customerPhone, message });
     return {
       success: false,
-      message: 'SMS service not available - using email notifications instead',
-      smsReady: false,
-      currentMethod: 'email',
-      futureImplementation: 'iTexMo API integration planned'
+      message: 'SMS is sent by the backend when a phone number is available. Use sendStatusNotification.',
+      smsReady: true,
+      currentMethod: 'backend'
     };
   }
 
@@ -99,7 +95,7 @@ export class NotificationService {
       customerData, 
       vehicleData, 
       'Dispatch & Arrival',
-      driverName ? `Driver: ${driverName}` : ''
+      driverName || ''
     );
   }
 

@@ -1268,7 +1268,7 @@ export default function ServiceRequestScreen() {
                   </TouchableOpacity>
 
                   <Text style={styles.contactHint}>
-                    Email is active now. Mobile notifications will be enabled in a future update.
+                    Email and SMS notifications are active when a customer phone number is available.
                   </Text>
                 </View>
               </ScrollView>

@@ -3530,11 +3530,11 @@ app.get('/test', (req, res) => {
   });
 });
 
-// Email Notification System
-// POST /api/send-notification - Send email notification to customer
+// Email + SMS Notification System
+// POST /api/send-notification - Send email/SMS notification to customer
 app.post('/api/send-notification', async (req, res) => {
   try {
-    const { customerEmail, customerName, vehicleModel, vin, status, processDetails } = req.body;
+    const { customerEmail, customerName, customerPhone, vehicleModel, vin, status, processDetails } = req.body;
     
     console.log('📧 Sending notification:', { customerEmail, customerName, vehicleModel, status });
     
@@ -3544,6 +3544,19 @@ app.post('/api/send-notification', async (req, res) => {
         message: 'Missing required fields: customerEmail, customerName, vehicleModel, status'
       });
     }
+
+    const normalizePhone = (phone) => {
+      if (!phone) return '';
+      const trimmed = `${phone}`.trim();
+      if (trimmed.startsWith('+')) return trimmed;
+      if (trimmed.startsWith('0')) return `+63${trimmed.slice(1)}`;
+      if (trimmed.startsWith('63')) return `+${trimmed}`;
+      return trimmed;
+    };
+
+    const smsApiUrl = process.env.SMS_API_URL || 'https://sms-api-ph-gceo.onrender.com/send';
+    const smsApiKey = process.env.SMS_API_KEY;
+    const smsSenderId = process.env.SMS_SENDER_ID || 'I-Track_Pasig';
 
     // Define notification templates based on the official Isuzu Pasig templates
     const getNotificationTemplate = (status, processDetails = '') => {
@@ -3661,6 +3674,34 @@ app.post('/api/send-notification', async (req, res) => {
     };
 
     const template = getNotificationTemplate(status, processDetails);
+
+    const getSmsTemplate = (statusValue, processDetailsValue = '') => {
+      const normalizedStatus = (statusValue || '').toLowerCase();
+      const vinOrModel = vin || vehicleModel;
+
+      if ([
+        'vehicle preparation',
+        'in preparation',
+        'tinting',
+        'car wash',
+        'rust proof',
+        'accessories',
+        'ceramic coating'
+      ].includes(normalizedStatus)) {
+        return `Hi ${customerName}, this is Isuzu Pasig. Your vehicle ${vinOrModel} is now undergoing ${processDetailsValue || statusValue}. Thank you for choosing Isuzu Pasig.`;
+      }
+
+      if (['dispatch & arrival', 'in transit', 'arriving'].includes(normalizedStatus)) {
+        const driverName = processDetailsValue || '[Driver]';
+        return `The vehicle ${vinOrModel} driven by ${driverName} is arriving shortly at Isuzu Pasig.`;
+      }
+
+      if (['ready for release', 'done', 'completed', 'ready'].includes(normalizedStatus)) {
+        return 'Good news! Your vehicle is now ready for release. Please proceed to Isuzu Pasig or contact your sales agent for pickup details. Thank you for choosing Isuzu.';
+      }
+
+      return `Your vehicle ${vinOrModel} status is now ${statusValue}.`;
+    };
     
     // Configure email
     const mailOptions = {
@@ -3674,12 +3715,44 @@ app.post('/api/send-notification', async (req, res) => {
     await transporter.sendMail(mailOptions);
     
     console.log('✅ Email notification sent successfully to:', customerEmail);
+
+    // Send SMS (optional if API key and phone are available)
+    let smsSent = false;
+    let smsError = null;
+    const normalizedPhone = normalizePhone(customerPhone);
+
+    if (smsApiUrl && smsApiKey && normalizedPhone) {
+      try {
+        const smsMessage = getSmsTemplate(status, processDetails);
+        await axios.post(
+          smsApiUrl,
+          {
+            senderId: smsSenderId,
+            recipient: normalizedPhone,
+            message: smsMessage
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': smsApiKey
+            }
+          }
+        );
+        smsSent = true;
+        console.log('✅ SMS notification sent successfully to:', normalizedPhone);
+      } catch (smsErr) {
+        smsError = smsErr.message || 'Failed to send SMS';
+        console.error('❌ SMS notification error:', smsErr.message || smsErr);
+      }
+    }
     
     res.json({
       success: true,
       message: 'Notification sent successfully',
       emailSent: true,
-      smsSent: false // Will be true when iTexMo integration is ready
+      smsSent,
+      smsError,
+      notificationMethod: smsSent ? 'email+sms' : 'email'
     });
     
   } catch (error) {
