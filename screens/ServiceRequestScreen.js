@@ -140,7 +140,7 @@ export default function ServiceRequestScreen() {
       }
 
       const assignedUnits = allocations.filter(alloc => {
-        const assignedTo = (alloc.assignedTo || '').trim().toLowerCase();
+        const assignedTo = (alloc.assignedTo || alloc.assignedAgent || '').trim().toLowerCase();
         if (!assignedTo) return false;
         // Strict match or contains to handle minor formatting differences
         const matchesSelf = assignedTo === normalizedName || assignedTo.includes(normalizedName) || normalizedName.includes(assignedTo) || (normalizedId && assignedTo === normalizedId);

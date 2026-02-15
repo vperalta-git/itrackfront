@@ -42,9 +42,10 @@ const AgentMapsView = ({ style }) => {
             const allocationsArray = data.data || data.allocation || data || [];
             
             // Filter for current agent
-            const agentAllocations = allocationsArray.filter(allocation => 
-              allocation.assignedAgent === agentName || allocation.agent === agentName
-            );
+            const agentAllocations = allocationsArray.filter(allocation => {
+              const assigned = allocation.assignedAgent || allocation.assignedTo || allocation.agent || '';
+              return assigned === agentName;
+            });
             
             setAllocations(allocationsArray);
             setAgentAllocations(agentAllocations);
@@ -169,9 +170,10 @@ const AgentMapsView = ({ style }) => {
         })}
         
         {/* Other Vehicles (in gray) */}
-        {allocations.filter(allocation => 
-          allocation.assignedAgent !== agentName && allocation.agent !== agentName
-        ).slice(0, 5).map((allocation, index) => {
+        {allocations.filter(allocation => {
+          const assigned = allocation.assignedAgent || allocation.assignedTo || allocation.agent || '';
+          return assigned !== agentName;
+        }).slice(0, 5).map((allocation, index) => {
           // Use real coordinates from backend or fallback to demo coordinates
           let lat, lng;
           
@@ -190,7 +192,7 @@ const AgentMapsView = ({ style }) => {
               key={`other-vehicle-${index}`}
               coordinate={{ latitude: lat, longitude: lng }}
               title={`${allocation.unitName || 'Vehicle'} (${allocation.unitId || 'N/A'})`}
-              description={`Agent: ${allocation.assignedAgent || 'Unassigned'} • Status: ${allocation.status || 'Unknown'}`}
+              description={`Agent: ${allocation.assignedAgent || allocation.assignedTo || 'Unassigned'} • Status: ${allocation.status || 'Unknown'}`}
               pinColor="gray"
             />
           );

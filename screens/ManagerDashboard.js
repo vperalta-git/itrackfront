@@ -684,10 +684,10 @@ export default function ManagerDashboard() {
                 </View>
                 
                 {/* Show assigned agent if viewing all agents */}
-                {selectedAgent === 'all' && item.assignedTo && (
+                {selectedAgent === 'all' && (item.assignedAgent || item.assignedTo) && (
                   <View style={styles.stockInfoRow}>
                     <Text style={styles.stockInfoLabel}>Agent</Text>
-                    <Text style={styles.stockInfoValue}>{item.assignedTo}</Text>
+                    <Text style={styles.stockInfoValue}>{item.assignedAgent || item.assignedTo}</Text>
                   </View>
                 )}
               </View>

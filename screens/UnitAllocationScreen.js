@@ -137,7 +137,7 @@ export default function UnitAllocationScreen() {
   };
 
   const resolveAgentForAllocation = (alloc) => {
-    const assigned = (alloc.assignedTo || '').trim().toLowerCase();
+    const assigned = (alloc.assignedTo || alloc.assignedAgent || '').trim().toLowerCase();
     return agents.find(a => {
       const name = (a.displayName || a.name || '').trim().toLowerCase();
       return name === assigned;
@@ -166,7 +166,7 @@ export default function UnitAllocationScreen() {
       filtered = filtered.filter(alloc =>
         alloc.unitName?.toLowerCase().includes(query) ||
         alloc.unitId?.toLowerCase().includes(query) ||
-        alloc.assignedTo?.toLowerCase().includes(query) ||
+        (alloc.assignedTo || alloc.assignedAgent || '').toLowerCase().includes(query) ||
         alloc.bodyColor?.toLowerCase().includes(query)
       );
     }
