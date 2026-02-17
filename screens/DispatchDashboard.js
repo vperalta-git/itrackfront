@@ -34,6 +34,7 @@ export default function DispatchDashboard({ navigation }) {
         map[key] = {
           customerName: alloc.customerName || 'Customer',
           customerEmail: alloc.customerEmail || '',
+          customerPhone: alloc.customerPhone || '',
         };
       });
       setUnitCustomerMap(map);

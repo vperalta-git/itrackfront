@@ -96,6 +96,11 @@ export default function AgentSMSInfoScreen() {
       return;
     }
 
+    if (!form.vehicleId.trim()) {
+      Alert.alert('Validation', 'Vehicle ID/Unit ID is required to link customer information');
+      return;
+    }
+
     try {
       setSaving(true);
       const newCustomer = {
@@ -107,7 +112,28 @@ export default function AgentSMSInfoScreen() {
         notes: form.notes.trim(),
       };
 
-      // Store in local list (in production, this would be saved to backend)
+      // Update unit allocation with customer contact info
+      try {
+        const response = await fetch(buildApiUrl('/api/updateUnitCustomerInfo'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            unitId: form.vehicleId.trim(),
+            customerName: form.name.trim(),
+            customerEmail: form.email.trim(),
+            customerPhone: form.phone.trim(),
+          })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+          console.warn('Warning: Could not update unit allocation:', result.message);
+        }
+      } catch (error) {
+        console.error('Error updating unit allocation:', error);
+      }
+
+      // Store in local list
       const updatedCustomers = [...customers, newCustomer];
       setCustomers(updatedCustomers);
 
@@ -308,13 +334,16 @@ export default function AgentSMSInfoScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Vehicle ID</Text>
+              <Text style={styles.label}>Vehicle ID / Unit ID *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Vehicle ID or VIN"
+                placeholder="Enter Unit ID (e.g., V001, ISUZU-001)"
                 value={form.vehicleId}
                 onChangeText={(text) => setForm({ ...form, vehicleId: text })}
               />
+              <Text style={styles.helperText}>
+                Required: This links customer info to the vehicle for SMS notifications
+              </Text>
             </View>
 
             <View style={styles.formGroup}>
@@ -599,6 +628,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 6,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   input: {
     borderWidth: 1,
