@@ -404,6 +404,53 @@ export default function ServiceRequestScreen() {
     }
   };
 
+  // Send SMS notification to customer
+  const handleNotifyCustomerSMS = async (request) => {
+    if (!request) return;
+    const unitKey = (request.unitId || '').toLowerCase();
+    const customerDetails = unitCustomerMap[unitKey] || {};
+    const customerPhone = customerDetails.customerPhone;
+    const customerName = customerDetails.customerName || 'Customer';
+
+    if (!customerPhone) {
+      Alert.alert('Missing phone', 'No customer phone number on file for this unit.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Use the same notification service - it handles SMS via backend when phone is provided
+      const notificationResult = await NotificationService.sendStatusNotification(
+        { 
+          name: customerName, 
+          phone: customerPhone,
+          email: customerDetails.customerEmail || '' // Include email if available
+        },
+        { unitName: request.unitName, unitId: request.unitId },
+        request.status || 'Vehicle Preparation'
+      );
+
+      if (notificationResult.success) {
+        const notificationMethods = [];
+        if (notificationResult.smsSent) notificationMethods.push('SMS');
+        if (notificationResult.emailSent) notificationMethods.push('Email');
+        
+        const methodText = notificationMethods.length > 0 
+          ? `via ${notificationMethods.join(' and ')}`
+          : 'to customer';
+          
+        Alert.alert('Sent', `Customer notification sent ${methodText}.`);
+      } else {
+        Alert.alert('Not sent', notificationResult.message || 'Failed to send notification.');
+      }
+    } catch (error) {
+      console.error('❌ Error sending SMS notification:', error);
+      Alert.alert('Error', error.message || 'Failed to send notification');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Add new service request
   const handleAddServiceRequest = async () => {
     console.log('🔍 Starting create request...');
@@ -1252,7 +1299,7 @@ export default function ServiceRequestScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.contactBtn, styles.smsBtn]}
-                      onPress={() => Alert.alert('Coming soon', 'Feature under development')}
+                      onPress={() => handleNotifyCustomerSMS(selectedRequest)}
                     >
                       <MaterialIcons name="sms" size={18} color="#fff" />
                       <Text style={styles.contactBtnText}>Mobile</Text>
