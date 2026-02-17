@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import NotificationService from '../utils/notificationService';
 
 export default function ReleaseScreen() {
   const [pendingReleases, setPendingReleases] = useState([]);
@@ -92,6 +93,28 @@ export default function ReleaseScreen() {
 
               if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Failed to confirm release');
+              }
+
+              // Send SMS notification to customer that vehicle is ready for pickup
+              if (request.customerEmail || request.customerPhone) {
+                try {
+                  const notifyResult = await NotificationService.sendStatusNotification(
+                    {
+                      name: request.customerName || 'Customer',
+                      email: request.customerEmail || '',
+                      phone: request.customerPhone || request.customerContact || '',
+                    },
+                    {
+                      unitName: request.unitName,
+                      unitId: request.unitId,
+                    },
+                    'Vehicle Ready for Pickup',
+                    `Your ${request.unitName} (${request.unitId}) is now ready for pickup. Thank you for choosing us!`
+                  );
+                  console.log('SMS notification sent:', notifyResult);
+                } catch (error) {
+                  console.error('Error sending SMS notification:', error);
+                }
               }
 
               Alert.alert(

@@ -26,6 +26,7 @@ import DriverDashboard from './screens/DriverDashboard';
 import DriverHistory from './screens/DriverHistory';
 import NewDriverDashboard from './components/NewDriverDashboard';
 import AgentDashboard from './screens/AgentDashboard';
+import AgentSMSInfoScreen from './screens/AgentSMSInfoScreen';
 import AdminDashboard from './screens/AdminDashboard';
 import VehiclePreparationAdmin from './screens/VehiclePreparationAdmin';
 import ManagerDashboard from './screens/ManagerDashboard';
@@ -122,6 +123,11 @@ function AgentDrawer() {
         name="AgentDashboard" 
         component={AgentDashboard} 
         options={{ title: 'Sales Agent Dashboard' }} 
+      />
+      <Drawer.Screen 
+        name="AgentSMSInfo" 
+        component={AgentSMSInfoScreen} 
+        options={{ title: 'Customer SMS Info' }} 
       />
       <Drawer.Screen 
         name="VehicleStatus" 

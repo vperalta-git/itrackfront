@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import NotificationService from '../utils/notificationService';
 
 export default function DispatchDashboard({ navigation }) {
   const [requests, setRequests] = useState([]);
@@ -215,7 +216,32 @@ export default function DispatchDashboard({ navigation }) {
               const allSuccess = responses.every(r => r.ok);
               
               if (allSuccess) {
-                Alert.alert('Success', 'Marked as ready for release!');
+                // Send SMS notification to customer that unit is ready for pickup
+                const unitKey = (request.unitId || '').toLowerCase();
+                const customerInfo = unitCustomerMap[unitKey];
+                
+                if (customerInfo && customerInfo.customerEmail) {
+                  try {
+                    const notifyResult = await NotificationService.sendStatusNotification(
+                      {
+                        name: customerInfo.customerName,
+                        email: customerInfo.customerEmail,
+                        phone: customerInfo.customerPhone || '',
+                      },
+                      {
+                        unitName: request.unitName,
+                        unitId: request.unitId,
+                      },
+                      'Unit Ready for Pickup',
+                      `Your ${request.unitName} is now ready for pickup. Please proceed to our service center.`
+                    );
+                    console.log('SMS notification result:', notifyResult);
+                  } catch (error) {
+                    console.error('Error sending notification:', error);
+                  }
+                }
+                
+                Alert.alert('Success', 'Marked as ready for release and customer notified!');
                 setModalVisible(false);
                 loadRequests();
               } else {
