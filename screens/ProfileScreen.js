@@ -8,7 +8,6 @@ import {
   Alert,
   TextInput,
   Modal,
-  Switch,
   Image,
   Dimensions,
 } from 'react-native';
@@ -18,6 +17,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+
+// Ensure icon fonts are loaded (fix missing icons on some devices)
+Ionicons.loadFont();
+MaterialIcons.loadFont();
 
 const { width } = Dimensions.get('window');
 
@@ -69,7 +72,6 @@ export default function ProfileScreen() {
       const userEmail = await AsyncStorage.getItem('userEmail');
       const userRole = await AsyncStorage.getItem('userRole');
       const userPhone = await AsyncStorage.getItem('phoneno') || await AsyncStorage.getItem('userPhone');
-      const darkMode = await AsyncStorage.getItem('isDarkMode') === 'true';
 
       console.log('📊 AsyncStorage data:', { userId, userName, userEmail, userRole, userPhone });
 
@@ -83,7 +85,7 @@ export default function ProfileScreen() {
         accountName: userName || '',
         picture: '',
         personalDetails: '',
-        isDarkMode: darkMode,
+        isDarkMode: false,
       };
 
       // Try to fetch from server - use userId or find by email
@@ -133,7 +135,7 @@ export default function ProfileScreen() {
                 accountName: serverProfile.accountName || userName || '',
                 picture: serverProfile.picture || '',
                 personalDetails: serverProfile.personalDetails || '',
-                isDarkMode: darkMode,
+                isDarkMode: false,
               };
               console.log('✅ Using server data');
               console.log('Profile data phoneNumber:', profileData.phoneNumber);
@@ -203,21 +205,6 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error('❌ Error selecting profile picture:', error);
       Alert.alert('Error', 'Failed to select profile picture');
-    }
-  };
-
-  // Handle dark mode toggle
-  const toggleDarkMode = async (value) => {
-    try {
-      await AsyncStorage.setItem('isDarkMode', value.toString());
-      setUserProfile(prev => ({ ...prev, isDarkMode: value }));
-      setEditForm(prev => ({ ...prev, isDarkMode: value }));
-      
-      // Apply theme immediately (this would typically trigger a theme provider)
-      console.log(`🎨 Dark mode ${value ? 'enabled' : 'disabled'}`);
-      
-    } catch (error) {
-      console.error('❌ Error toggling dark mode:', error);
     }
   };
 
@@ -390,11 +377,11 @@ export default function ProfileScreen() {
   }
 
   const themeColors = {
-    background: userProfile.isDarkMode ? '#1a1a1a' : '#f8f9fa',
-    cardBackground: userProfile.isDarkMode ? '#2d2d2d' : '#ffffff',
-    text: userProfile.isDarkMode ? '#ffffff' : '#333333',
-    textSecondary: userProfile.isDarkMode ? '#cccccc' : '#666666',
-    border: userProfile.isDarkMode ? '#404040' : '#e9ecef',
+    background: '#f8f9fa',
+    cardBackground: '#ffffff',
+    text: '#333333',
+    textSecondary: '#666666',
+    border: '#e9ecef',
   };
 
   return (
@@ -595,23 +582,6 @@ export default function ProfileScreen() {
             <Ionicons name="settings-outline" size={20} color="#e50914" /> Settings & Actions
           </Text>
           
-          {/* Dark Mode Toggle */}
-          <View style={styles.settingRowEnhanced}>
-            <View style={styles.settingInfoEnhanced}>
-              <View style={[styles.settingIconCircle, { backgroundColor: '#fef3c7' }]}>
-                <Ionicons name="moon" size={20} color="#f59e0b" />
-              </View>
-              <Text style={[styles.settingLabel, { color: themeColors.text }]}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={userProfile.isDarkMode}
-              onValueChange={toggleDarkMode}
-              trackColor={{ false: '#e5e7eb', true: '#e50914' }}
-              thumbColor={userProfile.isDarkMode ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#e5e7eb"
-            />
-          </View>
-
           {/* Change Password */}
           <TouchableOpacity
             style={styles.settingRowEnhanced}

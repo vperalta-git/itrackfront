@@ -91,39 +91,16 @@ const darkTheme = {
 
 export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load theme preference on app start
-  useEffect(() => {
-    loadThemePreference();
-  }, []);
-
-  const loadThemePreference = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem('isDarkMode');
-      if (savedTheme !== null) {
-        setIsDarkMode(JSON.parse(savedTheme));
-      }
-    } catch (error) {
-      console.error('Error loading theme preference:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Dark mode removed: always light theme
   const toggleTheme = async () => {
-    try {
-      const newTheme = !isDarkMode;
-      setIsDarkMode(newTheme);
-      await AsyncStorage.setItem('isDarkMode', JSON.stringify(newTheme));
-      return newTheme;
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-      throw error;
-    }
+    setIsDarkMode(false);
+    await AsyncStorage.setItem('isDarkMode', JSON.stringify(false));
+    return false;
   };
 
-  const theme = isDarkMode ? darkTheme : lightTheme;
+  const theme = lightTheme;
 
   const value = {
     isDarkMode,
