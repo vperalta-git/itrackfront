@@ -90,6 +90,19 @@ export default function ServiceRequestScreen() {
     loadTeamAgents();
   }, [isManager, userId]);
 
+  // Load customer details when request is selected
+  useEffect(() => {
+    if (selectedRequest && showDetailsModal) {
+      const key = (selectedRequest.unitId || '').toLowerCase();
+      const details = unitCustomerMap[key] || {};
+      setCustomerForm({
+        name: details.customerName || '',
+        phone: details.customerPhone || '',
+        email: details.customerEmail || ''
+      });
+    }
+  }, [selectedRequest, showDetailsModal]);
+
   // Load unit allocations for the logged-in agent
   const fetchAgentAllocations = useCallback(async () => {
     // Always load allocations to build customer map; filter to agent units when needed
@@ -371,38 +384,7 @@ export default function ServiceRequestScreen() {
   };
 
   // Notify customer via email
-  const handleNotifyCustomer = async (request) => {
-    if (!request) return;
-    const unitKey = (request.unitId || '').toLowerCase();
-    const customerDetails = unitCustomerMap[unitKey] || {};
-    const customerEmail = customerDetails.customerEmail;
-    const customerName = customerDetails.customerName || 'Customer';
 
-    if (!customerEmail) {
-      Alert.alert('Missing email', 'No customer email on file for this unit.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const notificationResult = await NotificationService.sendStatusNotification(
-        { name: customerName, email: customerEmail },
-        { unitName: request.unitName, unitId: request.unitId },
-        request.status || 'Vehicle Preparation'
-      );
-
-      if (notificationResult.success) {
-        Alert.alert('Sent', 'Customer notification sent via email.');
-      } else {
-        Alert.alert('Not sent', notificationResult.message || 'Failed to send notification.');
-      }
-    } catch (error) {
-      console.error('❌ Error sending notification:', error);
-      Alert.alert('Error', error.message || 'Failed to send notification');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Send SMS notification to customer
   const handleNotifyCustomerSMS = async (request) => {
@@ -419,25 +401,18 @@ export default function ServiceRequestScreen() {
 
     try {
       setLoading(true);
-      // Use the same notification service - it handles SMS via backend when phone is provided
+      // Send SMS notification via backend
       const notificationResult = await NotificationService.sendStatusNotification(
         { 
           name: customerName, 
-          phone: customerPhone,
-          email: customerDetails.customerEmail || '' // Include email if available
+          phone: customerPhone
         },
         { unitName: request.unitName, unitId: request.unitId },
         request.status || 'Vehicle Preparation'
       );
 
       if (notificationResult.success) {
-        const notificationMethods = [];
-        if (notificationResult.smsSent) notificationMethods.push('SMS');
-        if (notificationResult.emailSent) notificationMethods.push('Email');
-        
-        const methodText = notificationMethods.length > 0 
-          ? `via ${notificationMethods.join(' and ')}`
-          : 'to customer';
+        const methodText = 'via SMS';
           
         Alert.alert('Sent', `Customer notification sent ${methodText}.`);
       } else {
@@ -1217,11 +1192,6 @@ export default function ServiceRequestScreen() {
                     <Text style={styles.detailsCardTitle}>Request Information</Text>
                   </View>
                   <View style={styles.detailsInfoRow}>
-                    <Text style={styles.detailsLabel}>Dispatched From</Text>
-                    <Text style={styles.detailsValue}>{selectedRequest.dispatchedFrom || 'Mobile App'}</Text>
-                  </View>
-                  <View style={styles.detailsDivider} />
-                  <View style={styles.detailsInfoRow}>
                     <Text style={styles.detailsLabel}>Date Created</Text>
                     <Text style={styles.detailsValue}>
                       {selectedRequest.dateCreated ? new Date(selectedRequest.dateCreated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
@@ -1275,36 +1245,52 @@ export default function ServiceRequestScreen() {
                   <View style={styles.detailsDivider} />
 
                   <View style={styles.detailsInfoRowColumn}>
-                    <Text style={styles.detailsLabel}>Customer Email</Text>
+                    <Text style={styles.detailsLabel}>Contact Number</Text>
                     <TextInput
                       style={styles.customerInput}
-                      placeholder="Enter customer email"
-                      value={customerForm.email}
-                      onChangeText={(text) => setCustomerForm(prev => ({ ...prev, email: text }))}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
+                      placeholder="09XX XXX XXXX"
+                      value={customerForm.phone}
+                      onChangeText={(text) => {
+                        // Remove all non-digits
+                        const cleaned = text.replace(/\D/g, '');
+                        
+                        if (cleaned.length <= 11) {
+                          let formatted = '';
+                          
+                          if (cleaned.length > 0) {
+                            // If starts with 9, prepend 0
+                            let numStr = cleaned;
+                            if (numStr.startsWith('9') && numStr.length >= 10) {
+                              numStr = '0' + numStr;
+                            }
+                            // Ensure it starts with 0
+                            if (!numStr.startsWith('0') && numStr.length > 0) {
+                              numStr = '0' + numStr;
+                            }
+                            
+                            // Format: 09XX XXX XXXX
+                            if (numStr.length >= 11) {
+                              formatted = numStr.slice(0, 4) + ' ' + numStr.slice(4, 7) + ' ' + numStr.slice(7, 11);
+                            } else if (numStr.length >= 7) {
+                              formatted = numStr.slice(0, 4) + ' ' + numStr.slice(4, 7) + ' ' + numStr.slice(7);
+                            } else if (numStr.length >= 4) {
+                              formatted = numStr.slice(0, 4) + ' ' + numStr.slice(4);
+                            } else {
+                              formatted = numStr;
+                            }
+                          }
+                          
+                          setCustomerForm(prev => ({ ...prev, phone: formatted }));
+                        }
+                      }}
+                      keyboardType="phone-pad"
                       placeholderTextColor="#9ca3af"
+                      maxLength={12}
                     />
+                    <Text style={styles.helperText}>Format: 09XX XXX XXXX (11 digits)</Text>
                   </View>
 
                   <View style={styles.detailsDivider} />
-
-                  <View style={styles.contactActions}>
-                    <TouchableOpacity
-                      style={[styles.contactBtn, styles.emailBtn]}
-                      onPress={() => handleNotifyCustomer(selectedRequest)}
-                    >
-                      <MaterialIcons name="email" size={18} color="#fff" />
-                      <Text style={styles.contactBtnText}>Email Update</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.contactBtn, styles.smsBtn]}
-                      onPress={() => handleNotifyCustomerSMS(selectedRequest)}
-                    >
-                      <MaterialIcons name="sms" size={18} color="#fff" />
-                      <Text style={styles.contactBtnText}>Mobile</Text>
-                    </TouchableOpacity>
-                  </View>
 
                   <TouchableOpacity
                     style={[styles.saveCustomerBtn, savingCustomer && styles.saveCustomerBtnDisabled]}
@@ -1315,7 +1301,7 @@ export default function ServiceRequestScreen() {
                   </TouchableOpacity>
 
                   <Text style={styles.contactHint}>
-                    Email and SMS notifications are active when a customer phone number is available.
+                    SMS notifications are active when a customer phone number is available.
                   </Text>
                 </View>
               </ScrollView>
@@ -2377,5 +2363,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 8,
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
