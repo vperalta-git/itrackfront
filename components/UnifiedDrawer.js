@@ -286,11 +286,21 @@ function CustomDrawerContent(props) {
 // Main Unified Drawer Navigator
 export default function UnifiedDrawer() {
   const [userRole, setUserRole] = useState(null);
+  const [initialRoute, setInitialRoute] = useState('AdminDashboard');
 
   useEffect(() => {
     const getRole = async () => {
       const storedRole = await AsyncStorage.getItem('userRole');
       setUserRole(storedRole);
+      // Default every non-admin role to AgentDashboard unless specifically driver
+      if (storedRole === 'Admin') {
+        setInitialRoute('AdminDashboard');
+      } else if (storedRole === 'Driver') {
+        setInitialRoute('DriverDashboard');
+      } else {
+        // Sales Agent, Manager, Supervisor, Dispatch all land on Agent dashboard
+        setInitialRoute('AgentDashboard');
+      }
     };
     getRole();
   }, []);
@@ -299,6 +309,7 @@ export default function UnifiedDrawer() {
 
   return (
     <Drawer.Navigator
+      initialRouteName={initialRoute}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerStyle: { 
