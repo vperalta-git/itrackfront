@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
+import IconTest from '../components/IconTest';
 
 const { width } = Dimensions.get('window');
 
@@ -382,6 +383,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {/* Icon Test Component */}
+      <IconTest />
+      
       {/* Modern Gradient Header */}
       <View style={styles.headerGradient}>
         <View style={styles.headerContent}>
@@ -464,7 +468,7 @@ export default function ProfileScreen() {
           {/* Name */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="person" size={18} color="#e50914" />
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>👤</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
@@ -491,7 +495,7 @@ export default function ProfileScreen() {
           {/* Phone Number */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="call" size={18} color="#e50914" />
+              <Ionicons name="call" size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
@@ -519,7 +523,7 @@ export default function ProfileScreen() {
           {/* Email (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="mail" size={18} color="#e50914" />
+              <Ionicons name="mail" size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Email</Text>
@@ -532,7 +536,7 @@ export default function ProfileScreen() {
           {/* Role (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="shield-checkmark" size={18} color="#e50914" />
+              <Ionicons name="shield-checkmark" size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Role</Text>
@@ -545,7 +549,7 @@ export default function ProfileScreen() {
           {/* Personal Details */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="document-text" size={18} color="#e50914" />
+              <Ionicons name="document-text" size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Personal Details</Text>
@@ -1122,10 +1126,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fee',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
   },
   fieldContent: {
     flex: 1,

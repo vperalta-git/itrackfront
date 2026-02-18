@@ -190,20 +190,29 @@ export default function ServiceRequestScreen() {
 
   const handleSaveCustomerDetails = async () => {
     if (!selectedRequest) return;
-    const key = (selectedRequest.unitId || '').toLowerCase();
-    const details = unitCustomerMap[key] || {};
-    const allocationId = details.id;
+    const unitId = (selectedRequest.unitId || '').trim();
+    if (!unitId) {
+      Alert.alert('Error', 'Missing unit ID for this request');
+      return;
+    }
+
+    const phoneDigits = (customerForm.phone || '').replace(/\D/g, '');
+    if (phoneDigits.length !== 11) {
+      Alert.alert('Invalid phone', 'Please enter a valid 11-digit number in the format 09XX XXX XXXX.');
+      return;
+    }
 
     const payload = {
+      unitId,
       customerName: customerForm.name.trim(),
-      customerEmail: customerForm.email.trim(),
-      customerPhone: customerForm.phone.trim(),
+      customerPhone: phoneDigits,
+      customerEmail: '',
     };
 
-    // Helper to update by id
-    const updateById = async (idToUse) => {
-      const response = await fetch(buildApiUrl(`/updateAllocation/${idToUse}`), {
-        method: 'PUT',
+    setSavingCustomer(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/updateUnitCustomerInfo'), {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -211,50 +220,23 @@ export default function ServiceRequestScreen() {
       if (!response.ok || result.success === false) {
         throw new Error(result.message || 'Failed to update customer details');
       }
-    };
-    const safeParse = (text) => {
-      try {
-        return JSON.parse(text);
-      } catch (err) {
-        console.error('❌ JSON parse error during fallback allocation lookup:', err);
-        return {};
-      }
-    };
 
-    setSavingCustomer(true);
-    try {
-      if (allocationId) {
-        await updateById(allocationId);
-      } else {
-        throw new Error('Allocation id missing, attempting lookup');
-      }
-    } catch (primaryError) {
-      console.warn('Primary allocation update failed, attempting lookup by unitId:', primaryError?.message);
-      try {
-        const allocRes = await fetch(buildApiUrl('/getAllocation'));
-        const allocText = await allocRes.text();
-        const allocData = safeParse(allocText || '{}');
-        const allocList = allocData.data || [];
-        const match = allocList.find((a) => (a.unitId || '').toLowerCase() === key);
-        if (!match || !match._id) {
-          throw new Error('Allocation not found for this unit');
-        }
-        await updateById(match._id);
-      } catch (fallbackError) {
-        console.error('❌ Error updating customer details:', fallbackError);
-        Alert.alert('Error', fallbackError.message || 'Failed to update customer details');
-        setSavingCustomer(false);
-        return;
-      }
-    }
+      // Update local map so UI reflects saved data immediately
+      setUnitCustomerMap((prev) => ({
+        ...prev,
+        [unitId.toLowerCase()]: {
+          id: prev[unitId.toLowerCase()]?.id,
+          customerName: payload.customerName,
+          customerEmail: payload.customerEmail,
+          customerPhone: payload.customerPhone,
+        },
+      }));
 
-    try {
-      // Refresh allocation map so UI reflects new values
-      await fetchAgentAllocations();
-      setIsEditingCustomer(true); // Switch to edit mode after successful save
+      setIsEditingCustomer(true);
       Alert.alert('Saved', 'Customer details updated');
-    } catch (refreshError) {
-      console.warn('Customer saved but failed to refresh allocations:', refreshError);
+    } catch (error) {
+      console.error('❌ Error updating customer details:', error);
+      Alert.alert('Error', error.message || 'Failed to update customer details');
     } finally {
       setSavingCustomer(false);
     }
