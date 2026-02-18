@@ -513,7 +513,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
       >
         {filteredRequests.length === 0 ? (
           <View style={styles.emptyState}>
-            <ClipboardList size={80} color=\"#ccc\" />
+            <ClipboardList size={80} color="#ccc" />
             <Text style={styles.emptyText}>No Service Requests</Text>
             <Text style={styles.emptySubtext}>
               {searchQuery ? 'No results found' : 'Create a new request to get started'}
