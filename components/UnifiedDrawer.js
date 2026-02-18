@@ -291,11 +291,13 @@ export default function UnifiedDrawer() {
   useEffect(() => {
     const getRole = async () => {
       const storedRole = await AsyncStorage.getItem('userRole');
+      const normalizedRole = (storedRole || '').trim().toLowerCase();
       setUserRole(storedRole);
+
       // Default every non-admin role to AgentDashboard unless specifically driver
-      if (storedRole === 'Admin') {
+      if (normalizedRole === 'admin') {
         setInitialRoute('AdminDashboard');
-      } else if (storedRole === 'Driver') {
+      } else if (normalizedRole === 'driver') {
         setInitialRoute('DriverDashboard');
       } else {
         // Sales Agent, Manager, Supervisor, Dispatch all land on Agent dashboard

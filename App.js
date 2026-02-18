@@ -379,17 +379,20 @@ export default function App() {
         console.log('🔍 App startup check:', { userToken, userRole, userName });
 
         if (userToken === 'authenticated' && userRole && userName) {
-          // Map roles to their respective screens
+          // Normalize role to handle casing/variants
+          const normalizedRole = (userRole || '').trim().toLowerCase();
           const routeMap = {
-            'Admin': 'UnifiedDrawer',
-            'Manager': 'UnifiedDrawer',
-            'Sales Agent': 'UnifiedDrawer',
-            'Driver': 'DriverDashboard',
-            'Dispatch': 'DispatchDashboard',
-            'Supervisor': 'UnifiedDrawer'
+            'admin': 'UnifiedDrawer',
+            'manager': 'UnifiedDrawer',
+            'sales agent': 'UnifiedDrawer',
+            'sales_agent': 'UnifiedDrawer',
+            'agent': 'UnifiedDrawer',
+            'dispatch': 'DispatchDashboard',
+            'driver': 'DriverDashboard',
+            'supervisor': 'UnifiedDrawer'
           };
 
-          const targetRoute = routeMap[userRole] || 'LoginScreen';
+          const targetRoute = routeMap[normalizedRole] || 'LoginScreen';
           console.log('✅ Auto-login:', userRole, '→', targetRoute);
           setInitialRoute(targetRoute);
         } else {
