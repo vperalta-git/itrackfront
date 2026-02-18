@@ -40,6 +40,7 @@ export default function ServiceRequestScreen() {
   const [unitCustomerMap, setUnitCustomerMap] = useState({}); // unitId -> customer details
   const [customerForm, setCustomerForm] = useState({ name: '', email: '', phone: '' });
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   // New service request form state
   const [newRequest, setNewRequest] = useState({
     selectedVehicle: null,
@@ -100,8 +101,10 @@ export default function ServiceRequestScreen() {
         phone: details.customerPhone || '',
         email: details.customerEmail || ''
       });
+      // If customer has been saved (has name or phone), set to edit mode
+      setIsEditingCustomer(!!(details.customerName || details.customerPhone));
     }
-  }, [selectedRequest, showDetailsModal]);
+  }, [selectedRequest, showDetailsModal, unitCustomerMap]);
 
   // Load unit allocations for the logged-in agent
   const fetchAgentAllocations = useCallback(async () => {
@@ -248,6 +251,7 @@ export default function ServiceRequestScreen() {
     try {
       // Refresh allocation map so UI reflects new values
       await fetchAgentAllocations();
+      setIsEditingCustomer(true); // Switch to edit mode after successful save
       Alert.alert('Saved', 'Customer details updated');
     } catch (refreshError) {
       console.warn('Customer saved but failed to refresh allocations:', refreshError);
@@ -1268,8 +1272,8 @@ export default function ServiceRequestScreen() {
                               numStr = '0' + numStr;
                             }
                             
-                            // Format: 09XX XXX XXXX
-                            if (numStr.length >= 11) {
+                            // Format: 09XX XXX XXXX (total 12 chars with spaces)
+                            if (numStr.length === 11) {
                               formatted = numStr.slice(0, 4) + ' ' + numStr.slice(4, 7) + ' ' + numStr.slice(7, 11);
                             } else if (numStr.length >= 7) {
                               formatted = numStr.slice(0, 4) + ' ' + numStr.slice(4, 7) + ' ' + numStr.slice(7);
@@ -1285,7 +1289,7 @@ export default function ServiceRequestScreen() {
                       }}
                       keyboardType="phone-pad"
                       placeholderTextColor="#9ca3af"
-                      maxLength={12}
+                      maxLength={13}
                     />
                     <Text style={styles.helperText}>Format: 09XX XXX XXXX (11 digits)</Text>
                   </View>
@@ -1297,7 +1301,9 @@ export default function ServiceRequestScreen() {
                     onPress={handleSaveCustomerDetails}
                     disabled={savingCustomer}
                   >
-                    <Text style={styles.saveCustomerText}>{savingCustomer ? 'Saving...' : 'Save Customer Details'}</Text>
+                    <Text style={styles.saveCustomerText}>
+                      {savingCustomer ? 'Saving...' : (isEditingCustomer ? 'Edit Customer Details' : 'Save Customer Details')}
+                    </Text>
                   </TouchableOpacity>
 
                   <Text style={styles.contactHint}>
