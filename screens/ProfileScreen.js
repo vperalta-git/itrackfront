@@ -19,8 +19,10 @@ import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 
 // Ensure icon fonts are loaded (fix missing icons on some devices)
-Ionicons.loadFont();
-MaterialIcons.loadFont();
+useEffect(() => {
+  Ionicons.loadFont();
+  MaterialIcons.loadFont();
+}, []);
 
 const { width } = Dimensions.get('window');
 
