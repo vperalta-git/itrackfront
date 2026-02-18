@@ -17,7 +17,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
-import IconTest from '../components/IconTest';
 
 const { width } = Dimensions.get('window');
 
@@ -383,15 +382,12 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      {/* Icon Test Component */}
-      <IconTest />
-      
       {/* Modern Gradient Header */}
       <View style={styles.headerGradient}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <View style={styles.backButtonCircle}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+              <Text style={{fontSize: 22, color: "#fff", fontWeight: 'bold'}}>‹</Text>
             </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
@@ -400,11 +396,13 @@ export default function ProfileScreen() {
             style={styles.editButton}
           >
             <View style={[styles.editButtonCircle, { backgroundColor: isEditing ? "#fff" : "#e50914" }]}>
-              <Ionicons
-                name={isEditing ? "close" : "pencil"}
-                size={20}
-                color={isEditing ? "#e50914" : "#fff"}
-              />
+              <Text style={{
+                fontSize: 20, 
+                color: isEditing ? "#e50914" : "#fff",
+                fontWeight: 'bold'
+              }}>
+                {isEditing ? "✕" : "✎"}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -462,13 +460,13 @@ export default function ProfileScreen() {
         {/* Enhanced Profile Details */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.cardBackground }]}>
           <Text style={[styles.sectionTitleEnhanced, { color: themeColors.text }]}>
-            <Ionicons name="person-circle-outline" size={20} color="#e50914" /> Personal Information
+            <Text style={{fontSize: 20, color: "#e50914"}}>⚹</Text> Personal Information
           </Text>
           
           {/* Name */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>👤</Text>
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>⚹</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
@@ -495,7 +493,7 @@ export default function ProfileScreen() {
           {/* Phone Number */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="call" size={18} color="#000000" />
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>☏</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
@@ -523,7 +521,7 @@ export default function ProfileScreen() {
           {/* Email (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="mail" size={18} color="#000000" />
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>✉</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Email</Text>
@@ -536,7 +534,7 @@ export default function ProfileScreen() {
           {/* Role (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="shield-checkmark" size={18} color="#000000" />
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>⚿</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Role</Text>
@@ -549,7 +547,7 @@ export default function ProfileScreen() {
           {/* Personal Details */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="document-text" size={18} color="#000000" />
+              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>▰</Text>
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Personal Details</Text>
