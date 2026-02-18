@@ -13,6 +13,11 @@ import {
   Dimensions,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import {
+  Tag, Wrench, ClipboardList, FileText, Eye, Trash2, Plus,
+  Search, X, Filter, Settings, CheckCircle2, ChevronRight,
+  Package, Car, Check, Info, Truck, User
+} from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
@@ -756,14 +761,14 @@ export default function ServiceRequestScreen() {
           <View style={styles.cardRow}>
             <View style={styles.cardField}>
               <View style={styles.fieldLabelRow}>
-                <MaterialIcons name="label" size={14} color="#666" style={styles.fieldIcon} />
+                <Tag size={14} color="#666" style={styles.fieldIcon} />
                 <Text style={styles.fieldLabel}>Unit ID</Text>
               </View>
               <Text style={styles.fieldValue}>{item.unitId || 'N/A'}</Text>
             </View>
             <View style={styles.cardField}>
               <View style={styles.fieldLabelRow}>
-                <MaterialIcons name="build" size={14} color="#666" style={styles.fieldIcon} />
+                <Wrench size={14} color="#666" style={styles.fieldIcon} />
                 <Text style={styles.fieldLabel}>Total Services</Text>
               </View>
               <Text style={styles.fieldValue}>{services.length}</Text>
@@ -773,7 +778,7 @@ export default function ServiceRequestScreen() {
           {/* Requested Services */}
           <View style={styles.servicesSection}>
             <View style={styles.servicesLabelRow}>
-              <MaterialIcons name="assignment" size={16} color="#666" style={styles.fieldIcon} />
+              <ClipboardList size={16} color="#666" style={styles.fieldIcon} />
               <Text style={styles.servicesLabel}>Requested Services:</Text>
             </View>
             <View style={styles.servicesWrap}>
@@ -792,7 +797,7 @@ export default function ServiceRequestScreen() {
           {item.notes && (
             <View style={styles.notesSection}>
               <View style={styles.notesLabelRow}>
-                <MaterialIcons name="note" size={16} color="#666" style={styles.fieldIcon} />
+                <FileText size={16} color="#666" style={styles.fieldIcon} />
                 <Text style={styles.notesLabel}>Notes</Text>
               </View>
               <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
@@ -810,7 +815,7 @@ export default function ServiceRequestScreen() {
               setShowDetailsModal(true);
             }}
           >
-            <MaterialIcons name="visibility" size={16} color="#2196F3" />
+            <Eye size={16} color="#2196F3" />
             <Text style={styles.cardActionText}>View Details</Text>
           </TouchableOpacity>
           {!isAgent && (
@@ -821,7 +826,7 @@ export default function ServiceRequestScreen() {
                 handleDeleteRequest(item);
               }}
             >
-              <MaterialIcons name="delete" size={16} color="#dc3545" />
+              <Trash2 size={16} color="#dc3545" />
               <Text style={[styles.cardActionText, styles.deleteActionText]}>Delete</Text>
             </TouchableOpacity>
           )}
@@ -868,7 +873,7 @@ export default function ServiceRequestScreen() {
             style={styles.addButton}
             onPress={() => setShowAddModal(true)}
           >
-            <MaterialIcons name="add" size={24} color="#fff" />
+            <Plus size={24} color="#fff" />
             <Text style={styles.addButtonText}>New Request</Text>
           </TouchableOpacity>
         )}
@@ -877,7 +882,7 @@ export default function ServiceRequestScreen() {
       {/* Search and Filter */}
       <View style={styles.searchFilterContainer}>
         <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <Search size={20} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search service requests..."
@@ -886,7 +891,7 @@ export default function ServiceRequestScreen() {
           />
           {searchTerm.length > 0 && (
             <TouchableOpacity onPress={() => setSearchTerm('')}>
-              <MaterialIcons name="close" size={20} color="#999" />
+              <X size={20} color="#999" />
             </TouchableOpacity>
           )}
         </View>
@@ -894,7 +899,7 @@ export default function ServiceRequestScreen() {
           style={styles.filterButton}
           onPress={() => setShowFilterModal(true)}
         >
-          <Ionicons name="filter" size={20} color="#FFFFFF" />
+          <Filter size={20} color="#FFFFFF" />
           <Text style={styles.filterButtonText}>Filter</Text>
         </TouchableOpacity>
       </View>
@@ -911,7 +916,7 @@ export default function ServiceRequestScreen() {
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="build" size={64} color="#ccc" />
+              <Wrench size={64} color="#ccc" />
               <Text style={styles.emptyText}>No service requests found</Text>
               <Text style={styles.emptySubtext}>
                 {searchTerm || filterStatus !== 'all' 
@@ -952,12 +957,12 @@ export default function ServiceRequestScreen() {
                         </Text>
                         <Text style={styles.vehicleId}>ID: {newRequest.selectedVehicle.unitId || newRequest.selectedVehicle._id}</Text>
                       </View>
-                      <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
+                      <CheckCircle2 size={24} color="#4CAF50" />
                     </>
                   ) : (
                     <>
                       <Text style={styles.placeholderText}>Choose vehicle from inventory</Text>
-                      <MaterialIcons name="arrow-forward-ios" size={20} color="#666" />
+                      <ChevronRight size={20} color="#666" />
                     </>
                   )}
                 </View>
@@ -1039,7 +1044,7 @@ export default function ServiceRequestScreen() {
           <ScrollView style={styles.modalBody}>
             {inventoryVehicles.length === 0 ? (
               <View style={styles.emptyVehicles}>
-                <MaterialIcons name="inventory" size={48} color="#ccc" />
+                <Package size={48} color="#ccc" />
                 <Text style={styles.emptyVehiclesText}>No available vehicles</Text>
                 <Text style={styles.emptyVehiclesSubtext}>Check inventory for available vehicles</Text>
               </View>
@@ -1061,7 +1066,7 @@ export default function ServiceRequestScreen() {
                         <Text style={styles.vehicleStatusText}>{vehicle.status}</Text>
                       </View>
                     </View>
-                    <MaterialIcons name="arrow-forward-ios" size={20} color="#666" />
+                    <ChevronRight size={20} color="#666" />
                   </View>
                 </TouchableOpacity>
               ))
@@ -1081,7 +1086,7 @@ export default function ServiceRequestScreen() {
                 onPress={() => setShowDetailsModal(false)}
                 style={styles.detailsCloseBtn}
               >
-                <MaterialIcons name="close" size={24} color="#fff" />
+                <X size={24} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -1103,7 +1108,7 @@ export default function ServiceRequestScreen() {
                 {/* Vehicle Information Card */}
                 <View style={styles.detailsCard}>
                   <View style={styles.detailsCardHeader}>
-                    <MaterialIcons name="directions-car" size={22} color="#DC2626" />
+                    <Car size={22} color="#DC2626" />
                     <Text style={styles.detailsCardTitle}>Vehicle Information</Text>
                   </View>
                   <View style={styles.detailsInfoRow}>
@@ -1121,13 +1126,13 @@ export default function ServiceRequestScreen() {
                 {(selectedRequest.completedServices && selectedRequest.completedServices.length > 0) && (
                   <View style={styles.detailsCard}>
                     <View style={styles.detailsCardHeader}>
-                      <MaterialIcons name="check-circle" size={22} color="#28a745" />
+                      <CheckCircle2 size={22} color="#28a745" />
                       <Text style={styles.detailsCardTitle}>Completed Services</Text>
                     </View>
                     <View style={styles.detailsServicesGrid}>
                       {selectedRequest.completedServices.map((service, index) => (
                         <View key={index} style={styles.completedServiceChip}>
-                          <MaterialIcons name="check" size={16} color="#fff" />
+                          <Check size={16} color="#fff" />
                           <Text style={styles.completedServiceText}>{formatServiceName(service)}</Text>
                         </View>
                       ))}

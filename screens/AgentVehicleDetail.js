@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import {
+  ArrowLeft, Car, Info, Truck, Wrench, Check, User, InfoIcon
+} from 'lucide-react-native';
 import { buildApiUrl } from '../constants/api';
 
 const STATUS_COLORS = {
@@ -114,7 +117,7 @@ export default function AgentVehicleDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          <ArrowLeft size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vehicle Details</Text>
         <View style={styles.placeholder} />
@@ -123,7 +126,7 @@ export default function AgentVehicleDetail() {
       {/* Vehicle Info Card */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <MaterialIcons name="directions-car" size={24} color="#e50914" />
+          <Car size={24} color="#e50914" />
           <Text style={styles.cardTitle}>Vehicle Information</Text>
         </View>
         <View style={styles.cardBody}>
@@ -156,7 +159,7 @@ export default function AgentVehicleDetail() {
       {/* Status Card */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <MaterialIcons name="info" size={24} color="#2196F3" />
+          <Info size={24} color="#2196F3" />
           <Text style={styles.cardTitle}>Current Status</Text>
         </View>
         <View style={styles.cardBody}>
@@ -171,7 +174,7 @@ export default function AgentVehicleDetail() {
       {/* Delivery Info */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <MaterialIcons name="local-shipping" size={24} color="#FF9800" />
+          <Truck size={24} color="#FF9800" />
           <Text style={styles.cardTitle}>Delivery Information</Text>
         </View>
         <View style={styles.cardBody}>
@@ -204,7 +207,7 @@ export default function AgentVehicleDetail() {
       {serviceRequest && serviceRequest.service && (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="build" size={24} color="#9C27B0" />
+            <Wrench size={24} color="#9C27B0" />
             <Text style={styles.cardTitle}>
               Service Preparation ({progress.completed}/{progress.total})
             </Text>
@@ -221,7 +224,7 @@ export default function AgentVehicleDetail() {
                       isCompleted && styles.checkboxCompleted
                     ]}>
                       {isCompleted && (
-                        <MaterialIcons name="check" size={18} color="#fff" />
+                        <Check size={18} color="#fff" />
                       )}
                     </View>
                     <Text style={[
@@ -247,7 +250,7 @@ export default function AgentVehicleDetail() {
       {vehicle.customerName && (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="person" size={24} color="#4CAF50" />
+            <User size={24} color="#4CAF50" />
             <Text style={styles.cardTitle}>Customer Information</Text>
           </View>
           <View style={styles.cardBody}>
@@ -279,7 +282,7 @@ export default function AgentVehicleDetail() {
 
       {/* Read-Only Notice */}
       <View style={styles.noticeCard}>
-        <MaterialIcons name="info-outline" size={20} color="#2196F3" />
+        <InfoIcon size={20} color="#2196F3" />
         <Text style={styles.noticeText}>
           This is a read-only view. Only dispatch can update vehicle status and service completion.
         </Text>
