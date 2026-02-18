@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { ArrowLeft, Edit3, X, User, Phone, Mail, Shield, FileText } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -387,7 +388,7 @@ export default function ProfileScreen() {
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <View style={styles.backButtonCircle}>
-              <Text style={{fontSize: 22, color: "#fff", fontWeight: 'bold'}}>‹</Text>
+              <ArrowLeft size={22} color="#fff" />
             </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
@@ -396,13 +397,11 @@ export default function ProfileScreen() {
             style={styles.editButton}
           >
             <View style={[styles.editButtonCircle, { backgroundColor: isEditing ? "#fff" : "#e50914" }]}>
-              <Text style={{
-                fontSize: 20, 
-                color: isEditing ? "#e50914" : "#fff",
-                fontWeight: 'bold'
-              }}>
-                {isEditing ? "✕" : "✎"}
-              </Text>
+              {isEditing ? (
+                <X size={20} color="#e50914" />
+              ) : (
+                <Edit3 size={20} color="#fff" />
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -459,14 +458,17 @@ export default function ProfileScreen() {
 
         {/* Enhanced Profile Details */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.cardBackground }]}>
-          <Text style={[styles.sectionTitleEnhanced, { color: themeColors.text }]}>
-            <Text style={{fontSize: 20, color: "#e50914"}}>⚹</Text> Personal Information
-          </Text>
+          <View style={[styles.sectionTitleEnhanced, { flexDirection: 'row', alignItems: 'center' }]}>
+            <User size={20} color="#e50914" />
+            <Text style={[styles.sectionTitleText, { color: themeColors.text, marginLeft: 8 }]}>
+              Personal Information
+            </Text>
+          </View>
           
           {/* Name */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>⚹</Text>
+              <User size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
@@ -493,7 +495,7 @@ export default function ProfileScreen() {
           {/* Phone Number */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>☏</Text>
+              <Phone size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
@@ -521,7 +523,7 @@ export default function ProfileScreen() {
           {/* Email (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>✉</Text>
+              <Mail size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Email</Text>
@@ -534,7 +536,7 @@ export default function ProfileScreen() {
           {/* Role (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>⚿</Text>
+              <Shield size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Role</Text>
@@ -547,7 +549,7 @@ export default function ProfileScreen() {
           {/* Personal Details */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Text style={{fontSize: 18, color: "#000000", fontWeight: 'bold'}}>▰</Text>
+              <FileText size={18} color="#000000" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Personal Details</Text>
@@ -1110,6 +1112,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 2,
     borderBottomColor: '#fee',
+  },
+  sectionTitleText: {
+    fontSize: 19,
+    fontWeight: 'bold',
   },
   // Enhanced Field Container Styles
   fieldContainerEnhanced: {
