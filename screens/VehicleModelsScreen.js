@@ -13,6 +13,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { 
+  Edit, Trash2, ArrowLeft, Plus, RefreshCw, Search, 
+  Car, ChevronDown 
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { buildApiUrl } from '../constants/api';
@@ -303,14 +307,14 @@ const VehicleModelsScreen = () => {
           style={[styles.actionButton, styles.editButton]}
           onPress={() => openEditModal(item)}
         >
-          <MaterialIcons name="edit" size={16} color="white" />
+          <Edit size={16} color="white" />
           <Text style={styles.actionButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => handleDeleteModel(item)}
         >
-          <MaterialIcons name="delete" size={16} color="white" />
+          <Trash2 size={16} color="white" />
           <Text style={styles.actionButtonText}>Delete</Text>
         </TouchableOpacity>
       </View>
@@ -346,7 +350,7 @@ const VehicleModelsScreen = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="white" />
+          <ArrowLeft size={24} color="white" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Vehicle Models
@@ -355,7 +359,7 @@ const VehicleModelsScreen = () => {
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
         >
-          <MaterialIcons name="add" size={24} color="white" />
+          <Plus size={24} color="white" />
         </TouchableOpacity>
       </View>
 
@@ -365,14 +369,14 @@ const VehicleModelsScreen = () => {
           style={[styles.initButton, { backgroundColor: '#e50914' }]}
           onPress={initializeVehicleModels}
         >
-          <MaterialIcons name="refresh" size={20} color="white" />
+          <RefreshCw size={20} color="white" />
           <Text style={styles.initButtonText}>Initialize Models</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
       <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <MaterialIcons name="search" size={20} color={theme.textSecondary} style={styles.searchIcon} />
+        <Search size={20} color={theme.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
           placeholder="Search vehicle models..."
@@ -417,7 +421,7 @@ const VehicleModelsScreen = () => {
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="directions-car" size={64} color={theme.textSecondary} />
+            <Car size={64} color={theme.textSecondary} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               {searchQuery ? 'No models match your search' : 'No vehicle models found'}
             </Text>

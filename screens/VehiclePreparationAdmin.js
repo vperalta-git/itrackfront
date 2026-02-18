@@ -4,6 +4,11 @@ import {
   Alert, RefreshControl, Modal, TextInput
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { 
+  Ticket, Calendar, Trash2, X, CheckCircle2, Check, 
+  Clock, SortAsc, ArrowLeft, Search, Filter, Plus, 
+  ClipboardList 
+} from 'lucide-react-native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +32,26 @@ export default function VehiclePreparationAdmin({ navigation }) {
   });
 
   const availableServices = ['Carwash', 'Tinting', 'Ceramic Coating', 'Accessories', 'Rust Proof'];
+
+  // Icon mapping function
+  const getLucideIcon = (iconName, size, color) => {
+    const iconMap = {
+      'confirmation-number': <Ticket size={size} color={color} />,
+      'date-range': <Calendar size={size} color={color} />,
+      'delete': <Trash2 size={size} color={color} />,
+      'close': <X size={size} color={color} />,
+      'check-circle': <CheckCircle2 size={size} color={color} />,
+      'check': <Check size={size} color={color} />,
+      'schedule': <Clock size={size} color={color} />,
+      'sort-by-alpha': <SortAsc size={size} color={color} />,
+      'arrow-back': <ArrowLeft size={size} color={color} />,
+      'search': <Search size={size} color={color} />,
+      'filter-list': <Filter size={size} color={color} />,
+      'add': <Plus size={size} color={color} />,
+      'assignment': <ClipboardList size={size} color={color} />
+    };
+    return iconMap[iconName] || <ClipboardList size={size} color={color} />;
+  };
 
   useEffect(() => {
     loadData();
@@ -234,13 +259,13 @@ export default function VehiclePreparationAdmin({ navigation }) {
 
         <View style={styles.cardInfo}>
           <View style={styles.infoRow}>
-            <MaterialIcons name="confirmation-number" size={16} color="#666" />
+            <Ticket size={16} color="#666" />
             <Text style={styles.infoLabel}>Unit ID: </Text>
             <Text style={styles.infoValue}>{request.unitId}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <MaterialIcons name="date-range" size={16} color="#666" />
+            <Calendar size={16} color="#666" />
             <Text style={styles.infoLabel}>Date: </Text>
             <Text style={styles.infoValue}>
               {new Date(request.dateCreated || request.createdAt).toLocaleDateString('en-CA')}
@@ -268,7 +293,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => handleDeleteRequest(request)}
           >
-            <MaterialIcons name="delete" size={18} color="#fff" />
+            <Trash2 size={18} color="#fff" />
             <Text style={styles.actionButtonText}>Delete</Text>
           </TouchableOpacity>
         </View>
@@ -286,7 +311,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Create Vehicle Preparation</Text>
           <TouchableOpacity onPress={() => setModalVisible(false)}>
-            <MaterialIcons name="close" size={28} color="#333" />
+            <X size={28} color="#333" />
           </TouchableOpacity>
         </View>
 
@@ -314,7 +339,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
                       <Text style={styles.inventoryUnitId}>ID: {unit.unitId}</Text>
                     </View>
                     {newRequest.unitId === unit.unitId && (
-                      <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
+                      <CheckCircle2 size={24} color="#4CAF50" />
                     )}
                   </TouchableOpacity>
                 ))
@@ -348,7 +373,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
                     {service}
                   </Text>
                   {newRequest.service.includes(service) && (
-                    <MaterialIcons name="check" size={18} color="#fff" />
+                    <Check size={18} color="#fff" />
                   )}
                 </TouchableOpacity>
               ))}
@@ -398,10 +423,10 @@ export default function VehiclePreparationAdmin({ navigation }) {
               setFilterModalVisible(false);
             }}
           >
-            <MaterialIcons name="schedule" size={20} color="#333" />
+            <Clock size={20} color="#333" />
             <Text style={styles.filterOptionText}>Most Recent</Text>
             {filterType === 'recent' && (
-              <MaterialIcons name="check" size={20} color="#4CAF50" />
+              <Check size={20} color="#4CAF50" />
             )}
           </TouchableOpacity>
 
@@ -415,10 +440,10 @@ export default function VehiclePreparationAdmin({ navigation }) {
               setFilterModalVisible(false);
             }}
           >
-            <MaterialIcons name="sort-by-alpha" size={20} color="#333" />
+            <SortAsc size={20} color="#333" />
             <Text style={styles.filterOptionText}>Alphabetically</Text>
             {filterType === 'alphabetical' && (
-              <MaterialIcons name="check" size={20} color="#4CAF50" />
+              <Check size={20} color="#4CAF50" />
             )}
           </TouchableOpacity>
         </View>
@@ -435,7 +460,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
+            <ArrowLeft size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Vehicle Preparation</Text>
         </View>
@@ -443,7 +468,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
 
       <View style={styles.toolbar}>
         <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#666" />
+          <Search size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search..."
@@ -452,7 +477,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <MaterialIcons name="close" size={20} color="#666" />
+              <X size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
@@ -461,14 +486,14 @@ export default function VehiclePreparationAdmin({ navigation }) {
           style={styles.filterButton}
           onPress={() => setFilterModalVisible(true)}
         >
-          <MaterialIcons name="filter-list" size={20} color="#fff" />
+          <Filter size={20} color="#fff" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.createButton}
           onPress={() => setModalVisible(true)}
         >
-          <MaterialIcons name="add" size={20} color="#fff" />
+          <Plus size={20} color="#fff" />
           <Text style={styles.createButtonText}>New</Text>
         </TouchableOpacity>
       </View>
@@ -488,7 +513,7 @@ export default function VehiclePreparationAdmin({ navigation }) {
       >
         {filteredRequests.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialIcons name="assignment" size={80} color="#ccc" />
+            <ClipboardList size={80} color=\"#ccc\" />
             <Text style={styles.emptyText}>No Service Requests</Text>
             <Text style={styles.emptySubtext}>
               {searchQuery ? 'No results found' : 'Create a new request to get started'}
