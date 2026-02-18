@@ -22,10 +22,6 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  useEffect(() => {
-    Ionicons.loadFont();
-    MaterialIcons.loadFont();
-  }, []);
   
   // User data
   const [userProfile, setUserProfile] = useState({
@@ -391,7 +387,7 @@ export default function ProfileScreen() {
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <View style={styles.backButtonCircle}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+              <MaterialIcons name="arrow-back" size={22} color="#fff" />
             </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
@@ -400,8 +396,8 @@ export default function ProfileScreen() {
             style={styles.editButton}
           >
             <View style={[styles.editButtonCircle, { backgroundColor: isEditing ? "#fff" : "#e50914" }]}>
-              <Ionicons
-                name={isEditing ? "close" : "create"}
+              <MaterialIcons
+                name={isEditing ? "close" : "edit"}
                 size={20}
                 color={isEditing ? "#e50914" : "#fff"}
               />
@@ -428,13 +424,13 @@ export default function ProfileScreen() {
                   />
                 ) : (
                   <View style={[styles.profilePicturePlaceholder, { backgroundColor: '#e50914' }]}>
-                    <Ionicons name="person" size={60} color="#fff" />
+                    <MaterialIcons name="person" size={60} color="#fff" />
                   </View>
                 )}
               </View>
               {isEditing && (
                 <View style={styles.cameraIconEnhanced}>
-                  <Ionicons name="camera" size={18} color="#fff" />
+                  <MaterialIcons name="camera-alt" size={18} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
@@ -468,7 +464,7 @@ export default function ProfileScreen() {
           {/* Name */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="person-outline" size={18} color="#e50914" />
+              <MaterialIcons name="person" size={18} color="#e50914" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
@@ -495,7 +491,7 @@ export default function ProfileScreen() {
           {/* Phone Number */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="call-outline" size={18} color="#e50914" />
+              <MaterialIcons name="phone" size={18} color="#e50914" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
@@ -523,7 +519,7 @@ export default function ProfileScreen() {
           {/* Email (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="mail-outline" size={18} color="#e50914" />
+              <MaterialIcons name="email" size={18} color="#e50914" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Email</Text>
@@ -536,7 +532,7 @@ export default function ProfileScreen() {
           {/* Role (Read-only) */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#e50914" />
+              <MaterialIcons name="security" size={18} color="#e50914" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Role</Text>
@@ -549,7 +545,7 @@ export default function ProfileScreen() {
           {/* Personal Details */}
           <View style={styles.fieldContainerEnhanced}>
             <View style={styles.fieldIconCircle}>
-              <Ionicons name="document-text-outline" size={18} color="#e50914" />
+              <MaterialIcons name="description" size={18} color="#e50914" />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Personal Details</Text>
