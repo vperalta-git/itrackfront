@@ -18,16 +18,14 @@ import { useNavigation } from '@react-navigation/native';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
 
-// Ensure icon fonts are loaded (fix missing icons on some devices)
-useEffect(() => {
-  Ionicons.loadFont();
-  MaterialIcons.loadFont();
-}, []);
-
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+  useEffect(() => {
+    Ionicons.loadFont();
+    MaterialIcons.loadFont();
+  }, []);
   
   // User data
   const [userProfile, setUserProfile] = useState({
