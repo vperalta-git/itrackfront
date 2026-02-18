@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { ArrowLeft, Edit3, X, User, Phone, Mail, Shield, FileText } from 'lucide-react-native';
+import { ArrowLeft, Edit3, X, User, Phone, Mail, Shield, FileText, Settings, Lock, ChevronRight, Users, CheckCircle, LogOut, Key, Info, Briefcase } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -441,13 +441,13 @@ export default function ProfileScreen() {
                 {userProfile.name}
               </Text>
               <View style={styles.profileRoleBadge}>
-                <Ionicons name="briefcase-outline" size={14} color="#e50914" />
+                <Briefcase size={14} color="#e50914" />
                 <Text style={styles.profileRoleText}>
                   {userProfile.role}
                 </Text>
               </View>
               <View style={styles.profileEmailRow}>
-                <Ionicons name="mail-outline" size={14} color={themeColors.textSecondary} />
+                <Mail size={14} color={themeColors.textSecondary} />
                 <Text style={[styles.profileEmail, { color: themeColors.textSecondary }]}>
                   {userProfile.email}
                 </Text>
@@ -578,9 +578,12 @@ export default function ProfileScreen() {
 
         {/* Enhanced Settings Card */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.cardBackground }]}>
-          <Text style={[styles.sectionTitleEnhanced, { color: themeColors.text }]}>
-            <Ionicons name="settings-outline" size={20} color="#e50914" /> Settings & Actions
-          </Text>
+          <View style={[styles.sectionTitleEnhanced, { flexDirection: 'row', alignItems: 'center' }]}>
+            <Settings size={20} color="#e50914" />
+            <Text style={[styles.sectionTitleText, { color: themeColors.text, marginLeft: 8 }]}>
+              Settings & Actions
+            </Text>
+          </View>
           
           {/* Change Password */}
           <TouchableOpacity
@@ -589,11 +592,11 @@ export default function ProfileScreen() {
           >
             <View style={styles.settingInfoEnhanced}>
               <View style={[styles.settingIconCircle, { backgroundColor: '#fee' }]}>
-                <Ionicons name="lock-closed" size={20} color="#e50914" />
+                <Lock size={20} color="#e50914" />
               </View>
               <Text style={[styles.settingLabel, { color: themeColors.text }]}>Change Password</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color="#9ca3af" />
+            <ChevronRight size={22} color="#9ca3af" />
           </TouchableOpacity>
 
           {/* View Other Profiles */}
@@ -603,11 +606,11 @@ export default function ProfileScreen() {
           >
             <View style={styles.settingInfoEnhanced}>
               <View style={[styles.settingIconCircle, { backgroundColor: '#fee' }]}>
-                <Ionicons name="people" size={20} color="#e50914" />
+                <Users size={20} color="#e50914" />
               </View>
               <Text style={[styles.settingLabel, { color: themeColors.text }]}>Team Profiles</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color="#9ca3af" />
+            <ChevronRight size={22} color="#9ca3af" />
           </TouchableOpacity>
         </View>
 
@@ -623,7 +626,7 @@ export default function ProfileScreen() {
               <UniformLoading size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                <CheckCircle size={24} color="#fff" />
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </>
             )}
@@ -637,7 +640,7 @@ export default function ProfileScreen() {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={22} color="#fff" />
+            <LogOut size={22} color="#fff" />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         )}
