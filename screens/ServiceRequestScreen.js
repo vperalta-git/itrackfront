@@ -58,6 +58,16 @@ export default function ServiceRequestScreen() {
   const [inventoryVehicles, setInventoryVehicles] = useState([]);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
 
+  const parseJsonSafe = useCallback((text, fallback = {}) => {
+    if (!text) return fallback;
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.warn('⚠️ Failed to parse JSON response:', error?.message || error);
+      return fallback;
+    }
+  }, []);
+
   const normalizedRole = (userRole || '').toLowerCase();
   const isAgent = normalizedRole === 'sales agent' || normalizedRole === 'manager';
   const isManager = normalizedRole === 'manager';
@@ -260,30 +270,50 @@ export default function ServiceRequestScreen() {
   const fetchServiceRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const url = buildApiUrl('/getRequest');
-      console.log('📡 Fetching service requests from:', url);
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      console.log('📦 Service requests response:', data);
-      console.log('📊 Total service requests:', data.data?.length || 0);
-      
-      if (data.success) {
-        setServiceRequests(data.data || []);
-        console.log('✅ Service requests loaded:', data.data?.length || 0);
-      } else {
-        console.warn('❌ Failed to fetch service requests:', data.message);
-        setServiceRequests([]);
+      const endpoints = ['/getRequest', '/api/servicerequests'];
+      let parsed = null;
+
+      for (const endpoint of endpoints) {
+        const url = buildApiUrl(endpoint);
+        console.log('📡 Fetching service requests from:', url);
+
+        try {
+          const response = await fetch(url);
+          const bodyText = await response.text();
+          const data = parseJsonSafe(bodyText, {});
+
+          if (!response.ok) {
+            console.warn(`⚠️ ${endpoint} returned HTTP ${response.status}`);
+            continue;
+          }
+
+          parsed = data;
+          break;
+        } catch (endpointError) {
+          console.warn(`⚠️ Failed request to ${endpoint}:`, endpointError?.message || endpointError);
+        }
       }
+
+      if (!parsed) {
+        throw new Error('Unable to reach service request API');
+      }
+
+      const requestList = Array.isArray(parsed)
+        ? parsed
+        : (Array.isArray(parsed?.data) ? parsed.data : []);
+
+      console.log('📊 Total service requests:', requestList.length || 0);
+      setServiceRequests(requestList);
+      console.log('✅ Service requests loaded:', requestList.length || 0);
     } catch (error) {
       console.error('❌ Error fetching service requests:', error);
-      Alert.alert('Error', 'Failed to load service requests');
+      Alert.alert('Error', error.message || 'Failed to load service requests');
       setServiceRequests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [parseJsonSafe]);
 
   useEffect(() => {
     fetchServiceRequests();
@@ -327,6 +357,12 @@ export default function ServiceRequestScreen() {
   // Filter and search service requests
   const getFilteredRequests = () => {
     let filtered = serviceRequests;
+
+    // Hide released / completed items from the active list — they appear in history
+    filtered = filtered.filter(request => {
+      const s = (request.status || '').toLowerCase();
+      return s !== 'released to customer' && s !== 'completed';
+    });
 
     // Limit to units allocated to this agent
     if (isAgent) {
@@ -394,10 +430,8 @@ export default function ServiceRequestScreen() {
       setLoading(true);
       // Send SMS notification via backend
       const notificationResult = await NotificationService.sendStatusNotification(
-        { 
-          name: customerName, 
-          phone: customerPhone
-        },
+        customerPhone,
+        customerName,
         { unitName: request.unitName, unitId: request.unitId },
         request.status || 'Vehicle Preparation'
       );
@@ -415,6 +449,82 @@ export default function ServiceRequestScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Release vehicle to customer
+  const handleReleaseToCustomer = async () => {
+    if (!selectedRequest) return;
+    
+    const unitKey = (selectedRequest.unitId || '').toLowerCase();
+    const customerDetails = unitCustomerMap[unitKey] || {};
+    const customerPhone = customerDetails.customerPhone;
+    const customerName = customerDetails.customerName || 'Customer';
+
+    if (!customerPhone) {
+      Alert.alert('Missing phone', 'No customer phone number on file for this unit.');
+      return;
+    }
+
+    Alert.alert(
+      'Release to Customer',
+      `Release ${selectedRequest.unitName} (${selectedRequest.unitId}) to ${customerName}?\n\nAn SMS will be sent.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Release Vehicle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+
+              // Call backend to mark as released
+              const response = await fetch(buildApiUrl(`/releaseToCustomer/${selectedRequest._id}`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  releasedBy: await AsyncStorage.getItem('accountName') || 'System'
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to release vehicle');
+              }
+
+              // Send SMS notification with custom message
+              const smsMessage = `Good news ${customerName}! Your vehicle ${selectedRequest.unitName} (${selectedRequest.unitId}) is now ready for release. Please contact your sales agent for more details and assistance. Thank you for trusting Isuzu Pasig!`;
+              
+              const notificationResult = await NotificationService.sendSMSOnlyNotification(
+                customerPhone,
+                customerName,
+                { unitName: selectedRequest.unitName, unitId: selectedRequest.unitId },
+                smsMessage
+              );
+
+              if (notificationResult.success && notificationResult.smsSent) {
+                Alert.alert('Success', 'Vehicle released! Customer SMS sent.');
+                setShowDetailsModal(false);
+                fetchServiceRequests();
+              } else if (notificationResult.success && !notificationResult.smsSent) {
+                Alert.alert('Released', 'Vehicle released. SMS notification unavailable.');
+                setShowDetailsModal(false);
+                fetchServiceRequests();
+              } else {
+                // SMS failed but vehicle is released
+                Alert.alert('Released', `Vehicle released successfully.\n\n(SMS note: ${notificationResult.message || 'SMS failed to send'})`);
+                setShowDetailsModal(false);
+                fetchServiceRequests();
+              }
+            } catch (error) {
+              console.error('❌ Error releasing vehicle:', error);
+              Alert.alert('Error', error.message || 'Failed to release vehicle');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Add new service request
@@ -1300,14 +1410,36 @@ export default function ServiceRequestScreen() {
               </ScrollView>
             )}
 
-            {/* Footer with Close Button */}
+            {/* Footer with Close and Release Buttons */}
             <View style={styles.detailsModalFooter}>
-              <TouchableOpacity
-                style={styles.detailsCloseButton}
-                onPress={() => setShowDetailsModal(false)}
-              >
-                <Text style={styles.detailsCloseButtonText}>Close</Text>
-              </TouchableOpacity>
+              {/* Release to Customer Button - Only show when all services are completed */}
+              {selectedRequest && 
+               selectedRequest.service && 
+               selectedRequest.service.length > 0 &&
+               selectedRequest.completedServices &&
+               selectedRequest.completedServices.length === selectedRequest.service.length ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.releaseToCustomerButton}
+                    onPress={handleReleaseToCustomer}
+                  >
+                    <Text style={styles.releaseToCustomerButtonText}>Release to Customer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.detailsCloseButton}
+                    onPress={() => setShowDetailsModal(false)}
+                  >
+                    <Text style={styles.detailsCloseButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.detailsCloseButton}
+                  onPress={() => setShowDetailsModal(false)}
+                >
+                  <Text style={styles.detailsCloseButtonText}>Close</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -2288,6 +2420,24 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   detailsCloseButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  releaseToCustomerButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  releaseToCustomerButtonText: {
     color: '#ffffff',
     fontSize: 17,
     fontWeight: '700',

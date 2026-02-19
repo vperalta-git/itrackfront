@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, RefreshControl, Modal
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { ArrowLeft, CheckCircle2, Circle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl } from '../constants/api';
 import UniformLoading from '../components/UniformLoading';
@@ -17,6 +17,16 @@ export default function DispatchDashboard({ navigation }) {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [unitCustomerMap, setUnitCustomerMap] = useState({});
 
+  const parseJsonSafe = useCallback((text, fallback = {}) => {
+    if (!text) return fallback;
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.warn('⚠️ Failed to parse JSON response:', error?.message || error);
+      return fallback;
+    }
+  }, []);
+
   useEffect(() => {
     loadRequests();
     loadUnitCustomers();
@@ -25,7 +35,8 @@ export default function DispatchDashboard({ navigation }) {
   const loadUnitCustomers = async () => {
     try {
       const res = await fetch(buildApiUrl('/api/getUnitAllocation'));
-      const data = await res.json();
+      const bodyText = await res.text();
+      const data = parseJsonSafe(bodyText, {});
       const allocations = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
       const map = {};
       allocations.forEach(alloc => {
@@ -46,61 +57,78 @@ export default function DispatchDashboard({ navigation }) {
   const loadRequests = async () => {
     if (!refreshing) setLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/getRequest'));
-      const data = await response.json();
-      
-      if (data.success) {
-        // Filter: show only active requests (not completed, cancelled, or released)
-        const activeRequests = data.data.filter(req => 
-          !req.readyForRelease && 
-          !req.releasedToCustomer &&
-          req.status !== 'Completed' &&
-          req.status !== 'Cancelled'
-        );
-        
-        // Group requests by unitId + unitName
-        const grouped = activeRequests.reduce((acc, req) => {
-          const key = `${req.unitId}-${req.unitName}`;
-          if (!acc[key]) {
-            acc[key] = {
-              unitId: req.unitId,
-              unitName: req.unitName,
-              service: [],
-              completedServices: [],
-              requestIds: [], // Track individual request IDs
-              status: 'Pending'
-            };
+      const endpoints = ['/getRequest', '/api/servicerequests'];
+      let parsed = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(buildApiUrl(endpoint));
+          const bodyText = await response.text();
+          const data = parseJsonSafe(bodyText, {});
+
+          if (!response.ok) {
+            console.warn(`⚠️ ${endpoint} returned HTTP ${response.status}`);
+            continue;
           }
-          
-          // Merge services from all requests with same vehicle
-          req.service.forEach(s => {
-            if (!acc[key].service.includes(s)) {
-              acc[key].service.push(s);
-            }
-          });
-          
-          // Merge completed services
-          (req.completedServices || []).forEach(s => {
-            if (!acc[key].completedServices.includes(s)) {
-              acc[key].completedServices.push(s);
-            }
-          });
-          
-          // Track individual request IDs for updates
-          acc[key].requestIds.push(req._id);
-          
-          // Update status to most progressed
-          if (req.status === 'In Progress') acc[key].status = 'In Progress';
-          
-          return acc;
-        }, {});
-        
-        // Convert to array
-        const groupedRequests = Object.values(grouped);
-        
-        setRequests(groupedRequests);
-        console.log('Loaded', groupedRequests.length, 'grouped vehicles from', activeRequests.length, 'requests');
+
+          parsed = data;
+          break;
+        } catch (endpointError) {
+          console.warn(`⚠️ Failed request to ${endpoint}:`, endpointError?.message || endpointError);
+        }
       }
+
+      if (!parsed) {
+        throw new Error('Unable to reach service request API');
+      }
+
+      const requestList = Array.isArray(parsed)
+        ? parsed
+        : (Array.isArray(parsed?.data) ? parsed.data : []);
+
+      const activeRequests = requestList.filter(req =>
+        !req.readyForRelease &&
+        !req.releasedToCustomer &&
+        req.status !== 'Completed' &&
+        req.status !== 'Cancelled'
+      );
+
+      const grouped = activeRequests.reduce((acc, req) => {
+        const key = `${req.unitId}-${req.unitName}`;
+        if (!acc[key]) {
+          acc[key] = {
+            unitId: req.unitId,
+            unitName: req.unitName,
+            service: [],
+            completedServices: [],
+            requestIds: [],
+            status: 'Pending'
+          };
+        }
+
+        (Array.isArray(req.service) ? req.service : []).forEach(s => {
+          if (!acc[key].service.includes(s)) {
+            acc[key].service.push(s);
+          }
+        });
+
+        (req.completedServices || []).forEach(s => {
+          if (!acc[key].completedServices.includes(s)) {
+            acc[key].completedServices.push(s);
+          }
+        });
+
+        acc[key].requestIds.push(req._id);
+
+        if (req.status === 'In Progress') acc[key].status = 'In Progress';
+
+        return acc;
+      }, {});
+
+      const groupedRequests = Object.values(grouped);
+
+      setRequests(groupedRequests);
+      console.log('Loaded', groupedRequests.length, 'grouped vehicles from', activeRequests.length, 'requests');
     } catch (error) {
       console.error('Load error:', error);
       Alert.alert('Error', 'Failed to load requests');
@@ -221,14 +249,11 @@ export default function DispatchDashboard({ navigation }) {
                 const unitKey = (request.unitId || '').toLowerCase();
                 const customerInfo = unitCustomerMap[unitKey];
                 
-                if (customerInfo && customerInfo.customerEmail) {
+                if (customerInfo && customerInfo.customerPhone) {
                   try {
                     const notifyResult = await NotificationService.sendStatusNotification(
-                      {
-                        name: customerInfo.customerName,
-                        email: customerInfo.customerEmail,
-                        phone: customerInfo.customerPhone || '',
-                      },
+                      customerInfo.customerPhone,
+                      customerInfo.customerName,
                       {
                         unitName: request.unitName,
                         unitId: request.unitId,
@@ -271,26 +296,34 @@ export default function DispatchDashboard({ navigation }) {
           setSelectedRequest(request);
           setModalVisible(true);
         }}
+        activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{request.unitName}</Text>
+          <View style={styles.cardTitleSection}>
+            <Text style={styles.cardTitle}>{request.unitName}</Text>
+            <Text style={styles.cardId}>ID: {request.unitId}</Text>
+          </View>
           <View style={[styles.statusBadge, { 
-            backgroundColor: request.status === 'Completed' ? '#4CAF50' : '#2196F3' 
+            backgroundColor: request.status === 'Completed' ? '#4CAF50' : '#e50914' 
           }]}>
             <Text style={styles.statusText}>{request.status || 'Pending'}</Text>
           </View>
         </View>
 
-        <Text style={styles.cardSubtitle}>ID: {request.unitId}</Text>
-
         <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>{completed}/{total} Services</Text>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressText}>{completed}/{total} Services</Text>
+            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+          </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
         </View>
 
-        <Text style={styles.cardFooter}>Tap to update →</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.tapToUpdate}>Tap to update</Text>
+          <Text style={styles.tapArrow}>→</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -308,22 +341,24 @@ export default function DispatchDashboard({ navigation }) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{selectedRequest.unitName}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <MaterialIcons name="close" size={28} color="#333" />
-            </TouchableOpacity>
+<View style={styles.modalHeaderContainer}>
+          <TouchableOpacity 
+            style={styles.modalBackButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <ArrowLeft size={24} color="#1a202c" strokeWidth={2.5} />
+          </TouchableOpacity>
+          <View style={styles.modalHeaderContent}>
+            <Text style={styles.modalTitle}>{selectedRequest?.unitName}</Text>
+            <Text style={styles.modalSubtitle}>ID: {selectedRequest?.unitId}</Text>
+          </View>
+          <View style={styles.modalHeaderSpace} />
           </View>
 
           <ScrollView style={styles.modalBody}>
             <View style={styles.infoBox}>
               <Text style={styles.infoLabel}>Unit ID</Text>
               <Text style={styles.infoValue}>{selectedRequest.unitId}</Text>
-            </View>
-
-            <View style={styles.infoBox}>
-              <Text style={styles.infoLabel}>Prepared By</Text>
-              <Text style={styles.infoValue}>{selectedRequest.preparedBy || 'System'}</Text>
             </View>
 
             <Text style={styles.sectionTitle}>Service Checklist</Text>
@@ -336,16 +371,21 @@ export default function DispatchDashboard({ navigation }) {
                   key={index}
                   style={[styles.serviceRow, isDone && styles.serviceRowDone]}
                   onPress={() => toggleService(selectedRequest, service)}
+                  activeOpacity={0.7}
                 >
-                  <View style={[styles.checkbox, isDone && styles.checkboxChecked]}>
-                    {isDone && <MaterialIcons name="check" size={18} color="#fff" />}
+                  <View style={[styles.serviceCheckbox, isDone && styles.serviceCheckboxCompleted]}>
+                    {isDone ? (
+                      <CheckCircle2 size={20} color="#fff" strokeWidth={2.5} />
+                    ) : (
+                      <Circle size={20} color="#ddd" />
+                    )}
                   </View>
                   <Text style={[styles.serviceName, isDone && styles.serviceNameDone]}>
                     {service}
                   </Text>
                   {isDone && (
                     <View style={styles.doneBadge}>
-                      <Text style={styles.doneBadgeText}>✓</Text>
+                      <CheckCircle2 size={18} color="#fff" strokeWidth={2} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -381,7 +421,9 @@ export default function DispatchDashboard({ navigation }) {
           style={styles.profileButton}
           onPress={() => navigation.navigate('DispatchProfile')}
         >
-          <MaterialIcons name="person" size={24} color="#DC2626" />
+          <View style={styles.profileButtonContent}>
+            <Text style={styles.profileButtonText}>👤</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -400,8 +442,9 @@ export default function DispatchDashboard({ navigation }) {
       >
         {requests.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialIcons name="inbox" size={80} color="#ccc" />
+            <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyText}>No Active Requests</Text>
+            <Text style={styles.emptySubtext}>Requests will appear here when services are assigned</Text>
           </View>
         ) : (
           requests.map(renderCard)
@@ -416,216 +459,354 @@ export default function DispatchDashboard({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1a202c',
+    letterSpacing: -0.5,
   },
   profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  profileButtonContent: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileButtonText: {
+    fontSize: 20,
   },
   content: {
     flex: 1,
     padding: 16,
+    backgroundColor: '#f8fafc',
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    borderLeftWidth: 5,
+    borderLeftColor: '#e50914',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
+  cardTitleSection: {
     flex: 1,
   },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a202c',
+    marginBottom: 4,
+    letterSpacing: -0.3,
+  },
+  cardId: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 12,
+    minWidth: 80,
+    alignItems: 'center',
   },
   statusText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   progressContainer: {
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   progressText: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  progressPercent: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '700',
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#e9ecef',
     borderRadius: 4,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#4CAF50',
   },
   cardFooter: {
-    fontSize: 12,
-    color: '#DC2626',
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  tapToUpdate: {
+    fontSize: 13,
+    color: '#e50914',
+    fontWeight: '700',
+  },
+  tapArrow: {
+    fontSize: 13,
+    color: '#e50914',
+    fontWeight: '700',
+    marginLeft: 6,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 20,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a202c',
+    marginBottom: 10,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  emptySubtext: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8fafc',
   },
-  modalHeader: {
+  modalHeaderContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalBackButton: {
+    padding: 8,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    borderRadius: 10,
+  },
+  modalHeaderContent: {
+    flex: 1,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: '800',
+    color: '#1a202c',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  modalHeaderSpace: {
+    width: 44,
   },
   modalBody: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#f8fafc',
   },
   infoBox: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: '#e50914',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#64748b',
+    marginBottom: 6,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   infoValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
+    fontSize: 15,
+    color: '#1a202c',
+    fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1a202c',
     marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 14,
+    letterSpacing: -0.3,
   },
   serviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   serviceRowDone: {
-    backgroundColor: '#f0f9f4',
+    backgroundColor: '#f0f9f0',
     borderColor: '#4CAF50',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#ccc',
+  serviceCheckbox: {
     marginRight: 12,
-    alignItems: 'center',
+    width: 28,
+    height: 28,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  checkboxChecked: {
+  serviceCheckboxCompleted: {
     backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    borderRadius: 14,
   },
   serviceName: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
+    color: '#1a202c',
+    fontWeight: '700',
     flex: 1,
   },
   serviceNameDone: {
-    color: '#2E7D32',
-    fontWeight: '600',
+    color: '#2e7d32',
+    textDecorationLine: 'line-through',
   },
   doneBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  doneBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
+    marginLeft: 10,
   },
   modalFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#e9ecef',
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 3,
   },
   readyButton: {
     backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   readyButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#cbd5e1',
+    shadowColor: 'transparent',
   },
   readyButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
