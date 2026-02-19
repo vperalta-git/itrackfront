@@ -1510,8 +1510,11 @@ const UnitAllocation = mongoose.model('UnitAllocation', unitAllocationSchema);
 // Get all unit allocations (singular endpoint for mobile app compatibility)
 app.get('/api/getUnitAllocation', async (req, res) => {
   try {
-    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
-    console.log(`📊 Found ${allocations.length} unit allocations`);
+    // Exclude Released vehicles from allocations
+    const allocations = await UnitAllocation.find({ 
+      status: { $ne: 'Released' } 
+    }).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} active unit allocations (excluding Released)`);
     res.json(allocations);
   } catch (error) {
     console.error('❌ Get unit allocations error:', error);
@@ -1522,8 +1525,11 @@ app.get('/api/getUnitAllocation', async (req, res) => {
 // Get all unit allocations (plural endpoint for web app compatibility)
 app.get('/api/getUnitAllocations', async (req, res) => {
   try {
-    const allocations = await UnitAllocation.find({}).sort({ createdAt: -1 });
-    console.log(`📊 Found ${allocations.length} unit allocations`);
+    // Exclude Released vehicles from allocations
+    const allocations = await UnitAllocation.find({ 
+      status: { $ne: 'Released' } 
+    }).sort({ createdAt: -1 });
+    console.log(`📊 Found ${allocations.length} active unit allocations (excluding Released)`);
     res.json(allocations);
   } catch (error) {
     console.error('❌ Get unit allocations error:', error);
@@ -3531,19 +3537,12 @@ app.get('/test', (req, res) => {
 });
 
 // Email + SMS Notification System
-// POST /api/send-notification - Send email/SMS notification to customer
+// POST /api/send-notification - Send SMS (and optional email) notification to customer
 app.post('/api/send-notification', async (req, res) => {
   try {
-    const { customerEmail, customerName, customerPhone, vehicleModel, vin, status, processDetails } = req.body;
-    
-    console.log('📧 Sending notification:', { customerEmail, customerName, vehicleModel, status });
-    
-    if (!customerEmail || !customerName || !vehicleModel || !status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields: customerEmail, customerName, vehicleModel, status'
-      });
-    }
+    const { customerEmail, customerName, customerPhone, vehicleModel, vin, status, processDetails, smsOnly, message } = req.body;
+
+    console.log('📱 Sending notification:', { customerName, customerPhone, vehicleModel, status, smsOnly });
 
     const normalizePhone = (phone) => {
       if (!phone) return '';
@@ -3557,6 +3556,49 @@ app.post('/api/send-notification', async (req, res) => {
     const smsApiUrl = process.env.SMS_API_URL || 'https://sms-api-ph-gceo.onrender.com/send';
     const smsApiKey = process.env.SMS_API_KEY;
     const smsSenderId = process.env.SMS_SENDER_ID || 'I-Track_Pasig';
+
+    // ── SMS-only path ──────────────────────────────────────────────────────────
+    if (smsOnly) {
+      if (!customerPhone || !customerName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: customerPhone, customerName'
+        });
+      }
+
+      const normalizedPhone = normalizePhone(customerPhone);
+      const smsMessage = message || `Hi ${customerName}, your vehicle ${vin || vehicleModel || ''} status has been updated. Thank you for choosing Isuzu Pasig.`;
+
+      if (!smsApiKey) {
+        console.warn('⚠️  SMS_API_KEY not set — skipping SMS send');
+        return res.json({
+          success: true,
+          smsSent: false,
+          message: 'SMS skipped: API key not configured'
+        });
+      }
+
+      try {
+        await axios.post(
+          smsApiUrl,
+          { senderId: smsSenderId, recipient: normalizedPhone, message: smsMessage },
+          { headers: { 'Content-Type': 'application/json', 'x-api-key': smsApiKey } }
+        );
+        console.log('✅ SMS sent successfully to:', normalizedPhone);
+        return res.json({ success: true, smsSent: true, message: 'SMS notification sent successfully' });
+      } catch (smsErr) {
+        console.error('❌ SMS send error:', smsErr.message || smsErr);
+        return res.status(500).json({ success: false, message: `Failed to send SMS: ${smsErr.message || 'Unknown error'}` });
+      }
+    }
+
+    // ── Email + optional SMS path ──────────────────────────────────────────────
+    if (!customerEmail || !customerName || !vehicleModel || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: customerEmail, customerName, vehicleModel, status'
+      });
+    }
 
     // Define notification templates based on the official Isuzu Pasig templates
     const getNotificationTemplate = (status, processDetails = '') => {
